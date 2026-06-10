@@ -1,0 +1,86 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-10 16:17:01.785753",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "waste_name",
+  "reusable",
+  "sellable",
+  "recovery_type"
+ ],
+ "fields": [
+  {
+   "fieldname": "waste_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Waste Name",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "reusable",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Reusable"
+  },
+  {
+   "default": "0",
+   "fieldname": "sellable",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Sellable"
+  },
+  {
+   "default": "None",
+   "fieldname": "recovery_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Recovery Type",
+   "options": "None\nSilver\nGold"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-10 16:17:01.785753",
+ "modified_by": "Administrator",
+ "module": "JARI Core",
+ "name": "Waste Type Master",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
