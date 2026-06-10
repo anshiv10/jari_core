@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "field:waste_name",
  "creation": "2026-06-10 16:17:01.785753",
  "doctype": "DocType",
  "editable_grid": 1,
@@ -18,7 +19,8 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Waste Name",
-   "reqd": 1
+   "reqd": 1,
+   "unique": 1
   },
   {
    "default": "0",
@@ -46,7 +48,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-10 16:17:01.785753",
+ "modified": "2026-06-10 19:54:24.421827",
  "modified_by": "Administrator",
  "module": "JARI Core",
  "name": "Waste Type Master",

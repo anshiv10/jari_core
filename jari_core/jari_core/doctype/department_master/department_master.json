@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "field:department_name",
  "creation": "2026-06-10 16:00:30.900604",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -20,7 +21,8 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Department Name",
-   "reqd": 1
+   "reqd": 1,
+   "unique": 1
   },
   {
    "fieldname": "flow_type",
@@ -40,7 +42,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-10 19:01:15.683805",
+ "modified": "2026-06-10 19:54:23.205385",
  "modified_by": "Administrator",
  "module": "JARI Core",
  "name": "Department Master",
