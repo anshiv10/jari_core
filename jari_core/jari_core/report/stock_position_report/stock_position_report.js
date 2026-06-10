@@ -1,11 +1,11 @@
 // ─────────────────────────────────────────────────────────────
 //  Stock Position Report  —  jari_core
-//  Custom visual dashboard: animated cards + chart + styled table
+//  Structure matches Image 2: colored border cards + clean table
 // ─────────────────────────────────────────────────────────────
 
 frappe.query_reports["Stock Position Report"] = {
 
-    // ── FILTERS shown at the top of the report ────────────────
+    // ── FILTERS ───────────────────────────────────────────────
     filters: [
         {
             fieldname: "company",
@@ -30,79 +30,58 @@ frappe.query_reports["Stock Position Report"] = {
         }
     ],
 
-    // ── AFTER RENDER: inject full custom dashboard ────────────
-    after_datatable_render: function(datatable_obj) {
-        const report = frappe.query_report;
-        if (!report || !report.data || !report.data.length) return;
-
-        // Remove any previously injected dashboard so refresh works cleanly
-        const existing = document.getElementById("jari-stock-dashboard");
-        if (existing) existing.remove();
-
-        const rows   = report.data;
-        const result = _build_summary(rows);
-
-        // Build and inject the dashboard HTML above the table
-        const dashboard_html = _render_dashboard(result);
-        const wrapper = document.querySelector(".datatable");
-        if (wrapper) {
-            wrapper.insertAdjacentHTML("beforebegin", dashboard_html);
-            _animate_counters();
-            _bind_hover_rows();
-        }
+    // ── ON LOAD: inject cards after Frappe finishes rendering ─
+    onload: function(report) {
+        // Store reference so after_refresh can access it
+        frappe.query_reports["Stock Position Report"]._report = report;
     },
 
-    // ── ROW FORMATTER: colour-code balance levels ─────────────
+    // ── AFTER EVERY REFRESH: rebuild the dashboard ────────────
+    after_datatable_render: function() {
+        // Small delay to let Frappe finish all its own DOM writes
+        setTimeout(function() {
+            _inject_dashboard();
+        }, 120);
+    },
+
+    // ── ROW FORMATTER: colour-code key columns ────────────────
     formatter: function(value, row, column, data, default_formatter) {
         value = default_formatter(value, row, column, data);
+        if (!data) return value;
 
-        if (column.fieldname === "current_balance" && data) {
+        if (column.fieldname === "current_balance") {
             const bal = parseFloat(data.current_balance) || 0;
-            let color, bg, icon;
-
-            if (bal >= 100) {
-                color = "#166534"; bg = "#dcfce7"; icon = "▲";   // high — green
-            } else if (bal >= 20) {
-                color = "#92400e"; bg = "#fef3c7"; icon = "●";   // medium — amber
-            } else {
-                color = "#991b1b"; bg = "#fee2e2"; icon = "▼";   // low — red
-            }
-
-            value = `<span style="
-                display:inline-flex;
-                align-items:center;
-                gap:5px;
-                background:${bg};
-                color:${color};
-                border-radius:6px;
-                padding:3px 10px;
-                font-weight:700;
-                font-size:13px;
-                letter-spacing:.02em;
-            ">${icon} ${parseFloat(data.current_balance).toFixed(3)} KG</span>`;
+            let color, bg;
+            if      (bal >= 100) { color = "#166534"; bg = "#dcfce7"; }
+            else if (bal >= 20)  { color = "#92400e"; bg = "#fef3c7"; }
+            else                 { color = "#991b1b"; bg = "#fee2e2"; }
+            return `<span style="
+                background:${bg};color:${color};
+                border-radius:5px;padding:2px 9px;
+                font-weight:700;font-size:12.5px;">
+                ${parseFloat(data.current_balance).toFixed(3)} KG
+            </span>`;
         }
 
-        if (column.fieldname === "total_in" && data) {
-            value = `<span style="color:#1d4ed8;font-weight:600;">
+        if (column.fieldname === "total_in") {
+            return `<span style="color:#1d4ed8;font-weight:600;">
                 +${parseFloat(data.total_in || 0).toFixed(3)}
             </span>`;
         }
 
-        if (column.fieldname === "total_out" && data) {
-            value = `<span style="color:#b45309;font-weight:600;">
+        if (column.fieldname === "total_out") {
+            return `<span style="color:#b45309;font-weight:600;">
                 -${parseFloat(data.total_out || 0).toFixed(3)}
             </span>`;
         }
 
-        if (column.fieldname === "txn_count" && data) {
-            value = `<span style="
-                background:#ede9fe;
-                color:#5b21b6;
-                border-radius:12px;
-                padding:2px 10px;
-                font-weight:700;
-                font-size:12px;
-            ">${data.txn_count}</span>`;
+        if (column.fieldname === "txn_count") {
+            return `<span style="
+                background:#ede9fe;color:#5b21b6;
+                border-radius:10px;padding:2px 9px;
+                font-weight:700;font-size:12px;">
+                ${data.txn_count}
+            </span>`;
         }
 
         return value;
@@ -111,298 +90,356 @@ frappe.query_reports["Stock Position Report"] = {
 
 
 // ─────────────────────────────────────────────────────────────
-//  PRIVATE HELPERS
+//  DASHBOARD INJECTION
 // ─────────────────────────────────────────────────────────────
 
-function _build_summary(rows) {
-    let total_balance = 0, total_in = 0, total_out = 0,
-        total_txns = 0, dept_map = {}, product_map = {};
+function _inject_dashboard() {
 
-    rows.forEach(r => {
+    // Remove previous dashboard on re-render
+    var old = document.getElementById("jari-spr-dashboard");
+    if (old) old.remove();
+
+    // Get data from the active report
+    var report = frappe.query_report;
+    if (!report || !report.data || !report.data.length) return;
+
+    var rows = report.data;
+
+    // ── Calculate summary numbers ──────────────────────────
+    var total_balance   = 0;
+    var total_in        = 0;
+    var total_out       = 0;
+    var total_txns      = 0;
+    var products        = {};
+    var departments     = {};
+    var dept_balances   = {};
+
+    rows.forEach(function(r) {
         total_balance += parseFloat(r.current_balance || 0);
         total_in      += parseFloat(r.total_in        || 0);
         total_out     += parseFloat(r.total_out       || 0);
         total_txns    += parseInt(r.txn_count         || 0);
-
-        const d = r.department || "Unknown";
-        const p = r.product    || "Unknown";
-        dept_map[d]    = (dept_map[d]    || 0) + parseFloat(r.current_balance || 0);
-        product_map[p] = (product_map[p] || 0) + parseFloat(r.current_balance || 0);
+        products[r.product]       = 1;
+        departments[r.department] = 1;
+        var d = r.department || "Unknown";
+        dept_balances[d] = (dept_balances[d] || 0) + parseFloat(r.current_balance || 0);
     });
 
-    return {
-        total_balance, total_in, total_out, total_txns,
-        unique_products: Object.keys(product_map).length,
-        unique_depts:    Object.keys(dept_map).length,
-        dept_map, product_map
-    };
-}
+    var unique_products = Object.keys(products).length;
+    var unique_depts    = Object.keys(departments).length;
 
-
-function _render_dashboard(d) {
-
-    // ── 6 animated summary cards ──────────────────────────────
-    const cards = [
+    // ── Card definitions matching Image 2 style ───────────
+    // White bg, colored top border, colored number
+    var cards = [
         {
-            icon: "⚖️", label: "Total Stock",
-            value: d.total_balance.toFixed(3), suffix: "KG",
-            bg: "linear-gradient(135deg,#1e3a5f,#2563eb)",
-            glow: "rgba(37,99,235,.35)"
+            label: "TOTAL STOCK",
+            value: total_balance.toFixed(3),
+            suffix: "KG",
+            color: "#2490ef",   // blue
+            border: "#2490ef"
         },
         {
-            icon: "📥", label: "Total Inward",
-            value: d.total_in.toFixed(3), suffix: "KG",
-            bg: "linear-gradient(135deg,#064e3b,#059669)",
-            glow: "rgba(5,150,105,.35)"
+            label: "TOTAL INWARD",
+            value: total_in.toFixed(3),
+            suffix: "KG",
+            color: "#28a745",   // green
+            border: "#28a745"
         },
         {
-            icon: "📤", label: "Total Outward",
-            value: d.total_out.toFixed(3), suffix: "KG",
-            bg: "linear-gradient(135deg,#78350f,#d97706)",
-            glow: "rgba(217,119,6,.35)"
+            label: "TOTAL OUTWARD",
+            value: total_out.toFixed(3),
+            suffix: "KG",
+            color: "#f59e0b",   // amber
+            border: "#f59e0b"
         },
         {
-            icon: "🔄", label: "Transactions",
-            value: d.total_txns, suffix: "",
-            bg: "linear-gradient(135deg,#4c1d95,#7c3aed)",
-            glow: "rgba(124,58,237,.35)"
+            label: "TRANSACTIONS",
+            value: total_txns,
+            suffix: "",
+            color: "#7c3aed",   // purple
+            border: "#7c3aed"
         },
         {
-            icon: "📦", label: "Active Products",
-            value: d.unique_products, suffix: "",
-            bg: "linear-gradient(135deg,#0e7490,#06b6d4)",
-            glow: "rgba(6,182,212,.35)"
+            label: "ACTIVE PRODUCTS",
+            value: unique_products,
+            suffix: "",
+            color: "#0d9488",   // teal
+            border: "#0d9488"
         },
         {
-            icon: "🏭", label: "Departments",
-            value: d.unique_depts, suffix: "",
-            bg: "linear-gradient(135deg,#065f46,#10b981)",
-            glow: "rgba(16,185,129,.35)"
-        },
+            label: "DEPARTMENTS",
+            value: unique_depts,
+            suffix: "",
+            color: "#dc2626",   // red
+            border: "#dc2626"
+        }
     ];
 
-    const cards_html = cards.map((c, i) => `
-        <div class="jari-card" data-target="${c.value}"
-             style="
-                background:${c.bg};
-                box-shadow:0 8px 32px ${c.glow};
-                border-radius:16px;
-                padding:22px 20px 18px;
-                color:#fff;
-                position:relative;
-                overflow:hidden;
-                cursor:default;
-                transition:transform .25s ease, box-shadow .25s ease;
-                animation: cardFadeIn .5s ease both;
-                animation-delay:${i * 80}ms;
-             "
-             onmouseenter="this.style.transform='translateY(-6px) scale(1.03)';
-                           this.style.boxShadow='0 18px 48px ${c.glow}'"
-             onmouseleave="this.style.transform='translateY(0) scale(1)';
-                           this.style.boxShadow='0 8px 32px ${c.glow}'"
-        >
-            <div style="font-size:28px;margin-bottom:6px;">${c.icon}</div>
-            <div class="jari-count"
-                 style="font-size:28px;font-weight:900;letter-spacing:-.5px;
-                        font-family:monospace;">
-                0
-            </div>
-            <div style="font-size:11px;font-weight:700;letter-spacing:.12em;
-                        text-transform:uppercase;opacity:.8;margin-top:4px;">
-                ${c.label}${c.suffix ? " · " + c.suffix : ""}
-            </div>
-            <div style="
-                position:absolute;right:-18px;bottom:-18px;
-                width:80px;height:80px;border-radius:50%;
-                background:rgba(255,255,255,.07);
-            "></div>
-        </div>
-    `).join("");
-
-    // ── Department breakdown bars ─────────────────────────────
-    const dept_entries = Object.entries(d.dept_map)
-          .sort((a, b) => b[1] - a[1]);
-    const max_val = dept_entries.length ? dept_entries[0][1] : 1;
-
-    const dept_bars = dept_entries.map(([dept, bal], i) => {
-        const pct  = max_val > 0 ? (bal / max_val * 100).toFixed(1) : 0;
-        const hue  = (i * 47) % 360;
+    // ── Build cards HTML ───────────────────────────────────
+    var cards_html = cards.map(function(c, i) {
         return `
-            <div style="margin-bottom:14px;
-                        animation:barSlideIn .5s ease both;
-                        animation-delay:${200 + i * 60}ms;"
-                 onmouseenter="this.querySelector('.jari-bar-fill').style.filter='brightness(1.2)'"
-                 onmouseleave="this.querySelector('.jari-bar-fill').style.filter='brightness(1)'">
-                <div style="display:flex;justify-content:space-between;
-                            margin-bottom:5px;font-size:13px;font-weight:600;
-                            color:#374151;">
-                    <span>🏭 ${dept}</span>
-                    <span style="color:#6b7280;font-weight:700;">
-                        ${bal.toFixed(3)} KG
-                    </span>
+            <div class="jari-spr-card"
+                 data-final="${c.value}"
+                 data-is-float="${String(c.value).includes('.')}"
+                 style="
+                    background:#fff;
+                    border:1px solid #e5e7eb;
+                    border-top:4px solid ${c.border};
+                    border-radius:6px;
+                    padding:16px 20px 14px;
+                    cursor:default;
+                    transition:box-shadow .2s ease, transform .2s ease;
+                    animation:jariCardIn .35s ease both;
+                    animation-delay:${i * 55}ms;
+                 "
+                 onmouseenter="
+                    this.style.boxShadow='0 4px 16px rgba(0,0,0,.10)';
+                    this.style.transform='translateY(-3px)';
+                 "
+                 onmouseleave="
+                    this.style.boxShadow='none';
+                    this.style.transform='translateY(0)';
+                 "
+            >
+                <div style="
+                    font-size:11px;
+                    font-weight:700;
+                    letter-spacing:.1em;
+                    color:#6b7280;
+                    margin-bottom:8px;
+                    text-transform:uppercase;
+                ">
+                    ${c.label}
                 </div>
-                <div style="background:#f1f5f9;border-radius:99px;
-                            height:10px;overflow:hidden;">
-                    <div class="jari-bar-fill" style="
-                        width:0%;
-                        height:100%;
-                        border-radius:99px;
-                        background:linear-gradient(90deg,
-                            hsl(${hue},70%,45%),
-                            hsl(${(hue+30)%360},80%,60%));
-                        transition:width .9s cubic-bezier(.4,0,.2,1),
-                                   filter .2s ease;
-                        data-width:${pct}%;
-                    " data-pct="${pct}"></div>
+                <div class="jari-spr-num" style="
+                    font-size:26px;
+                    font-weight:800;
+                    color:${c.color};
+                    letter-spacing:-.5px;
+                    line-height:1;
+                ">
+                    0
+                </div>
+                ${c.suffix ? `<div style="font-size:11px;color:#9ca3af;margin-top:4px;font-weight:600;">${c.suffix}</div>` : ""}
+            </div>
+        `;
+    }).join("");
+
+    // ── Build dept bar rows ───────────────────────────────
+    var dept_entries = Object.entries(dept_balances)
+        .sort(function(a, b) { return b[1] - a[1]; });
+    var max_val = dept_entries.length ? dept_entries[0][1] : 1;
+
+    var dept_colors = [
+        "#2490ef","#28a745","#f59e0b","#7c3aed","#0d9488","#dc2626","#ec4899"
+    ];
+
+    var bars_html = dept_entries.map(function(entry, i) {
+        var dept = entry[0];
+        var bal  = entry[1];
+        var pct  = max_val > 0 ? (bal / max_val * 100).toFixed(1) : 0;
+        var col  = dept_colors[i % dept_colors.length];
+        return `
+            <div style="
+                display:flex;
+                align-items:center;
+                gap:12px;
+                padding:7px 0;
+                border-bottom:1px solid #f3f4f6;
+                animation:jariBarIn .4s ease both;
+                animation-delay:${300 + i * 50}ms;
+            ">
+                <div style="
+                    width:130px;
+                    font-size:12.5px;
+                    font-weight:600;
+                    color:#374151;
+                    flex-shrink:0;
+                    white-space:nowrap;
+                    overflow:hidden;
+                    text-overflow:ellipsis;
+                ">
+                    ${dept}
+                </div>
+                <div style="
+                    flex:1;
+                    background:#f1f5f9;
+                    border-radius:99px;
+                    height:8px;
+                    overflow:hidden;
+                ">
+                    <div class="jari-bar-fill"
+                         data-pct="${pct}"
+                         style="
+                            width:0%;
+                            height:100%;
+                            border-radius:99px;
+                            background:${col};
+                            transition:width .8s cubic-bezier(.4,0,.2,1);
+                         ">
+                    </div>
+                </div>
+                <div style="
+                    width:90px;
+                    text-align:right;
+                    font-size:12.5px;
+                    font-weight:700;
+                    color:#374151;
+                    flex-shrink:0;
+                ">
+                    ${bal.toFixed(3)} KG
                 </div>
             </div>
         `;
     }).join("");
 
-    // ── Full dashboard wrapper ────────────────────────────────
-    return `
+    // ── Assemble full dashboard ────────────────────────────
+    var dashboard_html = `
         <style>
-            @keyframes cardFadeIn {
-                from { opacity:0; transform:translateY(16px) scale(.97); }
-                to   { opacity:1; transform:translateY(0)    scale(1);   }
+            @keyframes jariCardIn {
+                from { opacity:0; transform:translateY(10px); }
+                to   { opacity:1; transform:translateY(0);    }
             }
-            @keyframes barSlideIn {
-                from { opacity:0; transform:translateX(-20px); }
+            @keyframes jariBarIn {
+                from { opacity:0; transform:translateX(-12px); }
                 to   { opacity:1; transform:translateX(0);     }
             }
-            @keyframes shimmer {
-                0%   { background-position: -400px 0; }
-                100% { background-position:  400px 0; }
-            }
-            .jari-card:active {
+            .jari-spr-card:active {
                 transform: scale(.98) !important;
-            }
-            .datatable .dt-row:hover td {
-                background: #eff6ff !important;
-                transition: background .15s ease;
             }
         </style>
 
-        <div id="jari-stock-dashboard" style="
-            padding: 24px 4px 8px;
-            font-family: -apple-system, BlinkMacSystemFont,
-                         'Segoe UI', sans-serif;
+        <div id="jari-spr-dashboard" style="
+            margin-bottom: 0px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         ">
-            <!-- Header -->
-            <div style="display:flex;align-items:center;gap:12px;
-                        margin-bottom:20px;">
-                <div style="
-                    width:4px;height:32px;border-radius:2px;
-                    background:linear-gradient(180deg,#2563eb,#7c3aed);
-                "></div>
-                <div>
-                    <div style="font-size:18px;font-weight:800;
-                                color:#111827;letter-spacing:-.3px;">
-                        Stock Position Dashboard
-                    </div>
-                    <div style="font-size:12px;color:#6b7280;margin-top:2px;">
-                        Live inventory snapshot · JARI Manufacturing Group
-                    </div>
-                </div>
-                <div style="margin-left:auto;background:#f0fdf4;
-                            border:1px solid #bbf7d0;border-radius:8px;
-                            padding:6px 14px;font-size:12px;font-weight:700;
-                            color:#166534;">
-                    ● LIVE
-                </div>
-            </div>
-
-            <!-- Summary Cards Grid -->
+            <!-- ── Summary Cards Row ── -->
             <div style="
                 display:grid;
-                grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
-                gap:14px;
-                margin-bottom:24px;
+                grid-template-columns:repeat(6,1fr);
+                gap:10px;
+                margin-bottom:16px;
             ">
                 ${cards_html}
             </div>
 
-            <!-- Department Breakdown Panel -->
+            <!-- ── Department Breakdown ── -->
             <div style="
                 background:#fff;
                 border:1px solid #e5e7eb;
-                border-radius:16px;
-                padding:20px 24px;
-                margin-bottom:20px;
-                box-shadow:0 1px 4px rgba(0,0,0,.06);
+                border-radius:6px;
+                padding:16px 20px;
+                margin-bottom:16px;
             ">
-                <div style="font-size:14px;font-weight:700;color:#111827;
-                            margin-bottom:16px;display:flex;
-                            align-items:center;gap:8px;">
-                    📊 Department-wise Stock Distribution
-                    <span style="font-size:11px;font-weight:400;
-                                 color:#6b7280;margin-left:auto;">
-                        Sorted by balance · highest first
-                    </span>
+                <div style="
+                    display:flex;
+                    align-items:center;
+                    justify-content:space-between;
+                    margin-bottom:10px;
+                ">
+                    <div style="
+                        font-size:12px;
+                        font-weight:700;
+                        letter-spacing:.08em;
+                        text-transform:uppercase;
+                        color:#374151;
+                    ">
+                        Department-wise Stock Balance
+                    </div>
+                    <div style="
+                        font-size:11px;
+                        color:#9ca3af;
+                        font-weight:500;
+                    ">
+                        Sorted highest → lowest
+                    </div>
                 </div>
-                ${dept_bars || '<p style="color:#6b7280;font-size:13px;">No data</p>'}
+                ${bars_html || '<div style="color:#9ca3af;font-size:13px;padding:8px 0;">No department data</div>'}
             </div>
 
-            <!-- Divider before table -->
-            <div style="font-size:13px;font-weight:700;color:#374151;
-                        margin-bottom:10px;padding-left:2px;
-                        display:flex;align-items:center;gap:8px;">
-                📋 Detailed Stock Ledger
-                <span style="font-size:11px;font-weight:400;
-                             color:#9ca3af;">
-                    Colour: 🟢 ≥100 KG &nbsp;|&nbsp;
-                            🟡 20–99 KG &nbsp;|&nbsp;
-                            🔴 &lt;20 KG
+            <!-- ── Legend strip above table ── -->
+            <div style="
+                display:flex;
+                align-items:center;
+                gap:16px;
+                margin-bottom:8px;
+                padding:0 2px;
+                font-size:12px;
+                color:#6b7280;
+                font-weight:500;
+            ">
+                <span>Balance levels:</span>
+                <span style="background:#dcfce7;color:#166534;
+                             border-radius:4px;padding:2px 8px;
+                             font-weight:700;">
+                    ≥ 100 KG  High
+                </span>
+                <span style="background:#fef3c7;color:#92400e;
+                             border-radius:4px;padding:2px 8px;
+                             font-weight:700;">
+                    20–99 KG  Medium
+                </span>
+                <span style="background:#fee2e2;color:#991b1b;
+                             border-radius:4px;padding:2px 8px;
+                             font-weight:700;">
+                    &lt; 20 KG  Low
                 </span>
             </div>
         </div>
     `;
-}
 
+    // ── Find the correct injection point ──────────────────
+    // Frappe renders: .page-content > .frappe-card > .report-wrapper
+    // The datatable sits inside .report-wrapper
+    // We inject BEFORE the datatable, INSIDE the report wrapper
 
-function _animate_counters() {
-    // Animate number cards from 0 to their target value
-    document.querySelectorAll(".jari-card").forEach(card => {
-        const raw    = card.dataset.target;
-        const target = parseFloat(raw) || 0;
-        const el     = card.querySelector(".jari-count");
-        const isFloat= raw.includes(".");
-        const dur    = 900;
-        const start  = performance.now();
+    var inject_target = (
+        document.querySelector(".report-wrapper .datatable") ||
+        document.querySelector(".datatable-wrapper") ||
+        document.querySelector(".datatable")
+    );
 
-        function tick(now) {
-            const pct = Math.min((now - start) / dur, 1);
-            // ease-out cubic
-            const ease = 1 - Math.pow(1 - pct, 3);
-            const cur  = target * ease;
-            el.textContent = isFloat ? cur.toFixed(3) : Math.round(cur);
-            if (pct < 1) requestAnimationFrame(tick);
+    if (!inject_target) {
+        // Fallback: inject before the filter area
+        var fallback = document.querySelector(".filter-section");
+        if (fallback) {
+            fallback.insertAdjacentHTML("afterend", dashboard_html);
         }
-        requestAnimationFrame(tick);
+        return;
+    }
+
+    inject_target.insertAdjacentHTML("beforebegin", dashboard_html);
+
+    // ── Animate counters ──────────────────────────────────
+    var card_els = document.querySelectorAll(".jari-spr-card");
+    card_els.forEach(function(card) {
+        var final_val = parseFloat(card.dataset.final) || 0;
+        var is_float  = card.dataset.isFloat === "true";
+        var num_el    = card.querySelector(".jari-spr-num");
+        if (!num_el) return;
+
+        var duration  = 800;
+        var start_ts  = null;
+
+        function animate(ts) {
+            if (!start_ts) start_ts = ts;
+            var elapsed = ts - start_ts;
+            var progress = Math.min(elapsed / duration, 1);
+            // ease-out cubic
+            var eased = 1 - Math.pow(1 - progress, 3);
+            var current = final_val * eased;
+            num_el.textContent = is_float
+                ? current.toFixed(3)
+                : Math.round(current);
+            if (progress < 1) requestAnimationFrame(animate);
+        }
+        requestAnimationFrame(animate);
     });
 
-    // Animate department progress bars after a short delay
-    setTimeout(() => {
-        document.querySelectorAll(".jari-bar-fill").forEach(bar => {
-            bar.style.width = bar.dataset.pct + "%";
+    // ── Animate progress bars ──────────────────────────────
+    setTimeout(function() {
+        document.querySelectorAll(".jari-bar-fill").forEach(function(bar) {
+            bar.style.width = (bar.dataset.pct || 0) + "%";
         });
-    }, 150);
-}
-
-
-function _bind_hover_rows() {
-    // Extra hover effect: highlight entire row on hover
-    // Frappe's datatable replaces DOM on sort/filter so
-    // we use event delegation on the wrapper instead
-    const wrapper = document.querySelector(".datatable");
-    if (!wrapper) return;
-
-    wrapper.addEventListener("mouseover", e => {
-        const row = e.target.closest(".dt-row");
-        if (row) row.style.background = "#eff6ff";
-    });
-    wrapper.addEventListener("mouseout", e => {
-        const row = e.target.closest(".dt-row");
-        if (row) row.style.background = "";
-    });
+    }, 100);
 }

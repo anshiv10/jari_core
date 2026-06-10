@@ -4,6 +4,21 @@ from frappe.utils import flt
 
 def execute(filters=None):
 
+    # ── BUILD WHERE CLAUSE FROM FILTERS ──────────────────────
+    conditions = "WHERE il2.current_balance > 0"
+    filter_values = {}
+
+    if filters:
+        if filters.get("company"):
+            conditions += " AND il2.company = %(company)s"
+            filter_values["company"] = filters["company"]
+        if filters.get("department"):
+            conditions += " AND il2.department = %(department)s"
+            filter_values["department"] = filters["department"]
+        if filters.get("product"):
+            conditions += " AND il2.product = %(product)s"
+            filter_values["product"] = filters["product"]
+
     # ── COLUMNS ──────────────────────────────────────────────
     columns = [
         {
@@ -18,167 +33,77 @@ def execute(filters=None):
             "fieldname": "department",
             "fieldtype": "Link",
             "options": "Department Master",
-            "width": 140
+            "width": 150
         },
         {
             "label": "Product",
             "fieldname": "product",
             "fieldtype": "Link",
             "options": "Product Master",
-            "width": 140
+            "width": 150
         },
         {
             "label": "Total In (KG)",
             "fieldname": "total_in",
             "fieldtype": "Float",
-            "width": 120
+            "width": 130
         },
         {
             "label": "Total Out (KG)",
             "fieldname": "total_out",
             "fieldtype": "Float",
-            "width": 120
+            "width": 130
         },
         {
             "label": "Current Balance (KG)",
             "fieldname": "current_balance",
             "fieldtype": "Float",
-            "width": 160
+            "width": 170
         },
         {
             "label": "Transactions",
             "fieldname": "txn_count",
             "fieldtype": "Int",
-            "width": 110
+            "width": 120
         },
         {
             "label": "Last Updated",
             "fieldname": "last_updated",
             "fieldtype": "Date",
-            "width": 120
+            "width": 130
         },
     ]
 
     # ── MAIN DATA QUERY ───────────────────────────────────────
-    # For each company+department+product combination, get:
-    # total in, total out, latest balance, txn count, last date
     data = frappe.db.sql("""
         SELECT
-            agg.company,
-            agg.department,
-            agg.product,
+            il2.company,
+            il2.department,
+            il2.product,
             agg.total_in,
             agg.total_out,
             agg.txn_count,
-            latest.current_balance,
-            latest.date AS last_updated
-        FROM (
+            il2.current_balance,
+            il2.date AS last_updated
+        FROM `tabInventory Ledger` il2
+        INNER JOIN (
             SELECT
                 company,
                 department,
                 product,
-                SUM(in_weight)  AS total_in,
-                SUM(out_weight) AS total_out,
-                COUNT(*)        AS txn_count
+                SUM(in_weight)   AS total_in,
+                SUM(out_weight)  AS total_out,
+                COUNT(*)         AS txn_count,
+                MAX(creation)    AS max_creation
             FROM `tabInventory Ledger`
             GROUP BY company, department, product
         ) agg
-        INNER JOIN `tabInventory Ledger` latest
-            ON  latest.company    = agg.company
-            AND latest.department = agg.department
-            AND latest.product    = agg.product
-            AND latest.creation   = (
-                SELECT MAX(creation)
-                FROM `tabInventory Ledger` sub
-                WHERE sub.company    = agg.company
-                  AND sub.department = agg.department
-                  AND sub.product    = agg.product
-            )
-        WHERE latest.current_balance > 0
-        ORDER BY agg.company, agg.department, agg.product
-    """, as_dict=True)
+            ON  il2.company    = agg.company
+            AND il2.department = agg.department
+            AND il2.product    = agg.product
+            AND il2.creation   = agg.max_creation
+        {conditions}
+        ORDER BY il2.company, il2.department, il2.product
+    """.format(conditions=conditions), filter_values, as_dict=True)
 
-    # ── SUMMARY CALCULATIONS ──────────────────────────────────
-    total_balance   = sum(flt(r.current_balance) for r in data)
-    total_in_all    = sum(flt(r.total_in)        for r in data)
-    total_out_all   = sum(flt(r.total_out)       for r in data)
-    total_txns      = sum(int(r.txn_count)       for r in data)
-    unique_products = len(set(r.product          for r in data))
-    unique_depts    = len(set(r.department       for r in data))
-
-    # ── REPORT SUMMARY (number cards shown above the table) ──
-    # These render as the built-in Frappe summary cards
-    report_summary = [
-        {
-            "value": round(total_balance, 3),
-            "label": "Total Stock (KG)",
-            "datatype": "Float",
-            "indicator": "Green"
-        },
-        {
-            "value": round(total_in_all, 3),
-            "label": "Total Inward (KG)",
-            "datatype": "Float",
-            "indicator": "Blue"
-        },
-        {
-            "value": round(total_out_all, 3),
-            "label": "Total Outward (KG)",
-            "datatype": "Float",
-            "indicator": "Orange"
-        },
-        {
-            "value": total_txns,
-            "label": "Total Transactions",
-            "datatype": "Int",
-            "indicator": "Purple"
-        },
-        {
-            "value": unique_products,
-            "label": "Active Products",
-            "datatype": "Int",
-            "indicator": "Cyan"
-        },
-        {
-            "value": unique_depts,
-            "label": "Active Departments",
-            "datatype": "Int",
-            "indicator": "Yellow"
-        },
-    ]
-
-    # ── CHART DATA (bar chart rendered above the table) ──────
-    # Group by department for the chart
-    dept_balances = {}
-    for row in data:
-        dept = row.department or "Unknown"
-        dept_balances[dept] = dept_balances.get(dept, 0) + flt(row.current_balance)
-
-    chart = {
-        "data": {
-            "labels": list(dept_balances.keys()),
-            "datasets": [
-                {
-                    "name": "Current Balance (KG)",
-                    "values": [round(v, 3) for v in dept_balances.values()]
-                }
-            ]
-        },
-        "type": "bar",
-        "colors": ["#5e64ff"],
-        "barOptions": {
-            "stacked": False,
-            "spaceRatio": 0.3
-        },
-        "height": 280,
-        "axisOptions": {
-            "xAxisMode": "tick",
-            "yAxisMode": "span",
-            "xIsSeries": False
-        },
-        "tooltipOptions": {
-            "formatTooltipY": "d => d + ' KG'"
-        }
-    }
-
-    return columns, data, None, chart, report_summary
+    return columns, data
