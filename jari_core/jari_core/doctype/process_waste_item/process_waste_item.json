@@ -16,13 +16,14 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Waste Type",
-   "options": "Waste Type Master"
+   "options": "Process Waste Product Item"
   },
   {
    "fieldname": "uom",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "UOM"
+   "label": "UOM",
+   "options": "UOM_Jari"
   },
   {
    "fieldname": "expected_percent",
@@ -34,7 +35,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-06-13 16:52:21.991153",
+ "modified": "2026-06-14 01:57:06.295011",
  "modified_by": "Administrator",
  "module": "JARI Core",
  "name": "Process Waste Item",
