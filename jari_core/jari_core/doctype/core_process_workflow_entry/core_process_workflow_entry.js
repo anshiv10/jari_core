@@ -19,6 +19,7 @@ frappe.ui.form.on('Core Process Workflow Entry', {
                 frm.clear_table('input_products');
                 frm.clear_table('output_products');
                 frm.clear_table('waste_products');
+                frm.clear_table('custom_waste_product_items');
 
                 (p.input_products || []).forEach(row => {
                     let d = frm.add_child('input_products');
@@ -35,19 +36,22 @@ frappe.ui.form.on('Core Process Workflow Entry', {
                     d.is_primary = row.is_primary;
                 });
 
-                (p.waste_products || []).forEach(row => {
-                    let d = frm.add_child('waste_products');
-                    d.waste_type = row.waste_type;
+                (p.custom_waste_product_items || []).forEach(row => {
+                    let d = frm.add_child('custom_waste_product_items');
+                    d.waste_product = row.waste_product;
                     d.uom = row.uom;
                     d.expected_percent = row.expected_percent;
+                    d.silver_bearing = row.silver_bearing;
+                    d.gold_bearing = row.gold_bearing;
                 });
 
                 frm.refresh_field('input_products');
                 frm.refresh_field('output_products');
                 frm.refresh_field('waste_products');
+                frm.refresh_field('custom_waste_product_items');
 
                 frappe.show_alert({
-                    message: 'Process details auto-filled from Process Master',
+                    message: 'Process details auto-filled from Product Master based Process Configuration',
                     indicator: 'green'
                 });
             }
