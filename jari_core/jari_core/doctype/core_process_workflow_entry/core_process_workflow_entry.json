@@ -1,57 +1,65 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2026-06-13 16:52:22.303439",
+ "creation": "2026-06-13 21:31:42.368169",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "process_name",
-  "process_code",
+  "entry_date",
+  "company",
+  "process_master",
   "department",
   "flow_type",
   "is_outsourced",
-  "sequence_order",
   "input_products",
   "output_products",
   "waste_products",
-  "notes"
+  "remarks"
  ],
  "fields": [
   {
-   "fieldname": "process_name",
-   "fieldtype": "Data",
+   "fieldname": "entry_date",
+   "fieldtype": "Date",
    "in_list_view": 1,
-   "label": "Process Name",
+   "label": "Entry Date",
    "reqd": 1
   },
   {
-   "fieldname": "process_code",
-   "fieldtype": "Data",
-   "label": "Process Code"
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "process_master",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Process",
+   "options": "Process Master",
+   "reqd": 1
   },
   {
    "fieldname": "department",
    "fieldtype": "Link",
    "label": "Department",
-   "options": "Department Master"
+   "options": "Department Master",
+   "read_only": 1
   },
   {
    "fieldname": "flow_type",
-   "fieldtype": "Select",
+   "fieldtype": "Data",
    "label": "Flow Type",
-   "options": "Real\nImitation\nBoth"
+   "read_only": 1
   },
   {
    "default": "0",
    "fieldname": "is_outsourced",
    "fieldtype": "Check",
-   "label": "Is Outsourced"
-  },
-  {
-   "fieldname": "sequence_order",
-   "fieldtype": "Int",
-   "label": "Sequence Order"
+   "label": "Is Outsourced",
+   "read_only": 1
   },
   {
    "fieldname": "input_products",
@@ -72,18 +80,18 @@
    "options": "Process Waste Item"
   },
   {
-   "fieldname": "notes",
+   "fieldname": "remarks",
    "fieldtype": "Small Text",
-   "label": "Notes"
+   "label": "Remarks"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-13 19:19:28.136972",
+ "modified": "2026-06-13 21:32:06.772183",
  "modified_by": "Administrator",
  "module": "JARI Core",
- "name": "Process Master",
+ "name": "Core Process Workflow Entry",
  "owner": "Administrator",
  "permissions": [
   {
@@ -101,9 +109,10 @@
  ],
  "row_format": "Dynamic",
  "rows_threshold_for_grid_search": 20,
- "show_title_field_in_link": 1,
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
- "title_field": "process_name"
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
 }

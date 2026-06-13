@@ -8,6 +8,13 @@ class PurchaseEntry(Document):
     def validate(self):
         self.calculate_net_weight()
 
+    def on_submit(self):
+        self.post_to_inventory_ledger()
+
+    def on_update(self):
+        if self.docstatus == 1 or self.get("workflow_state") in ["Submitted", "Approved"]:
+            self.post_to_inventory_ledger()
+
     def calculate_net_weight(self):
         if self.gross_weight and self.purity_percent:
             self.deduction_weight = flt(self.gross_weight) * (1 - flt(self.purity_percent) / 100)
@@ -16,11 +23,17 @@ class PurchaseEntry(Document):
             self.deduction_weight = 0
             self.net_weight = flt(self.gross_weight)
 
-    def on_submit(self):
-        self.post_to_inventory_ledger()
+    def ledger_exists(self):
+        return frappe.db.exists("Inventory Ledger", {
+            "reference_doctype": self.doctype,
+            "reference_name": self.name,
+            "transaction_type": "Purchase Inward"
+        })
 
     def post_to_inventory_ledger(self):
-        # Get last balance for this company + product
+        if self.ledger_exists():
+            return
+
         last_balance = frappe.db.get_value(
             "Inventory Ledger",
             filters={
@@ -30,11 +43,11 @@ class PurchaseEntry(Document):
             },
             fieldname="current_balance",
             order_by="creation desc"
-        )
+        ) or 0
 
-        new_balance = flt(last_balance or 0) + flt(self.net_weight)
+        new_balance = flt(last_balance) + flt(self.net_weight)
 
-        ledger = frappe.get_doc({
+        frappe.get_doc({
             "doctype": "Inventory Ledger",
             "company": self.company,
             "department": "Raw Material Store",
@@ -44,26 +57,18 @@ class PurchaseEntry(Document):
             "out_weight": 0,
             "current_balance": new_balance,
             "transaction_type": "Purchase Inward",
-            "reference_doctype": "Purchase Entry",
+            "reference_doctype": self.doctype,
             "reference_name": self.name,
             "date": self.purchase_date or today(),
             "remarks": f"Purchase from {self.vendor}"
-        })
-        ledger.insert(ignore_permissions=True)
-        frappe.db.commit()
+        }).insert(ignore_permissions=True)
 
-        frappe.msgprint(
-            f"Inventory updated — Silver stock increased by {self.net_weight} KG. "
-            f"New balance: {new_balance} KG",
-            title="Inventory Posted",
-            indicator="green"
-        )
+        frappe.msgprint("Purchase posted to Inventory Ledger.", indicator="green")
 
     def on_cancel(self):
         self.reverse_inventory_ledger()
 
     def reverse_inventory_ledger(self):
-        # Get last balance
         last_balance = frappe.db.get_value(
             "Inventory Ledger",
             filters={
@@ -73,11 +78,9 @@ class PurchaseEntry(Document):
             },
             fieldname="current_balance",
             order_by="creation desc"
-        )
+        ) or 0
 
-        new_balance = flt(last_balance or 0) - flt(self.net_weight)
-
-        ledger = frappe.get_doc({
+        frappe.get_doc({
             "doctype": "Inventory Ledger",
             "company": self.company,
             "department": "Raw Material Store",
@@ -85,12 +88,10 @@ class PurchaseEntry(Document):
             "batch_number": "",
             "in_weight": 0,
             "out_weight": flt(self.net_weight),
-            "current_balance": new_balance,
+            "current_balance": flt(last_balance) - flt(self.net_weight),
             "transaction_type": "Adjustment",
-            "reference_doctype": "Purchase Entry",
+            "reference_doctype": self.doctype,
             "reference_name": self.name,
             "date": today(),
             "remarks": f"Reversal on cancellation of {self.name}"
-        })
-        ledger.insert(ignore_permissions=True)
-        frappe.db.commit()
+        }).insert(ignore_permissions=True)
