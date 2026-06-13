@@ -253,7 +253,8 @@ fixtures = [
         "filters": [
             ["dt", "in", [
                 "Process Master",
-                "Core Process Workflow Entry"
+                "Core Process Workflow Entry",
+                "Peti Master"
             ]]
         ]
     },
@@ -262,7 +263,8 @@ fixtures = [
         "filters": [
             ["doc_type", "in", [
                 "Process Master",
-                "Core Process Workflow Entry"
+                "Core Process Workflow Entry",
+                "Peti Master"
             ]]
         ]
     }
