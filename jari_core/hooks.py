@@ -247,3 +247,23 @@ app_license = "mit"
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
 
+fixtures = [
+    {
+        "dt": "Custom Field",
+        "filters": [
+            ["dt", "in", [
+                "Process Master",
+                "Core Process Workflow Entry"
+            ]]
+        ]
+    },
+    {
+        "dt": "Property Setter",
+        "filters": [
+            ["doc_type", "in", [
+                "Process Master",
+                "Core Process Workflow Entry"
+            ]]
+        ]
+    }
+]
