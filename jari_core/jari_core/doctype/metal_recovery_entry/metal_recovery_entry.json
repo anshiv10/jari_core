@@ -1,0 +1,153 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-13 17:37:17.519294",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "recovery_date",
+  "company",
+  "metal_type",
+  "source_department",
+  "target_department",
+  "input_product",
+  "output_product",
+  "input_weight",
+  "recovered_weight",
+  "loss_weight",
+  "loss_percent",
+  "jobworker",
+  "remarks",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "recovery_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Recovery Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "metal_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Metal Type",
+   "options": "Silver\nGold",
+   "reqd": 1
+  },
+  {
+   "fieldname": "source_department",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Source Department",
+   "options": "Department Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "target_department",
+   "fieldtype": "Link",
+   "label": "Target Department",
+   "options": "Department Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "input_product",
+   "fieldtype": "Link",
+   "label": "Input Product",
+   "options": "Product Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "output_product",
+   "fieldtype": "Link",
+   "label": "Recovered Product",
+   "options": "Product Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "input_weight",
+   "fieldtype": "Float",
+   "label": "Input Weight KG",
+   "reqd": 1
+  },
+  {
+   "fieldname": "recovered_weight",
+   "fieldtype": "Float",
+   "label": "Recovered Weight KG",
+   "reqd": 1
+  },
+  {
+   "fieldname": "loss_weight",
+   "fieldtype": "Float",
+   "label": "Loss Weight KG",
+   "read_only": 1
+  },
+  {
+   "fieldname": "loss_percent",
+   "fieldtype": "Float",
+   "label": "Loss %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "jobworker",
+   "fieldtype": "Link",
+   "label": "Jobworker",
+   "options": "Jobworker Master"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Metal Recovery Entry",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-06-13 17:37:17.519294",
+ "modified_by": "Administrator",
+ "module": "JARI Core",
+ "name": "Metal Recovery Entry",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
