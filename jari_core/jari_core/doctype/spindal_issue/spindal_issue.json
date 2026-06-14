@@ -76,8 +76,7 @@
   {
    "fieldname": "operator",
    "fieldtype": "Link",
-   "label": "Operator",
-   "options": "Employee"
+   "label": "Operator"
   },
   {
    "default": "1",
