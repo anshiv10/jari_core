@@ -7,11 +7,12 @@ class MeltingIssue(Document):
 
     def validate(self):
         self.set_defaults()
+        self.set_silver_purity()
         self.calculate_totals()
 
     def on_submit(self):
         self.post_inventory_transfer()
-        self.status = "Issued"
+        frappe.db.set_value(self.doctype, self.name, "status", "Issued")
 
     def set_defaults(self):
         if not self.process_master:
@@ -23,15 +24,28 @@ class MeltingIssue(Document):
         if not self.to_department:
             self.to_department = "Melting"
 
+    def set_silver_purity(self):
+        self.silver_purity_percent = 0
+
+        if self.quality_code:
+            self.silver_purity_percent = frappe.db.get_value(
+                "Quality Master",
+                self.quality_code,
+                "silver_purity_percent"
+            ) or 0
+
     def calculate_totals(self):
         total = 0
-        quality_purity = frappe.db.get_value("Quality Master", self.quality_code, "silver_purity_percent") if self.quality_code else 0
 
         for row in self.issue_items:
             total += flt(row.weight)
 
-            if row.product == "RM-Silver":
-                row.silver_weight = flt(row.weight) * flt(quality_purity) / 100
+            if row.product:
+                metal_type = frappe.db.get_value("Product Master", row.product, "metal_type")
+                if metal_type == "Silver":
+                    row.silver_weight = flt(row.weight) * flt(self.silver_purity_percent) / 100
+                else:
+                    row.silver_weight = 0
 
         self.total_issue_weight = total
 
