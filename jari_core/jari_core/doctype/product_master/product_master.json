@@ -12,7 +12,8 @@
   "product_category",
   "quality_code",
   "unit",
-  "product_type"
+  "product_type",
+  "metal_type"
  ],
  "fields": [
   {
@@ -59,6 +60,14 @@
    "label": "Product Type",
    "options": "Raw Material\nSemi Finished\nFinished\nWaste\nRecovery Material",
    "reqd": 1
+  },
+  {
+   "fieldname": "metal_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Metal Type",
+   "options": "\nSilver\nCopper\nCadmium\nOther"
   }
  ],
  "grid_page_length": 50,
