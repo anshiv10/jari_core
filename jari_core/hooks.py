@@ -254,7 +254,8 @@ fixtures = [
             ["dt", "in", [
                 "Process Master",
                 "Core Process Workflow Entry",
-                "Peti Master"
+                "Peti Master",
+                "Melting Issue"
             ]]
         ]
     },
@@ -264,7 +265,8 @@ fixtures = [
             ["doc_type", "in", [
                 "Process Master",
                 "Core Process Workflow Entry",
-                "Peti Master"
+                "Peti Master",
+                "Melting Issue"
             ]]
         ]
     }
