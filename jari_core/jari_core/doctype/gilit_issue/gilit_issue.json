@@ -81,8 +81,9 @@
   },
   {
    "fieldname": "operator",
-   "fieldtype": "Link",
-   "label": "Operator"
+   "fieldtype": "Data",
+   "label": "Operator",
+   "in_list_view": 1
   },
   {
    "fieldname": "peti_items",

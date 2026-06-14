@@ -68,15 +68,16 @@
    "reqd": 1
   },
   {
+   "fieldname": "operator",
+   "fieldtype": "Data",
+   "label": "Operator",
+   "in_list_view": 1
+  },
+  {
    "fieldname": "quality_code",
    "fieldtype": "Link",
    "label": "Quality Code",
    "options": "Quality Master"
-  },
-  {
-   "fieldname": "operator",
-   "fieldtype": "Link",
-   "label": "Operator"
   },
   {
    "default": "1",

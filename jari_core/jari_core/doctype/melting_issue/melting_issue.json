@@ -103,6 +103,12 @@
    "label": "Product Detail"
   },
   {
+   "fieldname": "operator",
+   "fieldtype": "Data",
+   "label": "Operator",
+   "in_list_view": 1
+  },
+  {
    "fieldname": "issue_items",
    "fieldtype": "Table",
    "label": "Product Detail",

@@ -25,30 +25,64 @@ class MeltingReceive(Document):
         self.quality_code = issue.quality_code
         self.total_input_weight = issue.total_issue_weight
 
+    def get_quality_purity(self):
+        if not self.quality_code:
+            return 0
+
+        if frappe.db.has_column("Quality Master", "silver_purity_percent"):
+            return flt(
+                frappe.db.get_value(
+                    "Quality Master",
+                    self.quality_code,
+                    "silver_purity_percent"
+                ) or 0
+            )
+
+        return 0
+
+    def get_product_metal_type(self, product):
+        if not product:
+            return ""
+
+        if frappe.db.has_column("Product Master", "metal_type"):
+            return frappe.db.get_value("Product Master", product, "metal_type") or ""
+
+        return ""
+
     def calculate_totals(self):
         output_total = 0
         waste_total = 0
+        quality_purity = self.get_quality_purity()
 
         for row in self.output_items:
             output_total += flt(row.weight)
 
-        quality_purity = frappe.db.get_value("Quality Master", self.quality_code, "silver_purity_percent") if self.quality_code else 0
-
         for row in self.waste_items:
             waste_total += flt(row.weight)
+            row.approx_silver_weight = 0
 
             if row.waste_product:
-                metal_type = frappe.db.get_value("Product Master", row.waste_product, "metal_type")
+                metal_type = self.get_product_metal_type(row.waste_product)
+
                 if metal_type == "Silver":
                     row.approx_silver_weight = flt(row.weight) * flt(quality_purity) / 100
 
         self.total_output_weight = output_total
         self.total_waste_weight = waste_total
 
-        self.loss_weight = flt(self.total_input_weight) - flt(self.total_output_weight) - flt(self.total_waste_weight)
+        self.loss_weight = (
+            flt(self.total_input_weight)
+            - flt(self.total_output_weight)
+            - flt(self.total_waste_weight)
+        )
 
         self.loss_percent = (
             flt(self.loss_weight) / flt(self.total_input_weight) * 100
+            if flt(self.total_input_weight) else 0
+        )
+
+        self.waste_percent = (
+            flt(self.total_waste_weight) / flt(self.total_input_weight) * 100
             if flt(self.total_input_weight) else 0
         )
 
@@ -78,10 +112,13 @@ class MeltingReceive(Document):
         ) or 0
 
     def ledger_exists(self):
-        return frappe.db.exists("Inventory Ledger", {
-            "reference_doctype": self.doctype,
-            "reference_name": self.name
-        })
+        return frappe.db.exists(
+            "Inventory Ledger",
+            {
+                "reference_doctype": self.doctype,
+                "reference_name": self.name
+            }
+        )
 
     def post_outputs_and_waste(self):
         if self.ledger_exists():
@@ -130,3 +167,24 @@ class MeltingReceive(Document):
                 "date": self.receive_date or today(),
                 "remarks": "Melting waste generated"
             }).insert(ignore_permissions=True)
+
+
+@frappe.whitelist()
+def get_waste_products(quality_code=None):
+    filters = {
+        "product_type": "Waste"
+    }
+
+    if quality_code and frappe.db.has_column("Product Master", "quality_code"):
+        filters["quality_code"] = quality_code
+
+    fields = ["name", "product_code", "product_name", "unit"]
+
+    if frappe.db.has_column("Product Master", "metal_type"):
+        fields.append("metal_type")
+
+    return frappe.get_all(
+        "Product Master",
+        filters=filters,
+        fields=fields
+    )

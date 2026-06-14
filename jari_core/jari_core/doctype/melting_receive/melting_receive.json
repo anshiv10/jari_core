@@ -31,6 +31,7 @@
   "loss_percent",
   "loss_standard_percent",
   "col_break_4",
+  "waste_percent",
   "wastage_standard_percent",
   "loss_status",
   "remarks_section",
@@ -162,13 +163,13 @@
   },
   {
    "fieldname": "loss_percent",
-   "fieldtype": "Float",
+   "fieldtype": "Percent",
    "label": "Loss %",
    "read_only": 1
   },
   {
    "fieldname": "loss_standard_percent",
-   "fieldtype": "Float",
+   "fieldtype": "Percent",
    "label": "Loss Standard %",
    "read_only": 1
   },
@@ -177,8 +178,14 @@
    "fieldtype": "Column Break"
   },
   {
+   "fieldname": "waste_percent",
+   "fieldtype": "Percent",
+   "label": "Waste %",
+   "read_only": 1
+  },
+  {
    "fieldname": "wastage_standard_percent",
-   "fieldtype": "Float",
+   "fieldtype": "Percent",
    "label": "Wastage Standard %",
    "read_only": 1
   },
@@ -189,7 +196,8 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Loss Status",
-   "options": "OK\nExcess Loss"
+   "options": "OK\nExcess Loss",
+   "read_only": 1
   },
   {
    "fieldname": "remarks_section",
