@@ -9,6 +9,7 @@
  "field_order": [
   "quality_code",
   "description",
+  "silver_purity_percent",
   "flow_type"
  ],
  "fields": [
@@ -25,6 +26,12 @@
    "fieldname": "description",
    "fieldtype": "Text",
    "label": "Description"
+  },
+  {
+   "fieldname": "silver_purity_percent",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Silver Purity Percent"
   },
   {
    "fieldname": "flow_type",
