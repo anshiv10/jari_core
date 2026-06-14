@@ -14,7 +14,7 @@
   "sequence_order",
   "input_products",
   "output_products",
-  "waste_products",
+  "custom_waste_product_items",
   "notes"
  ],
  "fields": [
@@ -66,10 +66,18 @@
    "options": "Process Output Item"
   },
   {
+   "fieldname": "custom_waste_product_items",
+   "fieldtype": "Table",
+   "label": "Waste Product Items",
+   "options": "Process Waste Product Item"
+  },
+  {
    "fieldname": "waste_products",
    "fieldtype": "Table",
+   "hidden": 1,
    "label": "Waste Products",
-   "options": "Process Waste Item"
+   "options": "Process Waste Item",
+   "report_hide": 1
   },
   {
    "fieldname": "notes",

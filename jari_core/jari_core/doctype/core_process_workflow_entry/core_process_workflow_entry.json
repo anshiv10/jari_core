@@ -14,7 +14,7 @@
   "is_outsourced",
   "input_products",
   "output_products",
-  "waste_products",
+  "custom_waste_product_items",
   "remarks"
  ],
  "fields": [
@@ -74,10 +74,10 @@
    "options": "Process Output Item"
   },
   {
-   "fieldname": "waste_products",
+   "fieldname": "custom_waste_product_items",
    "fieldtype": "Table",
-   "label": "Waste Products",
-   "options": "Process Waste Item"
+   "label": "Waste Product Items",
+   "options": "Process Waste Product Item"
   },
   {
    "fieldname": "remarks",

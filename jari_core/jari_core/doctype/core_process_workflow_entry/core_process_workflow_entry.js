@@ -18,7 +18,7 @@ frappe.ui.form.on('Core Process Workflow Entry', {
 
                 frm.clear_table('input_products');
                 frm.clear_table('output_products');
-                frm.clear_table('waste_products');
+                frm.clear_table('custom_waste_product_items');
                 frm.clear_table('custom_waste_product_items');
 
                 (p.input_products || []).forEach(row => {
@@ -47,7 +47,7 @@ frappe.ui.form.on('Core Process Workflow Entry', {
 
                 frm.refresh_field('input_products');
                 frm.refresh_field('output_products');
-                frm.refresh_field('waste_products');
+                frm.refresh_field('custom_waste_product_items');
                 frm.refresh_field('custom_waste_product_items');
 
                 frappe.show_alert({
