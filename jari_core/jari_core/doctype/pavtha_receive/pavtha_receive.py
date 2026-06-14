@@ -33,27 +33,61 @@ class PavthaReceive(Document):
         if not self.output_items and not self.waste_items:
             frappe.throw("At least one output or waste item is required.")
 
-    def calculate_totals(self):
-        output_total = sum(flt(row.weight) for row in self.output_items)
-        waste_total = 0
+    def get_quality_purity(self):
+        if not self.quality_code:
+            return 0
 
-        quality_purity = frappe.db.get_value(
-            "Quality Master",
-            self.quality_code,
-            "silver_purity_percent"
-        ) if self.quality_code else 0
+        if frappe.db.has_column("Quality Master", "silver_purity_percent"):
+            return flt(
+                frappe.db.get_value(
+                    "Quality Master",
+                    self.quality_code,
+                    "silver_purity_percent"
+                ) or 0
+            )
+
+        return 0
+
+    def get_product_metal_type(self, product):
+        if not product:
+            return ""
+
+        if frappe.db.has_column("Product Master", "metal_type"):
+            return frappe.db.get_value("Product Master", product, "metal_type") or ""
+
+        return ""
+
+    def calculate_totals(self):
+        output_total = 0
+        waste_total = 0
+        quality_purity = self.get_quality_purity()
+
+        for row in self.output_items:
+            output_total += flt(row.weight)
 
         for row in self.waste_items:
             waste_total += flt(row.weight)
+            row.approx_silver_weight = 0
 
             if row.waste_product:
-                metal_type = frappe.db.get_value("Product Master", row.waste_product, "metal_type")
+                metal_type = self.get_product_metal_type(row.waste_product)
+
                 if metal_type == "Silver":
                     row.approx_silver_weight = flt(row.weight) * flt(quality_purity) / 100
 
         self.total_output_weight = output_total
         self.total_waste_weight = waste_total
-        self.loss_weight = flt(self.total_input_weight) - flt(self.total_output_weight) - flt(self.total_waste_weight)
+
+        self.loss_weight = (
+            flt(self.total_input_weight)
+            - flt(self.total_output_weight)
+            - flt(self.total_waste_weight)
+        )
+
+        self.waste_percent = (
+            flt(self.total_waste_weight) / flt(self.total_input_weight) * 100
+            if flt(self.total_input_weight) else 0
+        )
 
         self.loss_percent = (
             flt(self.loss_weight) / flt(self.total_input_weight) * 100
@@ -66,10 +100,15 @@ class PavthaReceive(Document):
             "standard_loss_percent"
         ) or 0
 
-        self.loss_status = "Excess Loss" if flt(self.loss_percent) > flt(self.loss_standard_percent) else "OK"
+        self.loss_status = (
+            "Excess Loss"
+            if flt(self.loss_percent) > flt(self.loss_standard_percent)
+            else "OK"
+        )
 
     def calculate_payout(self):
         self.base_payout = flt(self.total_input_weight) * flt(self.rate_per_kg)
+
         excess_loss_percent = flt(self.loss_percent) - flt(self.loss_standard_percent)
 
         self.bonus_amount = 0
@@ -83,7 +122,14 @@ class PavthaReceive(Document):
             saved_weight = flt(self.total_input_weight) * abs(excess_loss_percent) / 100
             self.bonus_amount = saved_weight * flt(self.rate_per_kg)
 
-        self.payout_suggestion = flt(self.base_payout) + flt(self.bonus_amount) - flt(self.deduction_amount)
+        self.payout_suggestion = (
+            flt(self.base_payout)
+            + flt(self.bonus_amount)
+            - flt(self.deduction_amount)
+        )
+
+        if not flt(self.payout_given):
+            self.payout_given = self.payout_suggestion
 
     def get_last_balance(self, company, department, product):
         return frappe.db.get_value(
@@ -98,10 +144,13 @@ class PavthaReceive(Document):
         ) or 0
 
     def ledger_exists(self):
-        return frappe.db.exists("Inventory Ledger", {
-            "reference_doctype": self.doctype,
-            "reference_name": self.name
-        })
+        return frappe.db.exists(
+            "Inventory Ledger",
+            {
+                "reference_doctype": self.doctype,
+                "reference_name": self.name
+            }
+        )
 
     def post_outputs_and_waste(self):
         if self.ledger_exists():

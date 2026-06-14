@@ -33,6 +33,7 @@
   "loss_percent",
   "loss_standard_percent",
   "col_break_4",
+  "waste_percent",
   "wastage_standard_percent",
   "loss_status",
   "payout_section",
@@ -44,7 +45,6 @@
   "payout_given",
   "remarks_section",
   "remarks",
-  "amended_from",
   "amended_from"
  ],
  "fields": [
@@ -169,7 +169,7 @@
   {
    "fieldname": "total_waste_weight",
    "fieldtype": "Float",
-   "label": "Total Waste Weight",
+   "label": "Total Wastage Weight",
    "read_only": 1
   },
   {
@@ -185,13 +185,13 @@
   },
   {
    "fieldname": "loss_percent",
-   "fieldtype": "Float",
+   "fieldtype": "Percent",
    "label": "Loss %",
    "read_only": 1
   },
   {
    "fieldname": "loss_standard_percent",
-   "fieldtype": "Float",
+   "fieldtype": "Percent",
    "label": "Loss Standard %",
    "read_only": 1
   },
@@ -200,8 +200,14 @@
    "fieldtype": "Column Break"
   },
   {
+   "fieldname": "waste_percent",
+   "fieldtype": "Percent",
+   "label": "Waste %",
+   "read_only": 1
+  },
+  {
    "fieldname": "wastage_standard_percent",
-   "fieldtype": "Float",
+   "fieldtype": "Percent",
    "label": "Wastage Standard %",
    "read_only": 1
   },
@@ -212,7 +218,8 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Loss Status",
-   "options": "OK\nExcess Loss"
+   "options": "OK\nExcess Loss",
+   "read_only": 1
   },
   {
    "fieldname": "payout_section",
@@ -261,15 +268,6 @@
    "fieldname": "remarks",
    "fieldtype": "Small Text",
    "label": "Remarks"
-  },
-  {
-   "fieldname": "amended_from",
-   "fieldtype": "Link",
-   "label": "Amended From",
-   "no_copy": 1,
-   "options": "Pavtha Receive",
-   "print_hide": 1,
-   "read_only": 1
   },
   {
    "fieldname": "amended_from",
