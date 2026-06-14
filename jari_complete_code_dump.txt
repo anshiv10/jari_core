@@ -1,0 +1,1408 @@
+==================================================
+FILE: jari_core/jari_core/doctype/inventory_ledger/inventory_ledger.json
+==================================================
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-10 16:21:25.953279",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "department",
+  "product",
+  "batch_number",
+  "in_weight",
+  "out_weight",
+  "current_balance",
+  "transaction_type",
+  "reference_doctype",
+  "reference_name",
+  "date",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Company",
+   "options": "Company Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Department",
+   "options": "Department Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "product",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Product",
+   "options": "Product Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "batch_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Batch Number"
+  },
+  {
+   "fieldname": "in_weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "In Weight (KG)"
+  },
+  {
+   "fieldname": "out_weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Out Weight (KG)"
+  },
+  {
+   "fieldname": "current_balance",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Current Balance (KG)"
+  },
+  {
+   "fieldname": "transaction_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Transaction Type",
+   "options": "Purchase Inward\nProduction Input\nProduction Output\nStock Transfer Out\nStock Transfer In\nWaste Generated\nRecovery\nAdjustment",
+   "reqd": 1
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Reference Doctype",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Reference Name",
+   "options": "reference_doctype"
+  },
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Text",
+   "label": "Remarks"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-10 16:21:25.953279",
+ "modified_by": "Administrator",
+ "module": "JARI Core",
+ "name": "Inventory Ledger",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
+
+
+==================================================
+FILE: jari_core/jari_core/doctype/inventory_ledger/inventory_ledger.py
+==================================================
+# Copyright (c) 2026, anSHIV and contributors
+# For license information, please see license.txt
+
+# import frappe
+from frappe.model.document import Document
+
+
+class InventoryLedger(Document):
+	pass
+
+
+
+==================================================
+FILE: jari_core/jari_core/doctype/core_process_workflow_entry/core_process_workflow_entry.json
+==================================================
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-13 21:31:42.368169",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "entry_date",
+  "company",
+  "process_master",
+  "department",
+  "flow_type",
+  "is_outsourced",
+  "input_products",
+  "output_products",
+  "waste_products",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "entry_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Entry Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "process_master",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Process",
+   "options": "Process Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Department",
+   "options": "Department Master",
+   "read_only": 1
+  },
+  {
+   "fieldname": "flow_type",
+   "fieldtype": "Data",
+   "label": "Flow Type",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "is_outsourced",
+   "fieldtype": "Check",
+   "label": "Is Outsourced",
+   "read_only": 1
+  },
+  {
+   "fieldname": "input_products",
+   "fieldtype": "Table",
+   "label": "Input Products",
+   "options": "Process Input Item"
+  },
+  {
+   "fieldname": "output_products",
+   "fieldtype": "Table",
+   "label": "Output Products",
+   "options": "Process Output Item"
+  },
+  {
+   "fieldname": "waste_products",
+   "fieldtype": "Table",
+   "label": "Waste Products",
+   "options": "Process Waste Item"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-13 21:32:06.772183",
+ "modified_by": "Administrator",
+ "module": "JARI Core",
+ "name": "Core Process Workflow Entry",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}
+
+
+==================================================
+FILE: jari_core/jari_core/doctype/core_process_workflow_entry/core_process_workflow_entry.py
+==================================================
+# Copyright (c) 2026, anSHIV and contributors
+# For license information, please see license.txt
+
+# import frappe
+from frappe.model.document import Document
+
+
+class CoreProcessWorkflowEntry(Document):
+	pass
+
+
+
+==================================================
+FILE: jari_core/jari_core/doctype/melting_issue/melting_issue.json
+==================================================
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "MI-.YYYY.-.MM.-.####",
+ "creation": "2026-06-14 03:38:18.475118",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "issue_info_section",
+  "issue_date",
+  "col_break_1",
+  "company",
+  "dept_batch_section",
+  "from_department",
+  "to_department",
+  "col_break_2",
+  "batch_no",
+  "process_master",
+  "quality_code",
+  "items_section",
+  "issue_items",
+  "totals_section",
+  "total_issue_weight",
+  "col_break_3",
+  "issued_by",
+  "approved_by",
+  "status",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "issue_info_section",
+   "fieldtype": "Section Break",
+   "label": "Issue Information"
+  },
+  {
+   "fieldname": "issue_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Issue Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "col_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Company",
+   "options": "Company Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "dept_batch_section",
+   "fieldtype": "Section Break",
+   "label": "Department & Batch"
+  },
+  {
+   "fieldname": "from_department",
+   "fieldtype": "Link",
+   "label": "From Department",
+   "options": "Department Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "to_department",
+   "fieldtype": "Link",
+   "label": "To Department",
+   "options": "Department Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "col_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "batch_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Batch No",
+   "reqd": 1
+  },
+  {
+   "fieldname": "process_master",
+   "fieldtype": "Link",
+   "label": "Process",
+   "options": "Process Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "quality_code",
+   "fieldtype": "Link",
+   "label": "Quality Code",
+   "options": "Quality Master"
+  },
+  {
+   "fieldname": "items_section",
+   "fieldtype": "Section Break",
+   "label": "Product Detail"
+  },
+  {
+   "fieldname": "issue_items",
+   "fieldtype": "Table",
+   "label": "Product Detail",
+   "options": "Melting Issue Item"
+  },
+  {
+   "fieldname": "totals_section",
+   "fieldtype": "Section Break",
+   "label": "Summary"
+  },
+  {
+   "bold": 1,
+   "fieldname": "total_issue_weight",
+   "fieldtype": "Float",
+   "label": "Total Issue Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "issued_by",
+   "fieldtype": "Link",
+   "label": "Issued By",
+   "options": "User"
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Link",
+   "label": "Approved By",
+   "options": "User"
+  },
+  {
+   "bold": 1,
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nIssued\nReceived"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Melting Issue",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-06-14 03:38:18.475118",
+ "modified_by": "Administrator",
+ "module": "JARI Core",
+ "name": "Melting Issue",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "issue_date",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
+
+
+==================================================
+FILE: jari_core/jari_core/doctype/melting_issue/melting_issue.py
+==================================================
+import frappe
+from frappe.model.document import Document
+from frappe.utils import flt, today
+
+
+class MeltingIssue(Document):
+
+    def validate(self):
+        self.set_defaults()
+        self.calculate_totals()
+
+    def on_submit(self):
+        self.post_inventory_transfer()
+        self.status = "Issued"
+
+    def set_defaults(self):
+        if not self.process_master:
+            self.process_master = frappe.db.get_value("Process Master", {"process_code": "MELT"}, "name")
+
+        if not self.from_department:
+            self.from_department = "Raw Material Store"
+
+        if not self.to_department:
+            self.to_department = "Melting"
+
+    def calculate_totals(self):
+        total = 0
+        quality_purity = frappe.db.get_value("Quality Master", self.quality_code, "silver_purity_percent") if self.quality_code else 0
+
+        for row in self.issue_items:
+            total += flt(row.weight)
+
+            if row.product == "RM-Silver":
+                row.silver_weight = flt(row.weight) * flt(quality_purity) / 100
+
+        self.total_issue_weight = total
+
+    def get_last_balance(self, company, department, product):
+        return frappe.db.get_value(
+            "Inventory Ledger",
+            filters={
+                "company": company,
+                "department": department,
+                "product": product
+            },
+            fieldname="current_balance",
+            order_by="creation desc"
+        ) or 0
+
+    def ledger_exists(self):
+        return frappe.db.exists("Inventory Ledger", {
+            "reference_doctype": self.doctype,
+            "reference_name": self.name
+        })
+
+    def post_inventory_transfer(self):
+        if self.ledger_exists():
+            return
+
+        for row in self.issue_items:
+            if not row.product or not flt(row.weight):
+                continue
+
+            source_balance = self.get_last_balance(self.company, self.from_department, row.product)
+
+            if flt(row.weight) > flt(source_balance):
+                frappe.throw(
+                    f"Insufficient stock for {row.product}. Available: {source_balance} KG, Requested: {row.weight} KG"
+                )
+
+            frappe.get_doc({
+                "doctype": "Inventory Ledger",
+                "company": self.company,
+                "department": self.from_department,
+                "product": row.product,
+                "batch_number": self.batch_no,
+                "in_weight": 0,
+                "out_weight": flt(row.weight),
+                "current_balance": flt(source_balance) - flt(row.weight),
+                "transaction_type": "Production Input",
+                "reference_doctype": self.doctype,
+                "reference_name": self.name,
+                "date": self.issue_date or today(),
+                "remarks": f"Melting Issue to {self.to_department}"
+            }).insert(ignore_permissions=True)
+
+            target_balance = self.get_last_balance(self.company, self.to_department, row.product)
+
+            frappe.get_doc({
+                "doctype": "Inventory Ledger",
+                "company": self.company,
+                "department": self.to_department,
+                "product": row.product,
+                "batch_number": self.batch_no,
+                "in_weight": flt(row.weight),
+                "out_weight": 0,
+                "current_balance": flt(target_balance) + flt(row.weight),
+                "transaction_type": "Stock Transfer In",
+                "reference_doctype": self.doctype,
+                "reference_name": self.name,
+                "date": self.issue_date or today(),
+                "remarks": f"Melting Issue received in {self.to_department}"
+            }).insert(ignore_permissions=True)
+
+
+==================================================
+FILE: jari_core/jari_core/doctype/melting_receive/melting_receive.json
+==================================================
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "MR-.YYYY.-.MM.-.####",
+ "creation": "2026-06-14 03:38:34.478904",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "issue_ref_section",
+  "melting_issue",
+  "receive_date",
+  "col_break_1",
+  "company",
+  "batch_no",
+  "process_section",
+  "process_master",
+  "col_break_2",
+  "quality_code",
+  "output_section",
+  "output_items",
+  "waste_section",
+  "waste_items",
+  "weight_section",
+  "total_input_weight",
+  "total_output_weight",
+  "col_break_3",
+  "total_waste_weight",
+  "loss_weight",
+  "loss_section",
+  "loss_percent",
+  "loss_standard_percent",
+  "col_break_4",
+  "wastage_standard_percent",
+  "loss_status",
+  "remarks_section",
+  "remarks",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "issue_ref_section",
+   "fieldtype": "Section Break",
+   "label": "Issue Reference"
+  },
+  {
+   "fieldname": "melting_issue",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Issue No",
+   "options": "Melting Issue",
+   "reqd": 1
+  },
+  {
+   "fieldname": "receive_date",
+   "fieldtype": "Date",
+   "label": "Receive Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "col_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company Master",
+   "read_only": 1
+  },
+  {
+   "fieldname": "batch_no",
+   "fieldtype": "Data",
+   "label": "Batch No",
+   "read_only": 1
+  },
+  {
+   "fieldname": "process_section",
+   "fieldtype": "Section Break",
+   "label": "Process & Quality"
+  },
+  {
+   "fieldname": "process_master",
+   "fieldtype": "Link",
+   "label": "Process",
+   "options": "Process Master",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "quality_code",
+   "fieldtype": "Link",
+   "label": "Quality Code",
+   "options": "Quality Master",
+   "read_only": 1
+  },
+  {
+   "fieldname": "output_section",
+   "fieldtype": "Section Break",
+   "label": "Out Product Detail"
+  },
+  {
+   "fieldname": "output_items",
+   "fieldtype": "Table",
+   "label": "Out Product Detail",
+   "options": "Melting Output Item"
+  },
+  {
+   "fieldname": "waste_section",
+   "fieldtype": "Section Break",
+   "label": "Waste Product Detail"
+  },
+  {
+   "fieldname": "waste_items",
+   "fieldtype": "Table",
+   "label": "Waste Product Detail",
+   "options": "Melting Waste Product Item"
+  },
+  {
+   "fieldname": "weight_section",
+   "fieldtype": "Section Break",
+   "label": "Weight Summary"
+  },
+  {
+   "bold": 1,
+   "fieldname": "total_input_weight",
+   "fieldtype": "Float",
+   "label": "Total Input Weight",
+   "read_only": 1
+  },
+  {
+   "bold": 1,
+   "fieldname": "total_output_weight",
+   "fieldtype": "Float",
+   "label": "Total Output Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_waste_weight",
+   "fieldtype": "Float",
+   "label": "Total Waste Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "loss_weight",
+   "fieldtype": "Float",
+   "label": "Loss Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "loss_section",
+   "fieldtype": "Section Break",
+   "label": "Loss Analysis"
+  },
+  {
+   "fieldname": "loss_percent",
+   "fieldtype": "Float",
+   "label": "Loss %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "loss_standard_percent",
+   "fieldtype": "Float",
+   "label": "Loss Standard %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "wastage_standard_percent",
+   "fieldtype": "Float",
+   "label": "Wastage Standard %",
+   "read_only": 1
+  },
+  {
+   "bold": 1,
+   "fieldname": "loss_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Loss Status",
+   "options": "OK\nExcess Loss"
+  },
+  {
+   "fieldname": "remarks_section",
+   "fieldtype": "Section Break",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Melting Receive",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-06-14 03:38:34.478904",
+ "modified_by": "Administrator",
+ "module": "JARI Core",
+ "name": "Melting Receive",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "receive_date",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
+
+
+==================================================
+FILE: jari_core/jari_core/doctype/melting_receive/melting_receive.py
+==================================================
+import frappe
+from frappe.model.document import Document
+from frappe.utils import flt, today
+
+
+class MeltingReceive(Document):
+
+    def validate(self):
+        self.pull_issue_details()
+        self.calculate_totals()
+
+    def on_submit(self):
+        self.post_outputs_and_waste()
+        frappe.db.set_value("Melting Issue", self.melting_issue, "status", "Received")
+
+    def pull_issue_details(self):
+        if not self.melting_issue:
+            return
+
+        issue = frappe.get_doc("Melting Issue", self.melting_issue)
+
+        self.company = issue.company
+        self.batch_no = issue.batch_no
+        self.process_master = issue.process_master
+        self.quality_code = issue.quality_code
+        self.total_input_weight = issue.total_issue_weight
+
+    def calculate_totals(self):
+        output_total = 0
+        waste_total = 0
+
+        for row in self.output_items:
+            output_total += flt(row.weight)
+
+        quality_purity = frappe.db.get_value("Quality Master", self.quality_code, "silver_purity_percent") if self.quality_code else 0
+
+        for row in self.waste_items:
+            waste_total += flt(row.weight)
+
+            if row.waste_product:
+                metal_type = frappe.db.get_value("Product Master", row.waste_product, "metal_type")
+                if metal_type == "Silver":
+                    row.approx_silver_weight = flt(row.weight) * flt(quality_purity) / 100
+
+        self.total_output_weight = output_total
+        self.total_waste_weight = waste_total
+
+        self.loss_weight = flt(self.total_input_weight) - flt(self.total_output_weight) - flt(self.total_waste_weight)
+
+        self.loss_percent = (
+            flt(self.loss_weight) / flt(self.total_input_weight) * 100
+            if flt(self.total_input_weight) else 0
+        )
+
+        standard_loss = 0
+        if self.process_master:
+            standard_loss = frappe.db.get_value(
+                "Loss Standard Master",
+                {
+                    "department": "Melting"
+                },
+                "standard_loss_percent"
+            ) or 0
+
+        self.loss_standard_percent = standard_loss
+        self.loss_status = "Excess Loss" if flt(self.loss_percent) > flt(standard_loss) else "OK"
+
+    def get_last_balance(self, company, department, product):
+        return frappe.db.get_value(
+            "Inventory Ledger",
+            filters={
+                "company": company,
+                "department": department,
+                "product": product
+            },
+            fieldname="current_balance",
+            order_by="creation desc"
+        ) or 0
+
+    def ledger_exists(self):
+        return frappe.db.exists("Inventory Ledger", {
+            "reference_doctype": self.doctype,
+            "reference_name": self.name
+        })
+
+    def post_outputs_and_waste(self):
+        if self.ledger_exists():
+            return
+
+        for row in self.output_items:
+            if not row.product or not flt(row.weight):
+                continue
+
+            balance = self.get_last_balance(self.company, "Melting", row.product)
+
+            frappe.get_doc({
+                "doctype": "Inventory Ledger",
+                "company": self.company,
+                "department": "Melting",
+                "product": row.product,
+                "batch_number": self.batch_no,
+                "in_weight": flt(row.weight),
+                "out_weight": 0,
+                "current_balance": flt(balance) + flt(row.weight),
+                "transaction_type": "Production Output",
+                "reference_doctype": self.doctype,
+                "reference_name": self.name,
+                "date": self.receive_date or today(),
+                "remarks": "Melting output received"
+            }).insert(ignore_permissions=True)
+
+        for row in self.waste_items:
+            if not row.waste_product or not flt(row.weight):
+                continue
+
+            balance = self.get_last_balance(self.company, "Melting", row.waste_product)
+
+            frappe.get_doc({
+                "doctype": "Inventory Ledger",
+                "company": self.company,
+                "department": "Melting",
+                "product": row.waste_product,
+                "batch_number": self.batch_no,
+                "in_weight": flt(row.weight),
+                "out_weight": 0,
+                "current_balance": flt(balance) + flt(row.weight),
+                "transaction_type": "Waste Generated",
+                "reference_doctype": self.doctype,
+                "reference_name": self.name,
+                "date": self.receive_date or today(),
+                "remarks": "Melting waste generated"
+            }).insert(ignore_permissions=True)
+
+
+==================================================
+FILE: jari_core/jari_core/doctype/metal_recovery_entry/metal_recovery_entry.json
+==================================================
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-13 17:37:17.519294",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "recovery_date",
+  "company",
+  "metal_type",
+  "source_department",
+  "target_department",
+  "input_product",
+  "output_product",
+  "input_weight",
+  "recovered_weight",
+  "loss_weight",
+  "loss_percent",
+  "jobworker",
+  "remarks",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "recovery_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Recovery Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "metal_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Metal Type",
+   "options": "Silver\nGold",
+   "reqd": 1
+  },
+  {
+   "fieldname": "source_department",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Source Department",
+   "options": "Department Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "target_department",
+   "fieldtype": "Link",
+   "label": "Target Department",
+   "options": "Department Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "input_product",
+   "fieldtype": "Link",
+   "label": "Input Product",
+   "options": "Product Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "output_product",
+   "fieldtype": "Link",
+   "label": "Recovered Product",
+   "options": "Product Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "input_weight",
+   "fieldtype": "Float",
+   "label": "Input Weight KG",
+   "reqd": 1
+  },
+  {
+   "fieldname": "recovered_weight",
+   "fieldtype": "Float",
+   "label": "Recovered Weight KG",
+   "reqd": 1
+  },
+  {
+   "fieldname": "loss_weight",
+   "fieldtype": "Float",
+   "label": "Loss Weight KG",
+   "read_only": 1
+  },
+  {
+   "fieldname": "loss_percent",
+   "fieldtype": "Float",
+   "label": "Loss %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "jobworker",
+   "fieldtype": "Link",
+   "label": "Jobworker",
+   "options": "Jobworker Master"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Metal Recovery Entry",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-06-13 17:37:17.519294",
+ "modified_by": "Administrator",
+ "module": "JARI Core",
+ "name": "Metal Recovery Entry",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
+
+
+==================================================
+FILE: jari_core/jari_core/doctype/metal_recovery_entry/metal_recovery_entry.py
+==================================================
+import frappe
+from frappe.model.document import Document
+from frappe.utils import flt, today
+
+
+class MetalRecoveryEntry(Document):
+
+    def validate(self):
+        self.calculate_loss()
+        self.validate_available_stock()
+
+    def calculate_loss(self):
+        self.loss_weight = flt(self.input_weight) - flt(self.recovered_weight)
+        self.loss_percent = (flt(self.loss_weight) / flt(self.input_weight) * 100) if flt(self.input_weight) else 0
+
+    def get_last_balance(self, company, department, product):
+        return frappe.db.get_value(
+            "Inventory Ledger",
+            filters={
+                "company": company,
+                "department": department,
+                "product": product
+            },
+            fieldname="current_balance",
+            order_by="creation desc"
+        ) or 0
+
+    def validate_available_stock(self):
+        balance = self.get_last_balance(self.company, self.source_department, self.input_product)
+
+        if flt(self.input_weight) > flt(balance):
+            frappe.throw(
+                f"Insufficient stock for recovery. Available: {balance} KG — Requested: {self.input_weight} KG",
+                title="Recovery Stock Validation Failed"
+            )
+
+    def on_submit(self):
+        self.post_input_consumed()
+        self.post_recovered_output()
+        frappe.msgprint("Metal Recovery posted successfully.", indicator="green")
+
+    def post_input_consumed(self):
+        last_balance = self.get_last_balance(self.company, self.source_department, self.input_product)
+
+        frappe.get_doc({
+            "doctype": "Inventory Ledger",
+            "company": self.company,
+            "department": self.source_department,
+            "product": self.input_product,
+            "batch_number": "",
+            "in_weight": 0,
+            "out_weight": flt(self.input_weight),
+            "current_balance": flt(last_balance) - flt(self.input_weight),
+            "transaction_type": "Recovery",
+            "reference_doctype": "Metal Recovery Entry",
+            "reference_name": self.name,
+            "date": self.recovery_date or today(),
+            "remarks": f"{self.metal_type} recovery input consumed"
+        }).insert(ignore_permissions=True)
+
+    def post_recovered_output(self):
+        last_balance = self.get_last_balance(self.company, self.target_department, self.output_product)
+
+        frappe.get_doc({
+            "doctype": "Inventory Ledger",
+            "company": self.company,
+            "department": self.target_department,
+            "product": self.output_product,
+            "batch_number": "",
+            "in_weight": flt(self.recovered_weight),
+            "out_weight": 0,
+            "current_balance": flt(last_balance) + flt(self.recovered_weight),
+            "transaction_type": "Recovery",
+            "reference_doctype": "Metal Recovery Entry",
+            "reference_name": self.name,
+            "date": self.recovery_date or today(),
+            "remarks": f"{self.metal_type} recovered output"
+        }).insert(ignore_permissions=True)
+
+    def on_cancel(self):
+        self.reverse_recovery()
+
+    def reverse_recovery(self):
+        source_balance = self.get_last_balance(self.company, self.source_department, self.input_product)
+
+        frappe.get_doc({
+            "doctype": "Inventory Ledger",
+            "company": self.company,
+            "department": self.source_department,
+            "product": self.input_product,
+            "in_weight": flt(self.input_weight),
+            "out_weight": 0,
+            "current_balance": flt(source_balance) + flt(self.input_weight),
+            "transaction_type": "Adjustment",
+            "reference_doctype": "Metal Recovery Entry",
+            "reference_name": self.name,
+            "date": today(),
+            "remarks": f"Reversal of recovery {self.name}"
+        }).insert(ignore_permissions=True)
+
+        target_balance = self.get_last_balance(self.company, self.target_department, self.output_product)
+
+        frappe.get_doc({
+            "doctype": "Inventory Ledger",
+            "company": self.company,
+            "department": self.target_department,
+            "product": self.output_product,
+            "in_weight": 0,
+            "out_weight": flt(self.recovered_weight),
+            "current_balance": flt(target_balance) - flt(self.recovered_weight),
+            "transaction_type": "Adjustment",
+            "reference_doctype": "Metal Recovery Entry",
+            "reference_name": self.name,
+            "date": today(),
+            "remarks": f"Reversal of recovery {self.name}"
+        }).insert(ignore_permissions=True)
+
+
+==================================================
+FILE: jari_core/jari_core/doctype/process_master/process_master.json
+==================================================
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-13 16:52:22.303439",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "process_name",
+  "process_code",
+  "department",
+  "flow_type",
+  "is_outsourced",
+  "sequence_order",
+  "input_products",
+  "output_products",
+  "waste_products",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "process_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Process Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "process_code",
+   "fieldtype": "Data",
+   "label": "Process Code"
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Department",
+   "options": "Department Master"
+  },
+  {
+   "fieldname": "flow_type",
+   "fieldtype": "Select",
+   "label": "Flow Type",
+   "options": "Real\nImitation\nBoth"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_outsourced",
+   "fieldtype": "Check",
+   "label": "Is Outsourced"
+  },
+  {
+   "fieldname": "sequence_order",
+   "fieldtype": "Int",
+   "label": "Sequence Order"
+  },
+  {
+   "fieldname": "input_products",
+   "fieldtype": "Table",
+   "label": "Input Products",
+   "options": "Process Input Item"
+  },
+  {
+   "fieldname": "output_products",
+   "fieldtype": "Table",
+   "label": "Output Products",
+   "options": "Process Output Item"
+  },
+  {
+   "fieldname": "waste_products",
+   "fieldtype": "Table",
+   "label": "Waste Products",
+   "options": "Process Waste Item"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-13 19:19:28.136972",
+ "modified_by": "Administrator",
+ "module": "JARI Core",
+ "name": "Process Master",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "process_name"
+}
+
+
+==================================================
+FILE: jari_core/jari_core/doctype/process_master/process_master.py
+==================================================
+# Copyright (c) 2026, anSHIV and contributors
+# For license information, please see license.txt
+
+# import frappe
+from frappe.model.document import Document
+
+
+class ProcessMaster(Document):
+	pass
+
+
+

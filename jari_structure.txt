@@ -1,0 +1,217 @@
+/home/anshiv/frappe-bench/apps/jari_core
+├── README.md
+├── jari_core
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-311.pyc
+│   │   └── hooks.cpython-311.pyc
+│   ├── config
+│   │   └── __init__.py
+│   ├── fixtures
+│   │   ├── custom_field.json
+│   │   └── property_setter.json
+│   ├── hooks.py
+│   ├── jari_core
+│   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   │   └── __init__.cpython-311.pyc
+│   │   ├── doctype
+│   │   │   ├── __init__.py
+│   │   │   ├── __pycache__
+│   │   │   │   └── __init__.cpython-311.pyc
+│   │   │   ├── company_master
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── company_master.js
+│   │   │   │   ├── company_master.json
+│   │   │   │   ├── company_master.py
+│   │   │   │   └── test_company_master.py
+│   │   │   ├── core_process_workflow_entry
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── core_process_workflow_entry.js
+│   │   │   │   ├── core_process_workflow_entry.json
+│   │   │   │   ├── core_process_workflow_entry.py
+│   │   │   │   └── test_core_process_workflow_entry.py
+│   │   │   ├── department_master
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── department_master.js
+│   │   │   │   ├── department_master.json
+│   │   │   │   ├── department_master.py
+│   │   │   │   └── test_department_master.py
+│   │   │   ├── inventory_ledger
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── inventory_ledger.js
+│   │   │   │   ├── inventory_ledger.json
+│   │   │   │   ├── inventory_ledger.py
+│   │   │   │   └── test_inventory_ledger.py
+│   │   │   ├── jobworker_master
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── jobworker_master.js
+│   │   │   │   ├── jobworker_master.json
+│   │   │   │   ├── jobworker_master.py
+│   │   │   │   └── test_jobworker_master.py
+│   │   │   ├── loss_standard_master
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── loss_standard_master.js
+│   │   │   │   ├── loss_standard_master.json
+│   │   │   │   ├── loss_standard_master.py
+│   │   │   │   └── test_loss_standard_master.py
+│   │   │   ├── melting_issue
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── melting_issue.js
+│   │   │   │   ├── melting_issue.json
+│   │   │   │   ├── melting_issue.py
+│   │   │   │   └── test_melting_issue.py
+│   │   │   ├── melting_issue_item
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── melting_issue_item.json
+│   │   │   │   └── melting_issue_item.py
+│   │   │   ├── melting_output_item
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── melting_output_item.json
+│   │   │   │   └── melting_output_item.py
+│   │   │   ├── melting_receive
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── melting_receive.js
+│   │   │   │   ├── melting_receive.json
+│   │   │   │   ├── melting_receive.py
+│   │   │   │   └── test_melting_receive.py
+│   │   │   ├── melting_waste_product_item
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── melting_waste_product_item.json
+│   │   │   │   └── melting_waste_product_item.py
+│   │   │   ├── metal_recovery_entry
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── metal_recovery_entry.js
+│   │   │   │   ├── metal_recovery_entry.json
+│   │   │   │   ├── metal_recovery_entry.py
+│   │   │   │   └── test_metal_recovery_entry.py
+│   │   │   ├── peti_master
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── peti_master.js
+│   │   │   │   ├── peti_master.json
+│   │   │   │   ├── peti_master.py
+│   │   │   │   └── test_peti_master.py
+│   │   │   ├── process_input_item
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── process_input_item.json
+│   │   │   │   └── process_input_item.py
+│   │   │   ├── process_master
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── process_master.js
+│   │   │   │   ├── process_master.json
+│   │   │   │   ├── process_master.py
+│   │   │   │   └── test_process_master.py
+│   │   │   ├── process_output_item
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── process_output_item.json
+│   │   │   │   └── process_output_item.py
+│   │   │   ├── process_waste_item
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── process_waste_item.json
+│   │   │   │   └── process_waste_item.py
+│   │   │   ├── process_waste_product_item
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── process_waste_product_item.json
+│   │   │   │   └── process_waste_product_item.py
+│   │   │   ├── product_master
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── product_master.js
+│   │   │   │   ├── product_master.json
+│   │   │   │   ├── product_master.py
+│   │   │   │   └── test_product_master.py
+│   │   │   ├── purchase_entry
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── purchase_entry.js
+│   │   │   │   ├── purchase_entry.json
+│   │   │   │   ├── purchase_entry.py
+│   │   │   │   └── test_purchase_entry.py
+│   │   │   ├── quality_master
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── quality_master.js
+│   │   │   │   ├── quality_master.json
+│   │   │   │   ├── quality_master.py
+│   │   │   │   └── test_quality_master.py
+│   │   │   ├── stock_transfer
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── stock_transfer.js
+│   │   │   │   ├── stock_transfer.json
+│   │   │   │   ├── stock_transfer.py
+│   │   │   │   └── test_stock_transfer.py
+│   │   │   ├── uom_jari
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── test_uom_jari.py
+│   │   │   │   ├── uom_jari.js
+│   │   │   │   ├── uom_jari.json
+│   │   │   │   └── uom_jari.py
+│   │   │   ├── vendor_material_ledger
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── test_vendor_material_ledger.py
+│   │   │   │   ├── vendor_material_ledger.js
+│   │   │   │   ├── vendor_material_ledger.json
+│   │   │   │   └── vendor_material_ledger.py
+│   │   │   ├── waste_type_master
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── __pycache__
+│   │   │   │   ├── test_waste_type_master.py
+│   │   │   │   ├── waste_type_master.js
+│   │   │   │   ├── waste_type_master.json
+│   │   │   │   └── waste_type_master.py
+│   │   │   └── worker_master
+│   │   │       ├── __init__.py
+│   │   │       ├── __pycache__
+│   │   │       ├── test_worker_master.py
+│   │   │       ├── worker_master.js
+│   │   │       ├── worker_master.json
+│   │   │       └── worker_master.py
+│   │   └── report
+│   │       ├── __init__.py
+│   │       ├── __pycache__
+│   │       │   └── __init__.cpython-311.pyc
+│   │       └── stock_position_report
+│   │           ├── __init__.py
+│   │           ├── __pycache__
+│   │           ├── stock_position_report.js
+│   │           ├── stock_position_report.json
+│   │           └── stock_position_report.py
+│   ├── modules.txt
+│   ├── patches
+│   │   └── __init__.py
+│   ├── patches.txt
+│   ├── public
+│   │   ├── css
+│   │   └── js
+│   ├── templates
+│   │   ├── __init__.py
+│   │   ├── includes
+│   │   └── pages
+│   │       └── __init__.py
+│   └── www
+├── jari_structure.txt
+├── license.txt
+└── pyproject.toml
+
+73 directories, 142 files
