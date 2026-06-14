@@ -7,6 +7,7 @@ class PavthaReceive(Document):
 
     def validate(self):
         self.pull_issue_details()
+        self.validate_items()
         self.calculate_totals()
         self.calculate_payout()
 
@@ -28,14 +29,23 @@ class PavthaReceive(Document):
         self.rate_per_kg = issue.rate_per_kg
         self.total_input_weight = issue.total_issue_weight
 
+    def validate_items(self):
+        if not self.output_items and not self.waste_items:
+            frappe.throw("At least one output or waste item is required.")
+
     def calculate_totals(self):
         output_total = sum(flt(row.weight) for row in self.output_items)
         waste_total = 0
 
-        quality_purity = frappe.db.get_value("Quality Master", self.quality_code, "silver_purity_percent") if self.quality_code else 0
+        quality_purity = frappe.db.get_value(
+            "Quality Master",
+            self.quality_code,
+            "silver_purity_percent"
+        ) if self.quality_code else 0
 
         for row in self.waste_items:
             waste_total += flt(row.weight)
+
             if row.waste_product:
                 metal_type = frappe.db.get_value("Product Master", row.waste_product, "metal_type")
                 if metal_type == "Silver":
@@ -44,7 +54,11 @@ class PavthaReceive(Document):
         self.total_output_weight = output_total
         self.total_waste_weight = waste_total
         self.loss_weight = flt(self.total_input_weight) - flt(self.total_output_weight) - flt(self.total_waste_weight)
-        self.loss_percent = (flt(self.loss_weight) / flt(self.total_input_weight) * 100) if flt(self.total_input_weight) else 0
+
+        self.loss_percent = (
+            flt(self.loss_weight) / flt(self.total_input_weight) * 100
+            if flt(self.total_input_weight) else 0
+        )
 
         self.loss_standard_percent = frappe.db.get_value(
             "Loss Standard Master",
@@ -64,6 +78,7 @@ class PavthaReceive(Document):
         if excess_loss_percent > 0:
             excess_weight = flt(self.total_input_weight) * excess_loss_percent / 100
             self.deduction_amount = excess_weight * flt(self.rate_per_kg)
+
         elif excess_loss_percent < 0:
             saved_weight = flt(self.total_input_weight) * abs(excess_loss_percent) / 100
             self.bonus_amount = saved_weight * flt(self.rate_per_kg)
@@ -73,7 +88,11 @@ class PavthaReceive(Document):
     def get_last_balance(self, company, department, product):
         return frappe.db.get_value(
             "Inventory Ledger",
-            {"company": company, "department": department, "product": product},
+            {
+                "company": company,
+                "department": department,
+                "product": product
+            },
             "current_balance",
             order_by="creation desc"
         ) or 0
@@ -107,7 +126,7 @@ class PavthaReceive(Document):
                 "reference_doctype": self.doctype,
                 "reference_name": self.name,
                 "date": self.receive_date or today(),
-                "remarks": "Pavtha GULLA received"
+                "remarks": "Pavtha output received"
             }).insert(ignore_permissions=True)
 
         for row in self.waste_items:
@@ -129,5 +148,5 @@ class PavthaReceive(Document):
                 "reference_doctype": self.doctype,
                 "reference_name": self.name,
                 "date": self.receive_date or today(),
-                "remarks": "Pavtha CHILCHEDA waste generated"
+                "remarks": "Pavtha waste generated"
             }).insert(ignore_permissions=True)

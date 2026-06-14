@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "field:uom",
  "creation": "2026-06-14 01:55:16.141811",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -47,5 +48,6 @@
  "rows_threshold_for_grid_search": 20,
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "uom"
 }

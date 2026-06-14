@@ -9,7 +9,8 @@
   "product",
   "uom",
   "weight",
-  "silver_weight"
+  "silver_weight",
+  "operator_name"
  ],
  "fields": [
   {
@@ -37,13 +38,20 @@
    "fieldtype": "Float",
    "label": "Silver Weight",
    "read_only": 1
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "operator_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Operator Name"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-06-14 17:54:52.700775",
+ "modified": "2026-06-14 18:42:13.040179",
  "modified_by": "Administrator",
  "module": "JARI Core",
  "name": "Taniya Issue Item",
