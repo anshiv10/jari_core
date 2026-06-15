@@ -33,7 +33,6 @@
    "fieldtype": "Link",
    "label": "Department",
    "options": "Department Master",
-   "default": "Spindal",
    "in_list_view": 1
   },
   {
