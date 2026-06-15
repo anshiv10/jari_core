@@ -7,7 +7,6 @@ class MeltingReceive(Document):
 
     def validate(self):
         self.pull_issue_details()
-        self.validate_items()
         self.calculate_totals()
 
     def on_submit(self):
@@ -26,16 +25,18 @@ class MeltingReceive(Document):
         self.quality_code = issue.quality_code
         self.total_input_weight = issue.total_issue_weight
 
-    def validate_items(self):
-        if not self.output_items and not self.waste_items:
-            frappe.throw("At least one output or waste item is required.")
-
     def get_quality_purity(self):
         if not self.quality_code:
             return 0
 
         if frappe.db.has_column("Quality Master", "silver_purity_percent"):
-            return flt(frappe.db.get_value("Quality Master", self.quality_code, "silver_purity_percent") or 0)
+            return flt(
+                frappe.db.get_value(
+                    "Quality Master",
+                    self.quality_code,
+                    "silver_purity_percent"
+                ) or 0
+            )
 
         return 0
 
@@ -47,18 +48,6 @@ class MeltingReceive(Document):
             return frappe.db.get_value("Product Master", product, "metal_type") or ""
 
         return ""
-
-    def get_standard_percent(self, fieldname):
-        if not frappe.db.has_column("Loss Standard Master", fieldname):
-            return 0
-
-        return flt(
-            frappe.db.get_value(
-                "Loss Standard Master",
-                {"department": "Melting"},
-                fieldname
-            ) or 0
-        )
 
     def calculate_totals(self):
         output_total = 0
@@ -97,30 +86,28 @@ class MeltingReceive(Document):
             if flt(self.total_input_weight) else 0
         )
 
-        self.loss_standard_percent = self.get_standard_percent("standard_loss_percent")
-        self.wastage_standard_percent = self.get_standard_percent("standard_wastage_percent")
+        standard_loss = 0
+        if self.process_master:
+            standard_loss = frappe.db.get_value(
+                "Loss Standard Master",
+                {
+                    "department": "Melting"
+                },
+                "standard_loss_percent"
+            ) or 0
 
-        self.loss_status = (
-            "Excess Loss"
-            if flt(self.loss_percent) > flt(self.loss_standard_percent)
-            else "OK"
-        )
-
-        self.wastage_status = (
-            "Excess Wastage"
-            if flt(self.waste_percent) > flt(self.wastage_standard_percent)
-            else "OK"
-        )
+        self.loss_standard_percent = standard_loss
+        self.loss_status = "Excess Loss" if flt(self.loss_percent) > flt(standard_loss) else "OK"
 
     def get_last_balance(self, company, department, product):
         return frappe.db.get_value(
             "Inventory Ledger",
-            {
+            filters={
                 "company": company,
                 "department": department,
                 "product": product
             },
-            "current_balance",
+            fieldname="current_balance",
             order_by="creation desc"
         ) or 0
 
@@ -184,7 +171,9 @@ class MeltingReceive(Document):
 
 @frappe.whitelist()
 def get_waste_products(quality_code=None):
-    filters = {"product_type": "Waste"}
+    filters = {
+        "product_type": "Waste"
+    }
 
     if quality_code and frappe.db.has_column("Product Master", "quality_code"):
         filters["quality_code"] = quality_code
@@ -194,4 +183,8 @@ def get_waste_products(quality_code=None):
     if frappe.db.has_column("Product Master", "metal_type"):
         fields.append("metal_type")
 
-    return frappe.get_all("Product Master", filters=filters, fields=fields)
+    return frappe.get_all(
+        "Product Master",
+        filters=filters,
+        fields=fields
+    )

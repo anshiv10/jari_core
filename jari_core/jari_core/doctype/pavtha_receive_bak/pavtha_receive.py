@@ -3,27 +3,30 @@ from frappe.model.document import Document
 from frappe.utils import flt, today
 
 
-class MeltingReceive(Document):
+class PavthaReceive(Document):
 
     def validate(self):
         self.pull_issue_details()
         self.validate_items()
         self.calculate_totals()
+        self.calculate_payout()
 
     def on_submit(self):
         self.post_outputs_and_waste()
-        frappe.db.set_value("Melting Issue", self.melting_issue, "status", "Received")
+        frappe.db.set_value("Pavtha Issue", self.pavtha_issue, "status", "Received")
 
     def pull_issue_details(self):
-        if not self.melting_issue:
+        if not self.pavtha_issue:
             return
 
-        issue = frappe.get_doc("Melting Issue", self.melting_issue)
+        issue = frappe.get_doc("Pavtha Issue", self.pavtha_issue)
 
         self.company = issue.company
         self.batch_no = issue.batch_no
         self.process_master = issue.process_master
         self.quality_code = issue.quality_code
+        self.outsourcer = issue.outsourcer
+        self.rate_per_kg = issue.rate_per_kg
         self.total_input_weight = issue.total_issue_weight
 
     def validate_items(self):
@@ -35,7 +38,13 @@ class MeltingReceive(Document):
             return 0
 
         if frappe.db.has_column("Quality Master", "silver_purity_percent"):
-            return flt(frappe.db.get_value("Quality Master", self.quality_code, "silver_purity_percent") or 0)
+            return flt(
+                frappe.db.get_value(
+                    "Quality Master",
+                    self.quality_code,
+                    "silver_purity_percent"
+                ) or 0
+            )
 
         return 0
 
@@ -47,18 +56,6 @@ class MeltingReceive(Document):
             return frappe.db.get_value("Product Master", product, "metal_type") or ""
 
         return ""
-
-    def get_standard_percent(self, fieldname):
-        if not frappe.db.has_column("Loss Standard Master", fieldname):
-            return 0
-
-        return flt(
-            frappe.db.get_value(
-                "Loss Standard Master",
-                {"department": "Melting"},
-                fieldname
-            ) or 0
-        )
 
     def calculate_totals(self):
         output_total = 0
@@ -87,18 +84,21 @@ class MeltingReceive(Document):
             - flt(self.total_waste_weight)
         )
 
-        self.loss_percent = (
-            flt(self.loss_weight) / flt(self.total_input_weight) * 100
-            if flt(self.total_input_weight) else 0
-        )
-
         self.waste_percent = (
             flt(self.total_waste_weight) / flt(self.total_input_weight) * 100
             if flt(self.total_input_weight) else 0
         )
 
-        self.loss_standard_percent = self.get_standard_percent("standard_loss_percent")
-        self.wastage_standard_percent = self.get_standard_percent("standard_wastage_percent")
+        self.loss_percent = (
+            flt(self.loss_weight) / flt(self.total_input_weight) * 100
+            if flt(self.total_input_weight) else 0
+        )
+
+        self.loss_standard_percent = frappe.db.get_value(
+            "Loss Standard Master",
+            {"department": "Pavtha"},
+            "standard_loss_percent"
+        ) or 0
 
         self.loss_status = (
             "Excess Loss"
@@ -106,11 +106,30 @@ class MeltingReceive(Document):
             else "OK"
         )
 
-        self.wastage_status = (
-            "Excess Wastage"
-            if flt(self.waste_percent) > flt(self.wastage_standard_percent)
-            else "OK"
+    def calculate_payout(self):
+        self.base_payout = flt(self.total_input_weight) * flt(self.rate_per_kg)
+
+        excess_loss_percent = flt(self.loss_percent) - flt(self.loss_standard_percent)
+
+        self.bonus_amount = 0
+        self.deduction_amount = 0
+
+        if excess_loss_percent > 0:
+            excess_weight = flt(self.total_input_weight) * excess_loss_percent / 100
+            self.deduction_amount = excess_weight * flt(self.rate_per_kg)
+
+        elif excess_loss_percent < 0:
+            saved_weight = flt(self.total_input_weight) * abs(excess_loss_percent) / 100
+            self.bonus_amount = saved_weight * flt(self.rate_per_kg)
+
+        self.payout_suggestion = (
+            flt(self.base_payout)
+            + flt(self.bonus_amount)
+            - flt(self.deduction_amount)
         )
+
+        if not flt(self.payout_given):
+            self.payout_given = self.payout_suggestion
 
     def get_last_balance(self, company, department, product):
         return frappe.db.get_value(
@@ -141,12 +160,12 @@ class MeltingReceive(Document):
             if not row.product or not flt(row.weight):
                 continue
 
-            balance = self.get_last_balance(self.company, "Melting", row.product)
+            balance = self.get_last_balance(self.company, "Pavtha", row.product)
 
             frappe.get_doc({
                 "doctype": "Inventory Ledger",
                 "company": self.company,
-                "department": "Melting",
+                "department": "Pavtha",
                 "product": row.product,
                 "batch_number": self.batch_no,
                 "in_weight": flt(row.weight),
@@ -156,19 +175,19 @@ class MeltingReceive(Document):
                 "reference_doctype": self.doctype,
                 "reference_name": self.name,
                 "date": self.receive_date or today(),
-                "remarks": "Melting output received"
+                "remarks": "Pavtha output received"
             }).insert(ignore_permissions=True)
 
         for row in self.waste_items:
             if not row.waste_product or not flt(row.weight):
                 continue
 
-            balance = self.get_last_balance(self.company, "Melting", row.waste_product)
+            balance = self.get_last_balance(self.company, "Pavtha", row.waste_product)
 
             frappe.get_doc({
                 "doctype": "Inventory Ledger",
                 "company": self.company,
-                "department": "Melting",
+                "department": "Pavtha",
                 "product": row.waste_product,
                 "batch_number": self.batch_no,
                 "in_weight": flt(row.weight),
@@ -178,20 +197,5 @@ class MeltingReceive(Document):
                 "reference_doctype": self.doctype,
                 "reference_name": self.name,
                 "date": self.receive_date or today(),
-                "remarks": "Melting waste generated"
+                "remarks": "Pavtha waste generated"
             }).insert(ignore_permissions=True)
-
-
-@frappe.whitelist()
-def get_waste_products(quality_code=None):
-    filters = {"product_type": "Waste"}
-
-    if quality_code and frappe.db.has_column("Product Master", "quality_code"):
-        filters["quality_code"] = quality_code
-
-    fields = ["name", "product_code", "product_name", "unit"]
-
-    if frappe.db.has_column("Product Master", "metal_type"):
-        fields.append("metal_type")
-
-    return frappe.get_all("Product Master", filters=filters, fields=fields)

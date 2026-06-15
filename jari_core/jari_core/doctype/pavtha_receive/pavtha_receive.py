@@ -38,13 +38,7 @@ class PavthaReceive(Document):
             return 0
 
         if frappe.db.has_column("Quality Master", "silver_purity_percent"):
-            return flt(
-                frappe.db.get_value(
-                    "Quality Master",
-                    self.quality_code,
-                    "silver_purity_percent"
-                ) or 0
-            )
+            return flt(frappe.db.get_value("Quality Master", self.quality_code, "silver_purity_percent") or 0)
 
         return 0
 
@@ -56,6 +50,18 @@ class PavthaReceive(Document):
             return frappe.db.get_value("Product Master", product, "metal_type") or ""
 
         return ""
+
+    def get_standard_percent(self, fieldname):
+        if not frappe.db.has_column("Loss Standard Master", fieldname):
+            return 0
+
+        return flt(
+            frappe.db.get_value(
+                "Loss Standard Master",
+                {"department": "Pavtha"},
+                fieldname
+            ) or 0
+        )
 
     def calculate_totals(self):
         output_total = 0
@@ -94,15 +100,18 @@ class PavthaReceive(Document):
             if flt(self.total_input_weight) else 0
         )
 
-        self.loss_standard_percent = frappe.db.get_value(
-            "Loss Standard Master",
-            {"department": "Pavtha"},
-            "standard_loss_percent"
-        ) or 0
+        self.loss_standard_percent = self.get_standard_percent("standard_loss_percent")
+        self.wastage_standard_percent = self.get_standard_percent("standard_wastage_percent")
 
         self.loss_status = (
             "Excess Loss"
             if flt(self.loss_percent) > flt(self.loss_standard_percent)
+            else "OK"
+        )
+
+        self.wastage_status = (
+            "Excess Wastage"
+            if flt(self.waste_percent) > flt(self.wastage_standard_percent)
             else "OK"
         )
 

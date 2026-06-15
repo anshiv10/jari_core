@@ -4,39 +4,67 @@ frappe.ui.form.on('Taniya Issue', {
             frm.set_value('issue_date', frappe.datetime.get_today());
         }
 
-        frm.set_query('process_master', function() {
-            return { filters: { department: 'Taniya' } };
-        });
+        if (!frm.doc.issue_type) {
+            frm.set_value('issue_type', 'New Batch');
+        }
+
+        frm.trigger('toggle_batch_fields');
+        calculate_taniya_issue_totals(frm);
     },
 
-    process_master(frm) {
-        if (!frm.doc.process_master) return;
+    issue_type(frm) {
+        frm.trigger('toggle_batch_fields');
+        frm.trigger('set_batch_no');
+    },
 
-        frappe.call({
-            method: 'frappe.client.get',
-            args: {
-                doctype: 'Process Master',
-                name: frm.doc.process_master
-            },
-            callback(r) {
-                const p = r.message;
-                if (!p) return;
+    new_batch_no(frm) {
+        frm.trigger('set_batch_no');
+    },
 
-                frm.clear_table('issue_items');
+    existing_batch_no(frm) {
+        frm.trigger('set_batch_no');
+    },
 
-                (p.input_products || []).forEach(row => {
-                    let d = frm.add_child('issue_items');
-                    d.product = row.product;
-                    d.uom = row.uom;
-                });
+    toggle_batch_fields(frm) {
+        const is_new = frm.doc.issue_type === 'New Batch';
+        const is_reissue = frm.doc.issue_type === 'Re Issue';
 
-                frm.refresh_field('issue_items');
+        frm.toggle_display('new_batch_no', is_new);
+        frm.toggle_reqd('new_batch_no', is_new);
 
-                frappe.show_alert({
-                    message: 'Taniya input products auto-filled',
-                    indicator: 'green'
-                });
-            }
-        });
+        frm.toggle_display('existing_batch_no', is_reissue);
+        frm.toggle_reqd('existing_batch_no', is_reissue);
+
+        frm.set_df_property('batch_no', 'read_only', 1);
+    },
+
+    set_batch_no(frm) {
+        if (frm.doc.issue_type === 'New Batch') {
+            frm.set_value('batch_no', frm.doc.new_batch_no || '');
+        }
+
+        if (frm.doc.issue_type === 'Re Issue') {
+            frm.set_value('batch_no', frm.doc.existing_batch_no || '');
+        }
     }
 });
+
+frappe.ui.form.on('Taniya Issue Item', {
+    weight(frm) {
+        calculate_taniya_issue_totals(frm);
+    },
+
+    issue_items_remove(frm) {
+        calculate_taniya_issue_totals(frm);
+    }
+});
+
+function calculate_taniya_issue_totals(frm) {
+    let total = 0;
+
+    (frm.doc.issue_items || []).forEach(row => {
+        total += flt(row.weight);
+    });
+
+    frm.set_value('total_issue_weight', total);
+}

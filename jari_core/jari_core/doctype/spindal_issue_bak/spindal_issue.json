@@ -9,9 +9,6 @@
  "field_order": [
   "issue_date",
   "company",
-  "issue_type",
-  "new_batch_no",
-  "existing_batch_no",
   "active_batch_no",
   "from_department",
   "to_department",
@@ -40,31 +37,11 @@
    "reqd": 1
   },
   {
-   "fieldname": "issue_type",
-   "fieldtype": "Select",
-   "label": "Issue Type",
-   "options": "New Batch\nRe Issue",
-   "default": "New Batch",
-   "reqd": 1
-  },
-  {
-   "fieldname": "new_batch_no",
-   "fieldtype": "Data",
-   "label": "New Batch No",
-   "depends_on": "eval:doc.issue_type=='New Batch'"
-  },
-  {
-   "fieldname": "existing_batch_no",
-   "fieldtype": "Data",
-   "label": "Existing Batch No",
-   "depends_on": "eval:doc.issue_type=='Re Issue'"
-  },
-  {
    "fieldname": "active_batch_no",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Active Batch No",
-   "read_only": 1
+   "reqd": 1
   },
   {
    "fieldname": "from_department",
@@ -94,11 +71,11 @@
    "options": "Quality Master"
   },
   {
-   "fieldname": "operator",
-   "fieldtype": "Link",
    "label": "Operator Name",
-   "options": "Worker Master",
-   "in_list_view": 1
+    "fieldname": "operator",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "options": "Worker Master"
   },
   {
    "default": "1",

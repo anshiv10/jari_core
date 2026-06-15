@@ -9,9 +9,6 @@
  "field_order": [
   "issue_date",
   "company",
-  "issue_type",
-  "new_batch_no",
-  "existing_batch_no",
   "active_batch_no",
   "from_department",
   "to_department",
@@ -19,9 +16,12 @@
   "quality_code",
   "operator",
   "is_active_batch",
-  "issue_items",
-  "total_issue_weight",
+  "peti_items",
+  "total_peti",
+  "total_net_weight",
+  "total_silver_weight",
   "status",
+  "amended_from",
   "amended_from"
  ],
  "fields": [
@@ -40,31 +40,11 @@
    "reqd": 1
   },
   {
-   "fieldname": "issue_type",
-   "fieldtype": "Select",
-   "label": "Issue Type",
-   "options": "New Batch\nRe Issue",
-   "default": "New Batch",
-   "reqd": 1
-  },
-  {
-   "fieldname": "new_batch_no",
-   "fieldtype": "Data",
-   "label": "New Batch No",
-   "depends_on": "eval:doc.issue_type=='New Batch'"
-  },
-  {
-   "fieldname": "existing_batch_no",
-   "fieldtype": "Data",
-   "label": "Existing Batch No",
-   "depends_on": "eval:doc.issue_type=='Re Issue'"
-  },
-  {
    "fieldname": "active_batch_no",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Active Batch No",
-   "read_only": 1
+   "reqd": 1
   },
   {
    "fieldname": "from_department",
@@ -88,17 +68,16 @@
    "reqd": 1
   },
   {
+   "fieldname": "operator",
+   "fieldtype": "Data",
+   "label": "Operator",
+   "in_list_view": 1
+  },
+  {
    "fieldname": "quality_code",
    "fieldtype": "Link",
    "label": "Quality Code",
    "options": "Quality Master"
-  },
-  {
-   "fieldname": "operator",
-   "fieldtype": "Link",
-   "label": "Operator Name",
-   "options": "Worker Master",
-   "in_list_view": 1
   },
   {
    "default": "1",
@@ -107,15 +86,27 @@
    "label": "Is Active Batch"
   },
   {
-   "fieldname": "issue_items",
+   "fieldname": "peti_items",
    "fieldtype": "Table",
-   "label": "Issue Product Detail",
-   "options": "Spindal Issue Item"
+   "label": "Peti Items",
+   "options": "Spindal Issue Peti Item"
   },
   {
-   "fieldname": "total_issue_weight",
+   "fieldname": "total_peti",
+   "fieldtype": "Int",
+   "label": "Total Peti",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_net_weight",
    "fieldtype": "Float",
-   "label": "Total Issue Weight",
+   "label": "Total Net Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_silver_weight",
+   "fieldtype": "Float",
+   "label": "Total Silver Weight",
    "read_only": 1
   },
   {
@@ -124,7 +115,16 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Status",
-   "options": "Draft\nIssued\nRe Issue\nPartially Received\nClosed"
+   "options": "Draft\nIssued\nPartially Received\nClosed"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Spindal Issue",
+   "print_hide": 1,
+   "read_only": 1
   },
   {
    "fieldname": "amended_from",
@@ -163,7 +163,6 @@
    "write": 1
   }
  ],
- "quick_entry": 0,
  "row_format": "Dynamic",
  "rows_threshold_for_grid_search": 20,
  "sort_field": "issue_date",

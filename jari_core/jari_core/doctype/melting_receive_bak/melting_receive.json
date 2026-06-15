@@ -34,7 +34,6 @@
   "waste_percent",
   "wastage_standard_percent",
   "loss_status",
-  "wastage_status",
   "remarks_section",
   "remarks",
   "amended_from"
@@ -201,14 +200,6 @@
    "read_only": 1
   },
   {
-   "bold": 1,
-   "fieldname": "wastage_status",
-   "fieldtype": "Select",
-   "label": "Wastage Status",
-   "options": "OK\nExcess Wastage",
-   "read_only": 1
-  },
-  {
    "fieldname": "remarks_section",
    "fieldtype": "Section Break",
    "label": "Remarks"
@@ -260,6 +251,5 @@
  "sort_field": "receive_date",
  "sort_order": "DESC",
  "states": [],
- "track_changes": 1,
- "quick_entry": 0
+ "track_changes": 1
 }

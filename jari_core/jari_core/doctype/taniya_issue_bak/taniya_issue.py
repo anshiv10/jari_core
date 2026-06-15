@@ -7,47 +7,18 @@ class TaniyaIssue(Document):
 
     def validate(self):
         self.set_defaults()
-        self.set_batch_no()
         self.validate_items()
         self.calculate_totals()
 
     def on_submit(self):
         self.post_inventory_transfer()
-        self.set_issue_status()
+        frappe.db.set_value(self.doctype, self.name, "status", "Issued")
 
     def set_defaults(self):
         if not self.from_department:
             self.from_department = "Pavtha"
-
         if not self.to_department:
             self.to_department = "Taniya"
-
-        if not self.issue_type:
-            self.issue_type = "New Batch"
-
-    def set_batch_no(self):
-        if self.issue_type == "New Batch":
-            if not self.new_batch_no:
-                frappe.throw("New Batch No is required.")
-            self.batch_no = self.new_batch_no
-
-        elif self.issue_type == "Re Issue":
-            if not self.existing_batch_no:
-                frappe.throw("Existing Batch No is required for Re Issue.")
-            self.batch_no = self.existing_batch_no
-
-    def set_issue_status(self):
-        previous_issued = frappe.db.count(
-            "Taniya Issue",
-            {
-                "batch_no": self.batch_no,
-                "docstatus": 1,
-                "name": ["!=", self.name]
-            }
-        )
-
-        status = "Re Issue" if previous_issued or self.issue_type == "Re Issue" else "Issued"
-        frappe.db.set_value(self.doctype, self.name, "status", status)
 
     def validate_items(self):
         if not self.issue_items:
@@ -56,13 +27,11 @@ class TaniyaIssue(Document):
         for row in self.issue_items:
             if not row.product:
                 frappe.throw("Product is required in issue item.")
-
             if flt(row.weight) <= 0:
                 frappe.throw(f"Weight must be greater than zero for product {row.product}.")
 
     def calculate_totals(self):
         total = 0
-
         quality_purity = frappe.db.get_value(
             "Quality Master",
             self.quality_code,
@@ -74,11 +43,8 @@ class TaniyaIssue(Document):
 
             if row.product:
                 metal_type = frappe.db.get_value("Product Master", row.product, "metal_type")
-
                 if metal_type == "Silver":
                     row.silver_weight = flt(row.weight) * flt(quality_purity) / 100
-                else:
-                    row.silver_weight = 0
 
         self.total_issue_weight = total
 
@@ -95,13 +61,10 @@ class TaniyaIssue(Document):
         ) or 0
 
     def ledger_exists(self):
-        return frappe.db.exists(
-            "Inventory Ledger",
-            {
-                "reference_doctype": self.doctype,
-                "reference_name": self.name
-            }
-        )
+        return frappe.db.exists("Inventory Ledger", {
+            "reference_doctype": self.doctype,
+            "reference_name": self.name
+        })
 
     def post_inventory_transfer(self):
         if self.ledger_exists():
@@ -112,8 +75,7 @@ class TaniyaIssue(Document):
 
             if flt(row.weight) > flt(source_balance):
                 frappe.throw(
-                    f"Insufficient stock for {row.product}. "
-                    f"Available: {source_balance} KG, Requested: {row.weight} KG"
+                    f"Insufficient stock for {row.product}. Available: {source_balance} KG, Requested: {row.weight} KG"
                 )
 
             frappe.get_doc({

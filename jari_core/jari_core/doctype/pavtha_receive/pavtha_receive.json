@@ -36,6 +36,7 @@
   "waste_percent",
   "wastage_standard_percent",
   "loss_status",
+  "wastage_status",
   "payout_section",
   "base_payout",
   "bonus_amount",
@@ -222,6 +223,14 @@
    "read_only": 1
   },
   {
+   "bold": 1,
+   "fieldname": "wastage_status",
+   "fieldtype": "Select",
+   "label": "Wastage Status",
+   "options": "OK\nExcess Wastage",
+   "read_only": 1
+  },
+  {
    "fieldname": "payout_section",
    "fieldtype": "Section Break",
    "label": "Payout Settlement"
@@ -311,5 +320,6 @@
  "sort_field": "receive_date",
  "sort_order": "DESC",
  "states": [],
- "track_changes": 1
+ "track_changes": 1,
+ "quick_entry": 0
 }

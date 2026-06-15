@@ -7,7 +7,7 @@ class SpindalIssue(Document):
 
     def validate(self):
         self.set_defaults()
-        self.set_active_batch_no()
+        self.validate_active_batch()
         self.validate_issue_items()
         self.calculate_totals()
 
@@ -22,23 +22,10 @@ class SpindalIssue(Document):
         if not self.to_department:
             self.to_department = "Spindal"
 
-        if not self.issue_type:
-            self.issue_type = "New Batch"
-
         if self.is_active_batch is None:
             self.is_active_batch = 1
 
-    def set_active_batch_no(self):
-        if self.issue_type == "New Batch":
-            if not self.new_batch_no:
-                frappe.throw("New Batch No is required.")
-            self.active_batch_no = self.new_batch_no
-
-        elif self.issue_type == "Re Issue":
-            if not self.existing_batch_no:
-                frappe.throw("Existing Batch No is required for Re Issue.")
-            self.active_batch_no = self.existing_batch_no
-
+    def validate_active_batch(self):
         if not self.active_batch_no:
             frappe.throw("Active Batch No is required.")
 
@@ -52,7 +39,8 @@ class SpindalIssue(Document):
             }
         )
 
-        status = "Re Issue" if previous_issued or self.issue_type == "Re Issue" else "Issued"
+        status = "Re Issue" if previous_issued else "Issued"
+
         frappe.db.set_value(self.doctype, self.name, "status", status)
 
     def get_issue_items(self):
@@ -75,7 +63,10 @@ class SpindalIssue(Document):
                 frappe.throw(f"Weight must be greater than zero for product {row.product}.")
 
     def calculate_totals(self):
-        self.total_issue_weight = sum(self.get_row_weight(row) for row in self.get_issue_items())
+        self.total_issue_weight = sum(
+            self.get_row_weight(row)
+            for row in self.get_issue_items()
+        )
 
     def get_last_balance(self, company, department, product):
         return frappe.db.get_value(
@@ -109,7 +100,11 @@ class SpindalIssue(Document):
             if not product or not weight:
                 continue
 
-            source_balance = self.get_last_balance(self.company, self.from_department, product)
+            source_balance = self.get_last_balance(
+                self.company,
+                self.from_department,
+                product
+            )
 
             if weight > flt(source_balance):
                 frappe.throw(
@@ -133,7 +128,11 @@ class SpindalIssue(Document):
                 "remarks": "Spindal material issued"
             }).insert(ignore_permissions=True)
 
-            target_balance = self.get_last_balance(self.company, self.to_department, product)
+            target_balance = self.get_last_balance(
+                self.company,
+                self.to_department,
+                product
+            )
 
             frappe.get_doc({
                 "doctype": "Inventory Ledger",

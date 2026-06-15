@@ -1,27 +1,25 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "SI-.YYYY.-.MM.-.####",
- "creation": "2026-06-14 18:04:19.680792",
+ "autoname": "TI-.YYYY.-.MM.-.####",
+ "creation": "2026-06-14 17:54:53.581930",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
   "issue_date",
   "company",
-  "issue_type",
-  "new_batch_no",
-  "existing_batch_no",
-  "active_batch_no",
+  "operator",
+  "issued_by",
   "from_department",
   "to_department",
+  "batch_no",
   "process_master",
   "quality_code",
-  "operator",
-  "is_active_batch",
   "issue_items",
   "total_issue_weight",
   "status",
+  "amended_from",
   "amended_from"
  ],
  "fields": [
@@ -40,31 +38,16 @@
    "reqd": 1
   },
   {
-   "fieldname": "issue_type",
-   "fieldtype": "Select",
-   "label": "Issue Type",
-   "options": "New Batch\nRe Issue",
-   "default": "New Batch",
-   "reqd": 1
+   "fieldname": "operator",
+   "fieldtype": "Link",
+   "label": "Operator",
+   "options": "Worker Master"
   },
   {
-   "fieldname": "new_batch_no",
-   "fieldtype": "Data",
-   "label": "New Batch No",
-   "depends_on": "eval:doc.issue_type=='New Batch'"
-  },
-  {
-   "fieldname": "existing_batch_no",
-   "fieldtype": "Data",
-   "label": "Existing Batch No",
-   "depends_on": "eval:doc.issue_type=='Re Issue'"
-  },
-  {
-   "fieldname": "active_batch_no",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Active Batch No",
-   "read_only": 1
+   "fieldname": "issued_by",
+   "fieldtype": "Link",
+   "label": "Issued By",
+   "options": "User"
   },
   {
    "fieldname": "from_department",
@@ -81,6 +64,13 @@
    "reqd": 1
   },
   {
+   "fieldname": "batch_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Batch No",
+   "reqd": 1
+  },
+  {
    "fieldname": "process_master",
    "fieldtype": "Link",
    "label": "Process",
@@ -94,23 +84,10 @@
    "options": "Quality Master"
   },
   {
-   "fieldname": "operator",
-   "fieldtype": "Link",
-   "label": "Operator Name",
-   "options": "Worker Master",
-   "in_list_view": 1
-  },
-  {
-   "default": "1",
-   "fieldname": "is_active_batch",
-   "fieldtype": "Check",
-   "label": "Is Active Batch"
-  },
-  {
    "fieldname": "issue_items",
    "fieldtype": "Table",
    "label": "Issue Product Detail",
-   "options": "Spindal Issue Item"
+   "options": "Taniya Issue Item"
   },
   {
    "fieldname": "total_issue_weight",
@@ -122,16 +99,24 @@
    "default": "Draft",
    "fieldname": "status",
    "fieldtype": "Select",
-   "in_list_view": 1,
    "label": "Status",
-   "options": "Draft\nIssued\nRe Issue\nPartially Received\nClosed"
+   "options": "Draft\nIssued\nPartially Received\nClosed"
   },
   {
    "fieldname": "amended_from",
    "fieldtype": "Link",
    "label": "Amended From",
    "no_copy": 1,
-   "options": "Spindal Issue",
+   "options": "Taniya Issue",
+   "print_hide": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Taniya Issue",
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
@@ -141,10 +126,10 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-06-14 18:04:19.680792",
+ "modified": "2026-06-14 17:54:53.581930",
  "modified_by": "Administrator",
  "module": "JARI Core",
- "name": "Spindal Issue",
+ "name": "Taniya Issue",
  "owner": "Administrator",
  "permissions": [
   {
@@ -163,7 +148,6 @@
    "write": 1
   }
  ],
- "quick_entry": 0,
  "row_format": "Dynamic",
  "rows_threshold_for_grid_search": 20,
  "sort_field": "issue_date",
