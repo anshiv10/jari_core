@@ -11,6 +11,12 @@ class SpindalPetiEntry(Document):
         self.validate_weights()
 
     def on_submit(self):
+        if flt(self.gross_weight) <= 0:
+            frappe.throw("Gross Weight is required before submitting Peti Receive.")
+
+        if flt(self.net_weight) <= 0:
+            frappe.throw("Net Weight must be greater than zero before submitting.")
+
         self.status = "Received"
 
     def pull_spindal_issue_details(self):
@@ -27,14 +33,14 @@ class SpindalPetiEntry(Document):
             self.operator = issue.operator
 
     def calculate_net_weight(self):
-        self.net_weight = flt(self.gross_weight) - flt(self.baad_weight)
+        if flt(self.gross_weight) > 0:
+            self.net_weight = flt(self.gross_weight) - flt(self.baad_weight)
+        else:
+            self.net_weight = 0
 
     def validate_weights(self):
-        if flt(self.gross_weight) <= 0:
-            frappe.throw("Gross Weight must be greater than zero.")
-
         if flt(self.baad_weight) < 0:
             frappe.throw("Baad Weight cannot be negative.")
 
-        if flt(self.net_weight) <= 0:
+        if flt(self.gross_weight) > 0 and flt(self.net_weight) <= 0:
             frappe.throw("Net Weight must be greater than zero.")

@@ -10,6 +10,7 @@
   "col_break_1",
   "purchase_date",
   "section_material",
+  "department",
   "product",
   "company",
   "section_weight",
@@ -66,6 +67,16 @@
    "label": "Company",
    "options": "Company Master",
    "reqd": 1
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Department / Stock Location",
+   "options": "Department Master",
+   "default": "ROOT",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
   },
   {
    "fieldname": "section_weight",

@@ -72,9 +72,9 @@
   },
   {
    "fieldname": "operator",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Operator"
+   "options": "Worker Master"
   },
   {
    "default": "1",
@@ -100,7 +100,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Status",
-   "options": "Draft\nIssued\nPartially Received\nClosed"
+   "options": "Draft\nIssued\nRe Issue\nPartially Received\nClosed"
   },
   {
    "fieldname": "amended_from",
