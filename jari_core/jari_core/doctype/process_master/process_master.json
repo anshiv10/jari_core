@@ -72,14 +72,6 @@
    "options": "Process Waste Product Item"
   },
   {
-   "fieldname": "waste_products",
-   "fieldtype": "Table",
-   "hidden": 1,
-   "label": "Waste Products",
-   "options": "Process Waste Item",
-   "report_hide": 1
-  },
-  {
    "fieldname": "notes",
    "fieldtype": "Small Text",
    "label": "Notes"
