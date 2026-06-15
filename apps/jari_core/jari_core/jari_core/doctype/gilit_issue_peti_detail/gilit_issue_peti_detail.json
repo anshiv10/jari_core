@@ -1,0 +1,115 @@
+{
+ "actions": [],
+ "creation": "2026-06-16 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "spindal_peti_entry",
+  "peti_no",
+  "quality_code",
+  "khata_no",
+  "product",
+  "gross_weight",
+  "baad_weight",
+  "net_weight",
+  "total_bobbin",
+  "issued_bobbin",
+  "remaining_bobbin",
+  "operator_name"
+ ],
+ "fields": [
+  {
+   "fieldname": "spindal_peti_entry",
+   "fieldtype": "Link",
+   "label": "Spindal Peti Entry",
+   "options": "Spindal Peti Entry",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "peti_no",
+   "fieldtype": "Data",
+   "label": "Peti No",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "quality_code",
+   "fieldtype": "Link",
+   "label": "Quality",
+   "options": "Quality Master",
+   "read_only": 1
+  },
+  {
+   "fieldname": "khata_no",
+   "fieldtype": "Link",
+   "label": "Khata No",
+   "options": "Khata Machine Master",
+   "read_only": 1
+  },
+  {
+   "fieldname": "product",
+   "fieldtype": "Link",
+   "label": "Product",
+   "options": "Product Master",
+   "read_only": 1
+  },
+  {
+   "fieldname": "gross_weight",
+   "fieldtype": "Float",
+   "label": "G.W",
+   "read_only": 1
+  },
+  {
+   "fieldname": "baad_weight",
+   "fieldtype": "Float",
+   "label": "Baad Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "net_weight",
+   "fieldtype": "Float",
+   "label": "N.W Kasab",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "total_bobbin",
+   "fieldtype": "Int",
+   "label": "Total Bobbin",
+   "read_only": 1
+  },
+  {
+   "fieldname": "issued_bobbin",
+   "fieldtype": "Int",
+   "label": "Issued Bobbin",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "remaining_bobbin",
+   "fieldtype": "Int",
+   "label": "Remaining Bobbin",
+   "read_only": 1
+  },
+  {
+   "fieldname": "operator_name",
+   "fieldtype": "Data",
+   "label": "Operator Name",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-16 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "JARI Core",
+ "name": "Gilit Issue Peti Detail",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

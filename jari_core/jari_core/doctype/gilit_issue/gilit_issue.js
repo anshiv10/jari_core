@@ -4,79 +4,67 @@ frappe.ui.form.on('Gilit Issue', {
             frm.set_value('issue_date', frappe.datetime.get_today());
         }
 
-        frm.set_query('spindal_issue', function() {
-            return {
-                filters: {
-                    docstatus: 1,
-                    status: ['!=', 'Closed'],
-                    is_active_batch: 1
-                }
-            };
-        });
+        if (!frm.doc.from_department) {
+            frm.set_value('from_department', 'Spindal');
+        }
 
-        frm.set_query('process_master', function() {
-            return { filters: { department: 'Gilit' } };
-        });
-    },
-
-    spindal_issue(frm) {
-        if (!frm.doc.spindal_issue) return;
-
-        frappe.call({
-            method: 'frappe.client.get',
-            args: {
-                doctype: 'Spindal Issue',
-                name: frm.doc.spindal_issue
-            },
-            callback(r) {
-                const sp = r.message;
-                if (!sp) return;
-
-                frm.set_value('company', sp.company);
-                frm.set_value('active_batch_no', sp.active_batch_no);
-                frm.set_value('quality_code', sp.quality_code);
-                frm.set_value('operator', sp.operator);
-
-                if (!frm.doc.from_department) frm.set_value('from_department', 'Spindal');
-                if (!frm.doc.to_department) frm.set_value('to_department', 'Gilit');
-
-                frm.clear_table('peti_items');
-
-                (sp.peti_items || []).forEach(row => {
-                    let d = frm.add_child('peti_items');
-                    d.peti_no = row.peti_no;
-                    d.product = row.product;
-                    d.uom = row.uom;
-                    d.gross_weight = row.gross_weight;
-                    d.net_weight = row.net_weight;
-                });
-
-                frm.refresh_field('peti_items');
-                calculate_gilit_issue_totals(frm);
-            }
-        });
+        if (!frm.doc.to_department) {
+            frm.set_value('to_department', 'Gilit');
+        }
     }
 });
 
-frappe.ui.form.on('Gilit Issue Peti Item', {
-    net_weight(frm) {
-        calculate_gilit_issue_totals(frm);
+frappe.ui.form.on('Gilit Issue Peti Detail', {
+    spindal_peti_entry(frm, cdt, cdn) {
+        let row = locals[cdt][cdn];
+
+        if (!row.spindal_peti_entry) {
+            return;
+        }
+
+        frappe.db.get_doc('Spindal Peti Entry', row.spindal_peti_entry).then(peti => {
+            frappe.model.set_value(cdt, cdn, 'peti_no', peti.name);
+            frappe.model.set_value(cdt, cdn, 'quality_code', peti.quality_code);
+            frappe.model.set_value(cdt, cdn, 'khata_no', peti.khata_no);
+            frappe.model.set_value(cdt, cdn, 'gross_weight', peti.gross_weight);
+            frappe.model.set_value(cdt, cdn, 'baad_weight', peti.baad_weight);
+            frappe.model.set_value(cdt, cdn, 'net_weight', peti.net_weight);
+            frappe.model.set_value(cdt, cdn, 'total_bobbin', peti.bobbin_count);
+            frappe.model.set_value(cdt, cdn, 'remaining_bobbin', peti.remaining_bobbin);
+            frappe.model.set_value(cdt, cdn, 'operator_name', peti.operator);
+
+            calculate_gilit_totals(frm);
+        });
     },
 
-    peti_items_remove(frm) {
-        calculate_gilit_issue_totals(frm);
+    issued_bobbin(frm, cdt, cdn) {
+        let row = locals[cdt][cdn];
+
+        if (row.issued_bobbin && row.remaining_bobbin && row.issued_bobbin > row.remaining_bobbin) {
+            frappe.msgprint('Issued Bobbin cannot be greater than Remaining Bobbin.');
+            frappe.model.set_value(cdt, cdn, 'issued_bobbin', 0);
+        }
+
+        calculate_gilit_totals(frm);
+    },
+
+    peti_details_remove(frm) {
+        calculate_gilit_totals(frm);
     }
 });
 
-function calculate_gilit_issue_totals(frm) {
+function calculate_gilit_totals(frm) {
     let total_peti = 0;
-    let total_net_weight = 0;
+    let total_weight = 0;
 
-    (frm.doc.peti_items || []).forEach(row => {
+    (frm.doc.peti_details || []).forEach(row => {
         total_peti += 1;
-        total_net_weight += flt(row.net_weight);
+
+        if (row.total_bobbin && row.issued_bobbin) {
+            total_weight += (flt(row.net_weight) / cint(row.total_bobbin)) * cint(row.issued_bobbin);
+        }
     });
 
     frm.set_value('total_peti', total_peti);
-    frm.set_value('total_net_weight', total_net_weight);
+    frm.set_value('total_net_weight', total_weight);
 }

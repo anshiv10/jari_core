@@ -50,6 +50,18 @@
    "in_list_view": 1
   },
   {
+   "fieldname": "bobbin_count",
+   "fieldtype": "Int",
+   "label": "Bobbin Count",
+   "reqd": 1
+  },
+  {
+   "fieldname": "remaining_bobbin",
+   "fieldtype": "Int",
+   "label": "Remaining Bobbin",
+   "read_only": 1
+  },
+  {
    "fieldname": "quality_code",
    "fieldtype": "Link",
    "label": "Quality Code",
@@ -96,7 +108,7 @@
    "fieldname": "status",
    "fieldtype": "Select",
    "label": "Status",
-   "options": "Draft\nReceived",
+   "options": "Draft\nReceived\nPartially Consumed\nFully Consumed",
    "default": "Draft",
    "in_list_view": 1
   },

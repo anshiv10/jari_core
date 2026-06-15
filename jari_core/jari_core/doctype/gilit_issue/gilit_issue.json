@@ -9,14 +9,13 @@
  "field_order": [
   "issue_date",
   "company",
-  "spindal_issue",
-  "active_batch_no",
+  "gilit_batch_no",
   "from_department",
   "to_department",
   "process_master",
   "quality_code",
   "operator",
-  "peti_items",
+  "peti_details",
   "total_peti",
   "total_net_weight",
   "status",
@@ -38,19 +37,11 @@
    "reqd": 1
   },
   {
-   "fieldname": "spindal_issue",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Spindal Issue",
-   "options": "Spindal Issue",
-   "reqd": 1
-  },
-  {
-   "fieldname": "active_batch_no",
+   "fieldname": "gilit_batch_no",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Active Batch No",
-   "read_only": 1
+   "label": "Gilit Batch No",
+   "reqd": 1
   },
   {
    "fieldname": "from_department",
@@ -81,15 +72,16 @@
   },
   {
    "fieldname": "operator",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Operator",
-   "in_list_view": 1
+   "options": "Worker Master"
   },
   {
-   "fieldname": "peti_items",
+   "fieldname": "peti_details",
    "fieldtype": "Table",
    "label": "Spindal Peti Detail",
-   "options": "Gilit Issue Peti Item"
+   "options": "Gilit Issue Peti Detail"
   },
   {
    "fieldname": "total_peti",
@@ -109,7 +101,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Status",
-   "options": "Draft\nIssued\nReceived\nClosed"
+   "options": "Draft\nIssued\nPartially Received\nClosed"
   },
   {
    "fieldname": "amended_from",
@@ -118,23 +110,15 @@
    "no_copy": 1,
    "options": "Gilit Issue",
    "print_hide": 1,
-   "read_only": 1
-  },
-  {
-   "fieldname": "amended_from",
-   "fieldtype": "Link",
-   "label": "Amended From",
-   "no_copy": 1,
-   "options": "Gilit Issue",
-   "print_hide": 1,
-   "read_only": 1
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-06-14 18:14:53.746660",
+ "modified": "2026-06-16 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "JARI Core",
  "name": "Gilit Issue",
@@ -156,6 +140,7 @@
    "write": 1
   }
  ],
+ "quick_entry": 0,
  "row_format": "Dynamic",
  "rows_threshold_for_grid_search": 20,
  "sort_field": "issue_date",
