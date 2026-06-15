@@ -39,9 +39,9 @@
   },
   {
    "fieldname": "operator",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "label": "Operator",
-   "in_list_view": 1
+   "options": "Worker Master"
   },
   {
    "fieldname": "issued_by",
