@@ -7,7 +7,7 @@ class GilitIssue(Document):
 
     def validate(self):
         self.set_defaults()
-        self.validate_peti_details()
+        self.validate_peti_items()
         self.calculate_totals()
 
     def on_submit(self):
@@ -17,23 +17,23 @@ class GilitIssue(Document):
 
     def set_defaults(self):
         if not self.from_department:
-            self.from_department = "Spindal"
+            self.from_department = "SPINDAL"
 
         if not self.to_department:
             self.to_department = "Gilit"
 
-    def validate_peti_details(self):
-        if not self.peti_details:
-            frappe.throw("At least one Spindal Peti Detail row is required.")
+    def validate_peti_items(self):
+        if not self.peti_items:
+            frappe.throw("At least one Spindal Peti row is required.")
 
         seen = set()
 
-        for row in self.peti_details:
+        for row in self.peti_items:
             if not row.spindal_peti_entry:
                 frappe.throw("Spindal Peti Entry is required.")
 
             if row.spindal_peti_entry in seen:
-                frappe.throw(f"Duplicate Peti Entry selected: {row.spindal_peti_entry}")
+                frappe.throw(f"Duplicate Spindal Peti Entry selected: {row.spindal_peti_entry}")
 
             seen.add(row.spindal_peti_entry)
 
@@ -61,24 +61,26 @@ class GilitIssue(Document):
         row.quality_code = peti.quality_code
         row.khata_no = peti.khata_no
         row.product = self.get_kasab_product()
+        row.uom = "KG"
         row.gross_weight = flt(peti.gross_weight)
         row.baad_weight = flt(peti.baad_weight)
         row.net_weight = flt(peti.net_weight)
         row.total_bobbin = cint(peti.bobbin_count)
-        row.remaining_bobbin = cint(peti.remaining_bobbin) - cint(row.issued_bobbin)
+        row.available_bobbin = cint(peti.remaining_bobbin)
+        row.balance_bobbin_after_issue = cint(peti.remaining_bobbin) - cint(row.issued_bobbin)
         row.operator_name = peti.operator
 
     def calculate_totals(self):
-        self.total_peti = len(self.peti_details or [])
+        self.total_peti = len(self.peti_items or [])
         self.total_net_weight = 0
 
-        for row in self.peti_details:
+        for row in self.peti_items:
             if cint(row.total_bobbin):
                 per_bobbin_weight = flt(row.net_weight) / cint(row.total_bobbin)
                 self.total_net_weight += per_bobbin_weight * cint(row.issued_bobbin)
 
     def update_peti_balances(self):
-        for row in self.peti_details:
+        for row in self.peti_items:
             peti = frappe.get_doc("Spindal Peti Entry", row.spindal_peti_entry)
 
             new_balance = cint(peti.remaining_bobbin) - cint(row.issued_bobbin)
@@ -97,11 +99,7 @@ class GilitIssue(Document):
         if frappe.db.exists("Product Master", "KASAB"):
             return "KASAB"
 
-        product = frappe.db.get_value(
-            "Product Master",
-            {"product_name": "KASAB"},
-            "name"
-        )
+        product = frappe.db.get_value("Product Master", {"product_name": "KASAB"}, "name")
 
         if product:
             return product

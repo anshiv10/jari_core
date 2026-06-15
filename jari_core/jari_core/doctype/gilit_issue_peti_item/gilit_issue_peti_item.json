@@ -6,61 +6,42 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "spindal_peti_entry",
   "peti_no",
+  "quality_code",
+  "khata_no",
   "product",
   "uom",
   "gross_weight",
+  "baad_weight",
   "net_weight",
+  "total_bobbin",
+  "available_bobbin",
+  "issued_bobbin",
+  "balance_bobbin_after_issue",
   "operator_name"
  ],
  "fields": [
-  {
-   "fieldname": "peti_no",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Peti No",
-   "reqd": 1
-  },
-  {
-   "fieldname": "product",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Product",
-   "options": "Product Master",
-   "reqd": 1
-  },
-  {
-   "fieldname": "uom",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "UOM",
-   "options": "UOM_Jari"
-  },
-  {
-   "fieldname": "gross_weight",
-   "fieldtype": "Float",
-   "label": "Gross Weight"
-  },
-  {
-   "fieldname": "net_weight",
-   "fieldtype": "Float",
-   "in_list_view": 1,
-   "label": "Net Weight",
-   "reqd": 1
-  },
-  {
-   "allow_in_quick_entry": 1,
-   "fieldname": "operator_name",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Operator Name"
-  }
+  {"fieldname":"spindal_peti_entry","fieldtype":"Link","label":"Spindal Peti Entry","options":"Spindal Peti Entry","reqd":1,"in_list_view":1},
+  {"fieldname":"peti_no","fieldtype":"Data","in_list_view":1,"label":"Peti No","read_only":1},
+  {"fieldname":"quality_code","fieldtype":"Link","label":"Quality Code","options":"Quality Master","read_only":1},
+  {"fieldname":"khata_no","fieldtype":"Link","label":"Khata / Machine No","options":"Khata Machine Master","read_only":1},
+  {"fieldname":"product","fieldtype":"Link","in_list_view":1,"label":"Product","options":"Product Master","read_only":1},
+  {"fieldname":"uom","fieldtype":"Link","in_list_view":1,"label":"UOM","options":"UOM_Jari","default":"KG"},
+  {"fieldname":"gross_weight","fieldtype":"Float","label":"G.W","read_only":1},
+  {"fieldname":"baad_weight","fieldtype":"Float","label":"Baad Weight","read_only":1},
+  {"fieldname":"net_weight","fieldtype":"Float","in_list_view":1,"label":"N.W Kasab","read_only":1},
+  {"fieldname":"total_bobbin","fieldtype":"Int","label":"Total Bobbin","read_only":1},
+  {"fieldname":"available_bobbin","fieldtype":"Int","label":"Available Bobbin","read_only":1},
+  {"fieldname":"issued_bobbin","fieldtype":"Int","label":"Issued Bobbin","reqd":1,"in_list_view":1},
+  {"fieldname":"balance_bobbin_after_issue","fieldtype":"Int","label":"Balance Bobbin After Issue","read_only":1},
+  {"fieldname":"operator_name","fieldtype":"Link","in_list_view":1,"label":"Operator Name","options":"Worker Master","read_only":1}
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-06-14 18:41:46.411937",
+ "modified": "2026-06-16 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "JARI Core",
  "name": "Gilit Issue Peti Item",
