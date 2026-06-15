@@ -16,6 +16,8 @@
   "quality_code",
   "operator",
   "is_active_batch",
+  "peti_items",
+  "total_peti",
   "total_net_weight",
   "total_silver_weight",
   "status",
@@ -82,6 +84,18 @@
    "fieldname": "is_active_batch",
    "fieldtype": "Check",
    "label": "Is Active Batch"
+  },
+  {
+   "fieldname": "peti_items",
+   "fieldtype": "Table",
+   "label": "Peti Items",
+   "options": "Spindal Issue Peti Item"
+  },
+  {
+   "fieldname": "total_peti",
+   "fieldtype": "Int",
+   "label": "Total Peti",
+   "read_only": 1
   },
   {
    "fieldname": "total_net_weight",

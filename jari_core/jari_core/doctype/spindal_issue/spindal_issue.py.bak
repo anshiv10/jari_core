@@ -8,7 +8,7 @@ class SpindalIssue(Document):
     def validate(self):
         self.set_defaults()
         self.validate_active_batch()
-        self.validate_issue_items()
+        self.validate_peti_items()
         self.calculate_totals()
 
     def on_submit(self):
@@ -18,10 +18,8 @@ class SpindalIssue(Document):
     def set_defaults(self):
         if not self.from_department:
             self.from_department = "Taniya"
-
         if not self.to_department:
             self.to_department = "Spindal"
-
         if self.is_active_batch is None:
             self.is_active_batch = 1
 
@@ -47,47 +45,44 @@ class SpindalIssue(Document):
                 "Use that active batch until it is closed."
             )
 
-    def get_issue_items(self):
-        if hasattr(self, "issue_items"):
-            return self.issue_items or []
+    def validate_peti_items(self):
+        if not self.peti_items:
+            frappe.throw("At least one Peti Item is required.")
 
-        if hasattr(self, "input_items"):
-            return self.input_items or []
+        seen = set()
+        for row in self.peti_items:
+            if not row.peti_no:
+                frappe.throw("Peti No is required.")
+            if row.peti_no in seen:
+                frappe.throw(f"Duplicate Peti No found: {row.peti_no}")
+            seen.add(row.peti_no)
 
-        if hasattr(self, "product_items"):
-            return self.product_items or []
-
-        frappe.throw(
-            "Spindal Issue item table not found. Expected one of: "
-            "issue_items, input_items, product_items."
-        )
-
-    def validate_issue_items(self):
-        items = self.get_issue_items()
-
-        if not items:
-            frappe.throw("At least one issue item is required.")
-
-        for row in items:
             if not row.product:
-                frappe.throw("Product is required in issue items.")
-
-            weight = flt(getattr(row, "weight", 0) or getattr(row, "net_weight", 0) or getattr(row, "qty", 0))
-
-            if weight <= 0:
-                frappe.throw(f"Weight must be greater than zero for product {row.product}.")
+                frappe.throw(f"Product is required for Peti {row.peti_no}.")
+            if flt(row.net_weight) <= 0:
+                frappe.throw(f"Net Weight must be greater than zero for Peti {row.peti_no}.")
 
     def calculate_totals(self):
-        total = 0
+        quality_purity = frappe.db.get_value(
+            "Quality Master",
+            self.quality_code,
+            "silver_purity_percent"
+        ) if self.quality_code else 0
 
-        for row in self.get_issue_items():
-            total += flt(getattr(row, "weight", 0) or getattr(row, "net_weight", 0) or getattr(row, "qty", 0))
+        self.total_peti = len(self.peti_items or [])
+        self.total_net_weight = 0
+        self.total_silver_weight = 0
 
-        if hasattr(self, "total_issue_weight"):
-            self.total_issue_weight = total
+        for row in self.peti_items:
+            self.total_net_weight += flt(row.net_weight)
 
-        if hasattr(self, "total_net_weight"):
-            self.total_net_weight = total
+            metal_type = frappe.db.get_value("Product Master", row.product, "metal_type") if row.product else None
+            if metal_type == "Silver":
+                row.silver_weight = flt(row.net_weight) * flt(quality_purity) / 100
+            else:
+                row.silver_weight = 0
+
+            self.total_silver_weight += flt(row.silver_weight)
 
     def get_last_balance(self, company, department, product):
         return frappe.db.get_value(
@@ -102,63 +97,54 @@ class SpindalIssue(Document):
         ) or 0
 
     def ledger_exists(self):
-        return frappe.db.exists(
-            "Inventory Ledger",
-            {
-                "reference_doctype": self.doctype,
-                "reference_name": self.name
-            }
-        )
+        return frappe.db.exists("Inventory Ledger", {
+            "reference_doctype": self.doctype,
+            "reference_name": self.name
+        })
 
     def post_inventory_transfer(self):
         if self.ledger_exists():
             return
 
-        for row in self.get_issue_items():
-            product = row.product
-            weight = flt(getattr(row, "weight", 0) or getattr(row, "net_weight", 0) or getattr(row, "qty", 0))
+        for row in self.peti_items:
+            source_balance = self.get_last_balance(self.company, self.from_department, row.product)
 
-            if not product or not weight:
-                continue
-
-            source_balance = self.get_last_balance(self.company, self.from_department, product)
-
-            if weight > flt(source_balance):
+            if flt(row.net_weight) > flt(source_balance):
                 frappe.throw(
-                    f"Insufficient stock for {product}. "
-                    f"Available: {source_balance} KG, Requested: {weight} KG"
+                    f"Insufficient stock for {row.product}. "
+                    f"Available: {source_balance} KG, Requested: {row.net_weight} KG"
                 )
 
             frappe.get_doc({
                 "doctype": "Inventory Ledger",
                 "company": self.company,
                 "department": self.from_department,
-                "product": product,
+                "product": row.product,
                 "batch_number": self.active_batch_no,
                 "in_weight": 0,
-                "out_weight": weight,
-                "current_balance": flt(source_balance) - weight,
+                "out_weight": flt(row.net_weight),
+                "current_balance": flt(source_balance) - flt(row.net_weight),
                 "transaction_type": "Production Input",
                 "reference_doctype": self.doctype,
                 "reference_name": self.name,
                 "date": self.issue_date or today(),
-                "remarks": "Spindal material issued"
+                "remarks": f"Spindal Peti {row.peti_no} issued"
             }).insert(ignore_permissions=True)
 
-            target_balance = self.get_last_balance(self.company, self.to_department, product)
+            target_balance = self.get_last_balance(self.company, self.to_department, row.product)
 
             frappe.get_doc({
                 "doctype": "Inventory Ledger",
                 "company": self.company,
                 "department": self.to_department,
-                "product": product,
+                "product": row.product,
                 "batch_number": self.active_batch_no,
-                "in_weight": weight,
+                "in_weight": flt(row.net_weight),
                 "out_weight": 0,
-                "current_balance": flt(target_balance) + weight,
+                "current_balance": flt(target_balance) + flt(row.net_weight),
                 "transaction_type": "Stock Transfer In",
                 "reference_doctype": self.doctype,
                 "reference_name": self.name,
                 "date": self.issue_date or today(),
-                "remarks": "Spindal material received in department"
+                "remarks": f"Spindal Peti {row.peti_no} inward"
             }).insert(ignore_permissions=True)
