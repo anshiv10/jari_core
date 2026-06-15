@@ -58,13 +58,17 @@
   },
   {
    "fieldname": "khata_no",
-   "fieldtype": "Data",
-   "label": "Khata No"
+   "fieldtype": "Link",
+   "label": "Khata / Machine No",
+   "options": "Khata Machine Master",
+   "in_list_view": 1
   },
   {
    "fieldname": "operator",
-   "fieldtype": "Data",
-   "label": "Operator"
+   "fieldtype": "Link",
+   "label": "Operator",
+   "options": "Worker Master",
+   "in_list_view": 1
   },
   {
    "fieldname": "nang",
