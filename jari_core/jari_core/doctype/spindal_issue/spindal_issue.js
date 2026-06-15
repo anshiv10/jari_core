@@ -5,8 +5,14 @@ frappe.ui.form.on('Spindal Issue', {
         }
 
         frm.set_query('process_master', function() {
-            return { filters: { department: 'Spindal' } };
+            return {
+                filters: {
+                    department: 'Spindal'
+                }
+            };
         });
+
+        calculate_spindal_issue_totals(frm);
     },
 
     process_master(frm) {
@@ -22,43 +28,46 @@ frappe.ui.form.on('Spindal Issue', {
                 const p = r.message;
                 if (!p) return;
 
-                if (!frm.doc.from_department) frm.set_value('from_department', 'Taniya');
-                if (!frm.doc.to_department) frm.set_value('to_department', 'Spindal');
+                if (!frm.doc.from_department) {
+                    frm.set_value('from_department', 'Taniya');
+                }
 
-                frm.clear_table('peti_items');
+                if (!frm.doc.to_department) {
+                    frm.set_value('to_department', 'Spindal');
+                }
+
+                frm.clear_table('issue_items');
 
                 (p.input_products || []).forEach(row => {
-                    let d = frm.add_child('peti_items');
+                    let d = frm.add_child('issue_items');
                     d.product = row.product;
                     d.uom = row.uom;
+                    d.weight = 0;
                 });
 
-                frm.refresh_field('peti_items');
+                frm.refresh_field('issue_items');
                 calculate_spindal_issue_totals(frm);
             }
         });
     }
 });
 
-frappe.ui.form.on('Spindal Issue Peti Item', {
-    net_weight(frm, cdt, cdn) {
+frappe.ui.form.on('Spindal Issue Item', {
+    weight(frm) {
         calculate_spindal_issue_totals(frm);
     },
 
-    peti_items_remove(frm) {
+    issue_items_remove(frm) {
         calculate_spindal_issue_totals(frm);
     }
 });
 
 function calculate_spindal_issue_totals(frm) {
-    let total_peti = 0;
-    let total_net_weight = 0;
+    let total_weight = 0;
 
-    (frm.doc.peti_items || []).forEach(row => {
-        total_peti += 1;
-        total_net_weight += flt(row.net_weight);
+    (frm.doc.issue_items || []).forEach(row => {
+        total_weight += flt(row.weight);
     });
 
-    frm.set_value('total_peti', total_peti);
-    frm.set_value('total_net_weight', total_net_weight);
+    frm.set_value('total_issue_weight', total_weight);
 }

@@ -48,46 +48,26 @@ class SpindalIssue(Document):
             )
 
     def get_issue_items(self):
-        if hasattr(self, "issue_items"):
-            return self.issue_items or []
+        return self.issue_items or []
 
-        if hasattr(self, "input_items"):
-            return self.input_items or []
-
-        if hasattr(self, "product_items"):
-            return self.product_items or []
-
-        frappe.throw(
-            "Spindal Issue item table not found. Expected one of: "
-            "issue_items, input_items, product_items."
-        )
+    def get_row_weight(self, row):
+        return flt(row.weight)
 
     def validate_issue_items(self):
         items = self.get_issue_items()
 
         if not items:
-            frappe.throw("At least one issue item is required.")
+            frappe.throw("At least one Issue Product Detail row is required.")
 
         for row in items:
             if not row.product:
-                frappe.throw("Product is required in issue items.")
+                frappe.throw("Product is required in Issue Product Detail.")
 
-            weight = flt(getattr(row, "weight", 0) or getattr(row, "net_weight", 0) or getattr(row, "qty", 0))
-
-            if weight <= 0:
+            if self.get_row_weight(row) <= 0:
                 frappe.throw(f"Weight must be greater than zero for product {row.product}.")
 
     def calculate_totals(self):
-        total = 0
-
-        for row in self.get_issue_items():
-            total += flt(getattr(row, "weight", 0) or getattr(row, "net_weight", 0) or getattr(row, "qty", 0))
-
-        if hasattr(self, "total_issue_weight"):
-            self.total_issue_weight = total
-
-        if hasattr(self, "total_net_weight"):
-            self.total_net_weight = total
+        self.total_issue_weight = sum(self.get_row_weight(row) for row in self.get_issue_items())
 
     def get_last_balance(self, company, department, product):
         return frappe.db.get_value(
@@ -116,7 +96,7 @@ class SpindalIssue(Document):
 
         for row in self.get_issue_items():
             product = row.product
-            weight = flt(getattr(row, "weight", 0) or getattr(row, "net_weight", 0) or getattr(row, "qty", 0))
+            weight = self.get_row_weight(row)
 
             if not product or not weight:
                 continue
