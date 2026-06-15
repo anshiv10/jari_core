@@ -71,7 +71,8 @@
    "options": "Quality Master"
   },
   {
-   "fieldname": "operator",
+   "label": "Operator Name",
+    "fieldname": "operator",
    "fieldtype": "Link",
    "in_list_view": 1,
    "options": "Worker Master"
