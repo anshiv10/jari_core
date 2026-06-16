@@ -12,18 +12,29 @@ class TaniyaReceive(Document):
 
     def on_submit(self):
         self.post_outputs_and_waste()
-        frappe.db.set_value("Taniya Issue", self.taniya_issue, "status", "Partially Received")
+        self.mark_batch_issues_partially_received()
 
     def pull_issue_details(self):
         if not self.taniya_issue:
             return
+
         issue = frappe.get_doc("Taniya Issue", self.taniya_issue)
+
         self.company = issue.company
         self.batch_no = issue.batch_no
         self.process_master = issue.process_master
         self.quality_code = issue.quality_code
         self.operator = issue.operator
-        self.total_input_weight = issue.total_issue_weight
+
+        # IMPORTANT: total input from ALL submitted Taniya Issues of same batch
+        total = frappe.db.sql("""
+            SELECT SUM(total_issue_weight)
+            FROM `tabTaniya Issue`
+            WHERE docstatus = 1
+              AND batch_no = %s
+        """, self.batch_no)[0][0]
+
+        self.total_input_weight = flt(total)
 
     def validate_items(self):
         if not self.output_items and not self.waste_items:
@@ -66,7 +77,9 @@ class TaniyaReceive(Document):
         for row in self.output_items:
             if not row.product or not flt(row.weight):
                 continue
+
             balance = self.get_last_balance(self.company, "Taniya", row.product)
+
             frappe.get_doc({
                 "doctype": "Inventory Ledger",
                 "company": self.company,
@@ -86,7 +99,9 @@ class TaniyaReceive(Document):
         for row in self.waste_items:
             if not row.waste_product or not flt(row.weight):
                 continue
+
             balance = self.get_last_balance(self.company, "Taniya", row.waste_product)
+
             frappe.get_doc({
                 "doctype": "Inventory Ledger",
                 "company": self.company,
@@ -102,3 +117,16 @@ class TaniyaReceive(Document):
                 "date": self.receive_date or today(),
                 "remarks": "Taniya waste generated"
             }).insert(ignore_permissions=True)
+
+    def mark_batch_issues_partially_received(self):
+        if not self.batch_no:
+            return
+
+        issues = frappe.get_all(
+            "Taniya Issue",
+            filters={"batch_no": self.batch_no, "docstatus": 1},
+            pluck="name"
+        )
+
+        for issue in issues:
+            frappe.db.set_value("Taniya Issue", issue, "status", "Partially Received")

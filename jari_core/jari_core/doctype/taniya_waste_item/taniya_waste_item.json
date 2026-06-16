@@ -6,6 +6,8 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "operator_name",
+  "receive_date",
   "waste_product",
   "uom",
   "weight",
@@ -37,6 +39,19 @@
    "fieldtype": "Float",
    "label": "Approx Silver Weight",
    "read_only": 1
+  },
+  {
+   "fieldname": "receive_date",
+   "fieldtype": "Date",
+   "label": "Receive Date",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "operator_name",
+   "fieldtype": "Link",
+   "label": "Operator Name",
+   "options": "Worker Master",
+   "in_list_view": 1
   }
  ],
  "grid_page_length": 50,
