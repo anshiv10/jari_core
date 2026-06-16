@@ -19,6 +19,7 @@
   "total_input_weight",
   "total_output_weight",
   "total_waste_weight",
+  "current_wastage_percent",
   "loss_weight",
   "loss_percent",
   "loss_standard_percent",
@@ -150,6 +151,12 @@
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "current_wastage_percent",
+   "fieldtype": "Percent",
+   "label": "Current Wastage %",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,

@@ -17,9 +17,7 @@ class TaniyaReceive(Document):
     def pull_issue_details(self):
         if not self.taniya_issue:
             return
-
         issue = frappe.get_doc("Taniya Issue", self.taniya_issue)
-
         self.company = issue.company
         self.batch_no = issue.batch_no
         self.process_master = issue.process_master
@@ -33,35 +31,16 @@ class TaniyaReceive(Document):
 
     def calculate_totals(self):
         output_total = sum(flt(row.weight) for row in self.output_items)
-        waste_total = 0
-
-        quality_purity = frappe.db.get_value(
-            "Quality Master",
-            self.quality_code,
-            "silver_purity_percent"
-        ) if self.quality_code else 0
-
-        for row in self.waste_items:
-            waste_total += flt(row.weight)
-
-            if row.waste_product:
-                metal_type = frappe.db.get_value("Product Master", row.waste_product, "metal_type")
-                if metal_type == "Silver":
-                    row.approx_silver_weight = flt(row.weight) * flt(quality_purity) / 100
+        waste_total = sum(flt(row.weight) for row in self.waste_items)
 
         self.total_output_weight = output_total
         self.total_waste_weight = waste_total
-        self.loss_weight = flt(self.total_input_weight) - flt(self.total_output_weight) - flt(self.total_waste_weight)
-
-        self.loss_percent = (
-            flt(self.loss_weight) / flt(self.total_input_weight) * 100
-            if flt(self.total_input_weight) else 0
-        )
+        self.current_wastage_percent = waste_total / flt(self.total_input_weight) * 100 if flt(self.total_input_weight) else 0
+        self.loss_weight = flt(self.total_input_weight) - output_total - waste_total
+        self.loss_percent = self.loss_weight / flt(self.total_input_weight) * 100 if flt(self.total_input_weight) else 0
 
         self.loss_standard_percent = frappe.db.get_value(
-            "Loss Standard Master",
-            {"department": "Taniya"},
-            "standard_loss_percent"
+            "Loss Standard Master", {"department": "Taniya"}, "standard_loss_percent"
         ) or 0
 
         self.loss_status = "Excess Loss" if flt(self.loss_percent) > flt(self.loss_standard_percent) else "OK"
@@ -69,11 +48,7 @@ class TaniyaReceive(Document):
     def get_last_balance(self, company, department, product):
         return frappe.db.get_value(
             "Inventory Ledger",
-            {
-                "company": company,
-                "department": department,
-                "product": product
-            },
+            {"company": company, "department": department, "product": product},
             "current_balance",
             order_by="creation desc"
         ) or 0
@@ -91,9 +66,7 @@ class TaniyaReceive(Document):
         for row in self.output_items:
             if not row.product or not flt(row.weight):
                 continue
-
             balance = self.get_last_balance(self.company, "Taniya", row.product)
-
             frappe.get_doc({
                 "doctype": "Inventory Ledger",
                 "company": self.company,
@@ -113,9 +86,7 @@ class TaniyaReceive(Document):
         for row in self.waste_items:
             if not row.waste_product or not flt(row.weight):
                 continue
-
             balance = self.get_last_balance(self.company, "Taniya", row.waste_product)
-
             frappe.get_doc({
                 "doctype": "Inventory Ledger",
                 "company": self.company,

@@ -81,7 +81,7 @@
   },
   {
    "fieldname": "existing_batch_no",
-   "fieldtype": "Data",
+   "fieldtype": "Select",
    "label": "Existing Batch No",
    "depends_on": "eval:doc.issue_type=='Re Issue'"
   },
