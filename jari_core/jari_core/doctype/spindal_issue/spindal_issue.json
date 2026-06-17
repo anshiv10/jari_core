@@ -9,9 +9,7 @@
  "field_order": [
   "issue_date",
   "company",
-  "issue_type",
   "new_batch_no",
-  "existing_batch_no",
   "active_batch_no",
   "from_department",
   "to_department",
@@ -45,19 +43,23 @@
    "label": "Issue Type",
    "options": "New Batch\nRe Issue",
    "default": "New Batch",
-   "reqd": 1
+   "reqd": 0,
+   "hidden": 1
   },
   {
    "fieldname": "new_batch_no",
    "fieldtype": "Data",
    "label": "Batch No",
-   "depends_on": "eval:doc.issue_type=='New Batch'"
+   "depends_on": "",
+   "reqd": 1
   },
   {
    "fieldname": "existing_batch_no",
    "fieldtype": "Select",
    "label": "Existing Batch No",
-   "depends_on": "eval:doc.issue_type=='Re Issue'"
+   "depends_on": "eval:doc.issue_type=='Re Issue'",
+   "hidden": 1,
+   "reqd": 0
   },
   {
    "fieldname": "active_batch_no",

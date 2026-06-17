@@ -13,7 +13,6 @@
   "issued_by",
   "from_department",
   "to_department",
-  "issue_type",
   "new_batch_no",
   "existing_batch_no",
   "batch_no",
@@ -71,19 +70,20 @@
    "label": "Issue Type",
    "options": "New Batch\nRe Issue",
    "default": "New Batch",
-   "reqd": 1
+   "reqd": 0,
+   "hidden": 1
   },
   {
    "fieldname": "new_batch_no",
    "fieldtype": "Data",
-   "label": "Batch No",
-   "depends_on": "eval:doc.issue_type=='New Batch'"
+   "label": "New Batch No",
+   "depends_on": ""
   },
   {
    "fieldname": "existing_batch_no",
    "fieldtype": "Select",
    "label": "Existing Batch No",
-   "depends_on": "eval:doc.issue_type=='Re Issue'"
+   "depends_on": ""
   },
   {
    "fieldname": "batch_no",

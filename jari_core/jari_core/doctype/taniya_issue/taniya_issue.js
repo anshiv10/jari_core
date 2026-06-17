@@ -1,18 +1,20 @@
 frappe.ui.form.on('Taniya Issue', {
     refresh(frm) {
-        if (!frm.doc.issue_date) frm.set_value('issue_date', frappe.datetime.get_today());
-        if (!frm.doc.issue_type) frm.set_value('issue_type', 'New Batch');
+        if (!frm.doc.issue_date) {
+            frm.set_value('issue_date', frappe.datetime.get_today());
+        }
 
-        frm.set_query('process_master', () => ({ filters: { department: 'TANIYA' } }));
+        frm.set_query('process_master', function() {
+            return {
+                filters: {
+                    department: 'TANIYA'
+                }
+            };
+        });
 
         frm.trigger('load_existing_batches');
-        frm.trigger('toggle_batch_fields');
-        calculate_taniya_issue_totals(frm);
-    },
-
-    issue_type(frm) {
-        frm.trigger('toggle_batch_fields');
         frm.trigger('set_batch_no');
+        calculate_taniya_issue_totals(frm);
     },
 
     load_existing_batches(frm) {
@@ -20,7 +22,9 @@ frappe.ui.form.on('Taniya Issue', {
             method: 'frappe.client.get_list',
             args: {
                 doctype: 'Taniya Issue',
-                filters: { docstatus: 1 },
+                filters: {
+                    docstatus: 1
+                },
                 fields: ['batch_no'],
                 limit_page_length: 500
             },
@@ -31,20 +35,26 @@ frappe.ui.form.on('Taniya Issue', {
         });
     },
 
-    new_batch_no(frm) { frm.trigger('set_batch_no'); },
-    existing_batch_no(frm) { frm.trigger('set_batch_no'); },
+    new_batch_no(frm) {
+        frm.trigger('set_batch_no');
+    },
 
-    toggle_batch_fields(frm) {
-        let is_new = frm.doc.issue_type === 'New Batch';
-        frm.toggle_display('new_batch_no', is_new);
-        frm.toggle_reqd('new_batch_no', is_new);
-        frm.toggle_display('existing_batch_no', !is_new);
-        frm.toggle_reqd('existing_batch_no', !is_new);
-        frm.set_df_property('batch_no', 'read_only', 1);
+    existing_batch_no(frm) {
+        frm.trigger('set_batch_no');
+    },
+
+    operator(frm) {
+        set_operator_in_child_rows(frm);
     },
 
     set_batch_no(frm) {
-        frm.set_value('batch_no', frm.doc.issue_type === 'New Batch' ? (frm.doc.new_batch_no || '') : (frm.doc.existing_batch_no || ''));
+        if (frm.doc.existing_batch_no) {
+            frm.set_value('batch_no', frm.doc.existing_batch_no);
+            frm.set_value('issue_type', 'Re Issue');
+        } else {
+            frm.set_value('batch_no', frm.doc.new_batch_no || '');
+            frm.set_value('issue_type', 'New Batch');
+        }
     },
 
     process_master(frm) {
@@ -59,7 +69,7 @@ frappe.ui.form.on('Taniya Issue', {
                 d.product = row.product;
                 d.uom = row.uom;
                 d.weight = 0;
-                d.operator_name = frm.doc.operator;
+                d.operator_name = frm.doc.operator || '';
             });
 
             frm.refresh_field('issue_items');
@@ -69,17 +79,32 @@ frappe.ui.form.on('Taniya Issue', {
 });
 
 frappe.ui.form.on('Taniya Issue Item', {
-    weight(frm) { calculate_taniya_issue_totals(frm); },
     issue_items_add(frm, cdt, cdn) {
-        let row = locals[cdt][cdn];
         frappe.model.set_value(cdt, cdn, 'issue_date', frm.doc.issue_date || frappe.datetime.get_today());
-        frappe.model.set_value(cdt, cdn, 'operator_name', frm.doc.operator);
+        frappe.model.set_value(cdt, cdn, 'operator_name', frm.doc.operator || '');
     },
-    issue_items_remove(frm) { calculate_taniya_issue_totals(frm); }
+
+    weight(frm) {
+        calculate_taniya_issue_totals(frm);
+    },
+
+    issue_items_remove(frm) {
+        calculate_taniya_issue_totals(frm);
+    }
 });
+
+function set_operator_in_child_rows(frm) {
+    (frm.doc.issue_items || []).forEach(row => {
+        frappe.model.set_value(row.doctype, row.name, 'operator_name', frm.doc.operator || '');
+    });
+}
 
 function calculate_taniya_issue_totals(frm) {
     let total = 0;
-    (frm.doc.issue_items || []).forEach(row => total += flt(row.weight));
+
+    (frm.doc.issue_items || []).forEach(row => {
+        total += flt(row.weight);
+    });
+
     frm.set_value('total_issue_weight', total);
 }
