@@ -14,7 +14,6 @@
   "from_department",
   "to_department",
   "new_batch_no",
-  "existing_batch_no",
   "batch_no",
   "process_master",
   "quality_code",
@@ -77,13 +76,17 @@
    "fieldname": "new_batch_no",
    "fieldtype": "Data",
    "label": "Batch No",
-   "depends_on": ""
+   "depends_on": "",
+   "reqd": 1
   },
   {
    "fieldname": "existing_batch_no",
    "fieldtype": "Select",
    "label": "Existing Batch No",
-   "depends_on": ""
+   "depends_on": "",
+   "hidden": 1,
+   "reqd": 0,
+   "options": ""
   },
   {
    "fieldname": "batch_no",

@@ -12,34 +12,11 @@ frappe.ui.form.on('Taniya Issue', {
             };
         });
 
-        frm.trigger('load_existing_batches');
         frm.trigger('set_batch_no');
         calculate_taniya_issue_totals(frm);
     },
 
-    load_existing_batches(frm) {
-        frappe.call({
-            method: 'frappe.client.get_list',
-            args: {
-                doctype: 'Taniya Issue',
-                filters: {
-                    docstatus: 1
-                },
-                fields: ['batch_no'],
-                limit_page_length: 500
-            },
-            callback(r) {
-                let batches = [...new Set((r.message || []).map(x => x.batch_no).filter(Boolean))];
-                frm.set_df_property('existing_batch_no', 'options', [''].concat(batches).join('\n'));
-            }
-        });
-    },
-
     new_batch_no(frm) {
-        frm.trigger('set_batch_no');
-    },
-
-    existing_batch_no(frm) {
         frm.trigger('set_batch_no');
     },
 
@@ -48,13 +25,22 @@ frappe.ui.form.on('Taniya Issue', {
     },
 
     set_batch_no(frm) {
-        if (frm.doc.existing_batch_no) {
-            frm.set_value('batch_no', frm.doc.existing_batch_no);
-            frm.set_value('issue_type', 'Re Issue');
-        } else {
-            frm.set_value('batch_no', frm.doc.new_batch_no || '');
+        frm.set_value('batch_no', frm.doc.new_batch_no || '');
+
+        if (!frm.doc.new_batch_no) {
             frm.set_value('issue_type', 'New Batch');
+            return;
         }
+
+        frappe.db.count('Taniya Issue', {
+            filters: {
+                batch_no: frm.doc.new_batch_no,
+                docstatus: 1,
+                name: ['!=', frm.doc.name || '']
+            }
+        }).then(count => {
+            frm.set_value('issue_type', count > 0 ? 'Re Issue' : 'New Batch');
+        });
     },
 
     process_master(frm) {
