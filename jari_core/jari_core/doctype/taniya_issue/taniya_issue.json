@@ -76,7 +76,7 @@
   {
    "fieldname": "new_batch_no",
    "fieldtype": "Data",
-   "label": "New Batch No",
+   "label": "Batch No",
    "depends_on": "eval:doc.issue_type=='New Batch'"
   },
   {
