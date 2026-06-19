@@ -1,0 +1,154 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "PETI-.YYYY.-.MM.-.####",
+ "creation": "2026-06-15 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "spindal_issue",
+  "peti_date",
+  "company",
+  "batch_no",
+  "quality_code",
+  "khata_no",
+  "operator",
+  "nang",
+  "bobbin_count",
+  "remaining_bobbin",
+  "baad_weight",
+  "gross_weight",
+  "net_weight",
+  "status",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "spindal_issue",
+   "fieldtype": "Link",
+   "label": "Spindal Issue",
+   "options": "Spindal Issue",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "peti_date",
+   "fieldtype": "Date",
+   "label": "Peti Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company Master"
+  },
+  {
+   "fieldname": "batch_no",
+   "fieldtype": "Data",
+   "label": "Batch No",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "bobbin_count",
+   "fieldtype": "Int",
+   "label": "Bobbin Count",
+   "reqd": 1
+  },
+  {
+   "fieldname": "remaining_bobbin",
+   "fieldtype": "Int",
+   "label": "Remaining Bobbin",
+   "read_only": 1
+  },
+  {
+   "fieldname": "quality_code",
+   "fieldtype": "Link",
+   "label": "Quality Code",
+   "options": "Quality Master",
+   "read_only": 1
+  },
+  {
+   "fieldname": "khata_no",
+   "fieldtype": "Link",
+   "label": "Khata / Machine No",
+   "options": "Khata Machine Master",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "operator",
+   "fieldtype": "Link",
+   "label": "Operator",
+   "options": "Worker Master",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "nang",
+   "fieldtype": "Int",
+   "label": "Nang"
+  },
+  {
+   "fieldname": "baad_weight",
+   "fieldtype": "Float",
+   "label": "Baad Weight"
+  },
+  {
+   "fieldname": "gross_weight",
+   "fieldtype": "Float",
+   "label": "Gross Weight"
+  },
+  {
+   "fieldname": "net_weight",
+   "fieldtype": "Float",
+   "label": "Net Weight",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nReceived\nPartially Consumed\nFully Consumed",
+   "default": "Draft",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-06-15 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "JARI Core",
+ "name": "Spindal Peti Entry",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 0,
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "peti_date",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
