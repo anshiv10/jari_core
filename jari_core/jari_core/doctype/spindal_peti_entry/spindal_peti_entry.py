@@ -12,9 +12,6 @@ class SpindalPetiEntry(Document):
         self.validate_weights()
 
     def on_submit(self):
-        # Client requirement:
-        # Spindal Peti Entry should submit without stock check
-        # and without Inventory Ledger posting.
         self.db_set("status", "Received")
 
     def on_cancel(self):
