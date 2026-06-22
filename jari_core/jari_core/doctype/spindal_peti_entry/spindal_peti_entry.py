@@ -13,12 +13,12 @@ class SpindalPetiEntry(Document):
 
     def on_submit(self):
         # Client requirement:
-        # Spindal Peti Entry should NOT check stock and should NOT create Inventory Ledger.
-        # Peti is internal production tracking, not stock issue/receive.
-        self.status = "Received"
+        # Spindal Peti Entry should submit without stock check
+        # and without Inventory Ledger posting.
+        self.db_set("status", "Received")
 
     def on_cancel(self):
-        self.status = "Cancelled"
+        self.db_set("status", "Cancelled")
 
     def pull_spindal_issue_details(self):
         if not self.spindal_issue:
@@ -26,7 +26,8 @@ class SpindalPetiEntry(Document):
 
         issue = frappe.get_doc("Spindal Issue", self.spindal_issue)
 
-        self.company = issue.company
+        if hasattr(issue, "company"):
+            self.company = issue.company
 
         if hasattr(issue, "active_batch_no"):
             self.batch_no = issue.active_batch_no
@@ -34,7 +35,10 @@ class SpindalPetiEntry(Document):
             self.batch_no = issue.batch_no
 
         if hasattr(issue, "quality_code"):
-            self.quality_code = issue.quality_code
+            if hasattr(self, "quality_code"):
+                self.quality_code = issue.quality_code
+            if hasattr(self, "quality"):
+                self.quality = issue.quality_code
 
     def calculate_net_weight(self):
         self.net_weight = flt(self.gross_weight) - flt(self.baad_weight)

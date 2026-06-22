@@ -11,6 +11,7 @@
   "peti_date",
   "company",
   "batch_no",
+  "quality",
   "quality_code",
   "khata_no",
   "operator",
@@ -121,6 +122,14 @@
    "fieldname": "remarks",
    "fieldtype": "Small Text",
    "label": "Remarks"
+  },
+  {
+   "fieldname": "quality",
+   "fieldtype": "Link",
+   "label": "Quality",
+   "options": "Quality Master",
+   "read_only": 1,
+   "in_list_view": 1
   }
  ],
  "grid_page_length": 50,
