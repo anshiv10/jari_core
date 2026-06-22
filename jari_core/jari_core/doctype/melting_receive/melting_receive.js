@@ -1,64 +1,45 @@
 frappe.ui.form.on('Melting Receive', {
+    setup(frm) {
+        set_issue_query(frm);
+    },
+
     refresh(frm) {
-        if (!frm.doc.receive_date) {
-            frm.set_value('receive_date', frappe.datetime.get_today());
-        }
+        set_issue_query(frm);
+        set_issue_batch_display(frm);
+    },
+
+    issue_no(frm) {
+        set_issue_batch_display(frm);
     },
 
     melting_issue(frm) {
-        if (!frm.doc.melting_issue) return;
-
-        frappe.call({
-            method: 'frappe.client.get',
-            args: {
-                doctype: 'Melting Issue',
-                name: frm.doc.melting_issue
-            },
-            callback(r) {
-                const issue = r.message;
-                if (!issue) return;
-
-                frm.set_value('company', issue.company);
-                frm.set_value('batch_no', issue.batch_no);
-                frm.set_value('process_master', issue.process_master);
-                frm.set_value('quality_code', issue.quality_code);
-                frm.set_value('total_input_weight', issue.total_issue_weight);
-
-                frappe.call({
-                    method: 'frappe.client.get',
-                    args: {
-                        doctype: 'Process Master',
-                        name: issue.process_master
-                    },
-                    callback(pr) {
-                        const p = pr.message;
-                        if (!p) return;
-
-                        frm.clear_table('output_items');
-                        frm.clear_table('waste_items');
-
-                        (p.output_products || []).forEach(row => {
-                            let d = frm.add_child('output_items');
-                            d.product = row.product;
-                            d.uom = row.uom;
-                        });
-
-                        (p.custom_waste_product_items || []).forEach(row => {
-                            let d = frm.add_child('waste_items');
-                            d.waste_product = row.waste_product;
-                            d.uom = row.uom;
-                        });
-
-                        frm.refresh_field('output_items');
-                        frm.refresh_field('waste_items');
-
-                        frappe.show_alert({
-                            message: 'Melting output and waste products auto-filled',
-                            indicator: 'green'
-                        });
-                    }
-                });
-            }
-        });
+        set_issue_batch_display(frm);
     }
 });
+
+function set_issue_query(frm) {
+    ["issue_no", "melting_issue"].forEach(fieldname => {
+        if (frm.fields_dict[fieldname]) {
+            frm.set_query(fieldname, function() {
+                return {
+                    query: "jari_core.jari_core.doctype.melting_receive.melting_receive.melting_issue_query",
+                    filters: {
+                        company: frm.doc.company
+                    }
+                };
+            });
+        }
+    });
+}
+
+function set_issue_batch_display(frm) {
+    let issue = frm.doc.issue_no || frm.doc.melting_issue;
+
+    if (!issue || !frm.fields_dict.issue_batch_display) return;
+
+    frappe.db.get_doc("Melting Issue", issue).then(doc => {
+        let batch = doc.active_batch_no || doc.batch_no || doc.name;
+        let date = doc.issue_date || doc.posting_date || "";
+        frm.set_value("issue_batch_display", batch + (date ? " | " + date : ""));
+    });
+}

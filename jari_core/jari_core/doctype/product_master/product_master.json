@@ -109,5 +109,7 @@
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
- "track_changes": 1
+ "track_changes": 1,
+ "title_field": "product_name",
+ "search_fields": "product_name,product_code"
 }

@@ -12,19 +12,39 @@ class MeltingReceive(Document):
 
     def on_submit(self):
         self.post_outputs_and_waste()
-        frappe.db.set_value("Melting Issue", self.melting_issue, "status", "Received")
+
+        if self.get_issue_no():
+            frappe.db.set_value("Melting Issue", self.get_issue_no(), "status", "Received")
+
+    def get_issue_no(self):
+        return getattr(self, "melting_issue", None) or getattr(self, "issue_no", None)
 
     def pull_issue_details(self):
-        if not self.melting_issue:
+        issue_no = self.get_issue_no()
+
+        # Client requirement:
+        # Melting Receive should be allowed without Issue No.
+        # Issue can be assigned later.
+        if not issue_no:
             return
 
-        issue = frappe.get_doc("Melting Issue", self.melting_issue)
+        issue = frappe.get_doc("Melting Issue", issue_no)
 
         self.company = issue.company
-        self.batch_no = issue.batch_no
-        self.process_master = issue.process_master
-        self.quality_code = issue.quality_code
-        self.total_input_weight = issue.total_issue_weight
+
+        if hasattr(issue, "batch_no"):
+            self.batch_no = issue.batch_no
+        elif hasattr(issue, "active_batch_no"):
+            self.batch_no = issue.active_batch_no
+
+        if hasattr(issue, "process_master"):
+            self.process_master = issue.process_master
+
+        if hasattr(issue, "quality_code"):
+            self.quality_code = issue.quality_code
+
+        if hasattr(issue, "total_issue_weight"):
+            self.total_input_weight = issue.total_issue_weight
 
     def validate_items(self):
         if not self.output_items and not self.waste_items:
@@ -35,7 +55,13 @@ class MeltingReceive(Document):
             return 0
 
         if frappe.db.has_column("Quality Master", "silver_purity_percent"):
-            return flt(frappe.db.get_value("Quality Master", self.quality_code, "silver_purity_percent") or 0)
+            return flt(
+                frappe.db.get_value(
+                    "Quality Master",
+                    self.quality_code,
+                    "silver_purity_percent"
+                ) or 0
+            )
 
         return 0
 
@@ -65,10 +91,10 @@ class MeltingReceive(Document):
         waste_total = 0
         quality_purity = self.get_quality_purity()
 
-        for row in self.output_items:
+        for row in self.output_items or []:
             output_total += flt(row.weight)
 
-        for row in self.waste_items:
+        for row in self.waste_items or []:
             waste_total += flt(row.weight)
             row.approx_silver_weight = 0
 
@@ -76,7 +102,9 @@ class MeltingReceive(Document):
                 metal_type = self.get_product_metal_type(row.waste_product)
 
                 if metal_type == "Silver":
-                    row.approx_silver_weight = flt(row.weight) * flt(quality_purity) / 100
+                    row.approx_silver_weight = (
+                        flt(row.weight) * flt(quality_purity) / 100
+                    )
 
         self.total_output_weight = output_total
         self.total_waste_weight = waste_total
@@ -137,7 +165,10 @@ class MeltingReceive(Document):
         if self.ledger_exists():
             return
 
-        for row in self.output_items:
+        if not self.company:
+            frappe.throw("Company is required to post Melting Receive inventory.")
+
+        for row in self.output_items or []:
             if not row.product or not flt(row.weight):
                 continue
 
@@ -159,7 +190,7 @@ class MeltingReceive(Document):
                 "remarks": "Melting output received"
             }).insert(ignore_permissions=True)
 
-        for row in self.waste_items:
+        for row in self.waste_items or []:
             if not row.waste_product or not flt(row.weight):
                 continue
 
@@ -195,3 +226,39 @@ def get_waste_products(quality_code=None):
         fields.append("metal_type")
 
     return frappe.get_all("Product Master", filters=filters, fields=fields)
+
+
+@frappe.whitelist()
+def melting_issue_query(doctype, txt, searchfield, start, page_len, filters):
+    company = filters.get("company") if filters else None
+
+    conditions = ""
+    values = {
+        "txt": f"%{txt}%",
+        "start": start,
+        "page_len": page_len
+    }
+
+    if company:
+        conditions += " and company = %(company)s"
+        values["company"] = company
+
+    return frappe.db.sql("""
+        select
+            name,
+            concat(
+                coalesce(active_batch_no, batch_no, name),
+                ' | ',
+                date_format(coalesce(issue_date, posting_date, creation), '%%d-%%m-%%Y')
+            ) as description
+        from `tabMelting Issue`
+        where docstatus = 1
+        {conditions}
+        and (
+            name like %(txt)s
+            or coalesce(active_batch_no, '') like %(txt)s
+            or coalesce(batch_no, '') like %(txt)s
+        )
+        order by creation desc
+        limit %(start)s, %(page_len)s
+    """.format(conditions=conditions), values)

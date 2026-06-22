@@ -7,6 +7,8 @@
  "engine": "InnoDB",
  "field_order": [
   "product",
+  "product_name",
+  "current_stock_summary",
   "uom",
   "weight",
   "silver_weight",
@@ -50,6 +52,20 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Operator Name"
+  },
+  {
+   "fieldname": "product_name",
+   "fieldtype": "Data",
+   "label": "Product Name",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "current_stock_summary",
+   "fieldtype": "Small Text",
+   "label": "Current Stock - All Departments",
+   "read_only": 1,
+   "in_list_view": 1
   }
  ],
  "grid_page_length": 50,

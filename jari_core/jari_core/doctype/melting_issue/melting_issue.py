@@ -127,3 +127,52 @@ class MeltingIssue(Document):
                 "date": self.issue_date or today(),
                 "remarks": f"Melting Issue received in {self.to_department}"
             }).insert(ignore_permissions=True)
+
+
+@frappe.whitelist()
+def get_product_stock_summary(product, company=None):
+    if not product:
+        return ""
+
+    filters = {"product": product}
+    if company:
+        filters["company"] = company
+
+    departments = frappe.get_all(
+        "Inventory Ledger",
+        filters=filters,
+        fields=["department"],
+        group_by="department"
+    )
+
+    lines = []
+
+    for d in departments:
+        bal = frappe.db.get_value(
+            "Inventory Ledger",
+            {
+                "product": product,
+                "department": d.department,
+                **({"company": company} if company else {})
+            },
+            "current_balance",
+            order_by="creation desc"
+        ) or 0
+
+        if float(bal) != 0:
+            lines.append(f"{d.department} - {bal} KG")
+
+    return "\n".join(lines) if lines else "No stock available"
+
+
+@frappe.whitelist()
+def get_product_display_name(product):
+    if not product:
+        return ""
+
+    return (
+        frappe.db.get_value("Product Master", product, "product_name")
+        or frappe.db.get_value("Product Master", product, "item_name")
+        or frappe.db.get_value("Product Master", product, "product_code")
+        or product
+    )
