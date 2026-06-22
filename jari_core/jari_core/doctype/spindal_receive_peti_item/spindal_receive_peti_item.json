@@ -26,14 +26,16 @@
    "in_list_view": 1,
    "label": "Product",
    "options": "Product Master",
-   "reqd": 1
+   "reqd": 1,
+   "default": "KASAB"
   },
   {
    "fieldname": "uom",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "UOM",
-   "options": "UOM_Jari"
+   "options": "UOM_Jari",
+   "default": "KG"
   },
   {
    "fieldname": "gross_weight",

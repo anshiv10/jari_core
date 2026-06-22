@@ -23,7 +23,9 @@
    "fieldname": "uom",
    "fieldtype": "Link",
    "label": "UOM",
-   "options": "UOM_Jari"
+   "options": "UOM_Jari",
+   "default": "KG",
+   "in_list_view": 1
   },
   {
    "fieldname": "weight",
