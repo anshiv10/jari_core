@@ -28,18 +28,10 @@ class MeltingReceive(Document):
         issue = frappe.get_doc("Melting Issue", issue_no)
 
         self.company = issue.company
-
-        if hasattr(issue, "batch_no"):
-            self.batch_no = issue.batch_no
-
-        if hasattr(issue, "process_master"):
-            self.process_master = issue.process_master
-
-        if hasattr(issue, "quality_code"):
-            self.quality_code = issue.quality_code
-
-        if hasattr(issue, "total_issue_weight"):
-            self.total_input_weight = issue.total_issue_weight
+        self.batch_no = issue.batch_no
+        self.process_master = issue.process_master
+        self.quality_code = issue.quality_code
+        self.total_input_weight = flt(issue.total_issue_weight)
 
     def validate_items(self):
         if not self.output_items and not self.waste_items:
@@ -97,9 +89,7 @@ class MeltingReceive(Document):
                 metal_type = self.get_product_metal_type(row.waste_product)
 
                 if metal_type == "Silver":
-                    row.approx_silver_weight = (
-                        flt(row.weight) * flt(quality_purity) / 100
-                    )
+                    row.approx_silver_weight = flt(row.weight) * flt(quality_purity) / 100
 
         self.total_output_weight = output_total
         self.total_waste_weight = waste_total
@@ -226,35 +216,84 @@ def get_waste_products(quality_code=None):
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def melting_issue_query(doctype, txt, searchfield, start, page_len, filters):
-    company = filters.get("company") if filters else None
-
-    conditions = ""
-    values = {
-        "txt": f"%{txt}%",
-        "start": start,
-        "page_len": page_len
-    }
-
-    if company:
-        conditions += " AND company = %(company)s"
-        values["company"] = company
-
     return frappe.db.sql("""
         SELECT
             name,
             CONCAT(
+                'Batch: ',
                 COALESCE(batch_no, name),
-                ' | ',
+                ' | Issue: ',
+                name,
+                ' | Date: ',
                 DATE_FORMAT(COALESCE(issue_date, creation), '%%d-%%m-%%Y')
             ) AS description
         FROM `tabMelting Issue`
         WHERE
             docstatus = 1
-            {conditions}
             AND (
                 name LIKE %(txt)s
                 OR COALESCE(batch_no, '') LIKE %(txt)s
             )
         ORDER BY creation DESC
         LIMIT %(start)s, %(page_len)s
-    """.format(conditions=conditions), values)
+    """, {
+        "txt": f"%{txt}%",
+        "start": start,
+        "page_len": page_len
+    })
+
+
+@frappe.whitelist()
+def get_melting_issue_receive_details(melting_issue):
+    if not melting_issue:
+        frappe.throw("Melting Issue is required.")
+
+    issue = frappe.get_doc("Melting Issue", melting_issue)
+
+    data = {
+        "company": issue.company,
+        "batch_no": issue.batch_no,
+        "process_master": issue.process_master,
+        "quality_code": issue.quality_code,
+        "total_issue_weight": flt(issue.total_issue_weight),
+        "batch_display": f"{issue.batch_no or issue.name} | {issue.issue_date or ''}",
+        "output_items": [],
+        "waste_items": []
+    }
+
+    if issue.process_master:
+        process = frappe.get_doc("Process Master", issue.process_master)
+
+        for row in process.get("output_products") or []:
+            product = (
+                row.get("product")
+                or row.get("product_code")
+                or row.get("item")
+                or row.get("item_code")
+                or row.get("output_product")
+            )
+
+            if product:
+                data["output_items"].append({
+                    "product": product,
+                    "uom": row.get("uom") or row.get("unit") or "KG",
+                    "weight": row.get("weight") or row.get("qty") or 0
+                })
+
+        for row in process.get("custom_waste_product_items") or []:
+            waste_product = (
+                row.get("waste_product")
+                or row.get("product")
+                or row.get("product_code")
+                or row.get("item")
+                or row.get("item_code")
+            )
+
+            if waste_product:
+                data["waste_items"].append({
+                    "waste_product": waste_product,
+                    "uom": row.get("uom") or row.get("unit") or "KG",
+                    "weight": row.get("weight") or row.get("qty") or 0
+                })
+
+    return data
