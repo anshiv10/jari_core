@@ -9,6 +9,7 @@
   "product",
   "uom",
   "weight",
+  "current_stock_summary",
   "silver_weight",
   "operator_name"
  ],
@@ -37,6 +38,14 @@
    "label": "Weight"
   },
   {
+   "columns": 3,
+   "fieldname": "current_stock_summary",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Current Stock - All Departments",
+   "read_only": 1
+  },
+  {
    "columns": 2,
    "fieldname": "silver_weight",
    "fieldtype": "Float",
@@ -56,7 +65,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-06-14 18:35:49.314488",
+ "modified": "2026-06-23 19:47:25.424505",
  "modified_by": "Administrator",
  "module": "JARI Core",
  "name": "Pavtha Issue Item",
