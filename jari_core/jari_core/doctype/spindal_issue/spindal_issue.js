@@ -1,10 +1,10 @@
+console.log("Spindal Issue JS Loaded Successfully");
+
 frappe.ui.form.on('Spindal Issue', {
     refresh(frm) {
         if (!frm.doc.issue_date) {
             frm.set_value('issue_date', frappe.datetime.get_today());
         }
-
-        frm.set_value('issue_type', 'New Batch');
 
         frm.set_query('process_master', function() {
             return {
@@ -16,9 +16,22 @@ frappe.ui.form.on('Spindal Issue', {
 
         frm.trigger('set_active_batch_no');
         calculate_spindal_issue_totals(frm);
+        refresh_all_stock_summaries(frm);
+    },
+
+    company(frm) {
+        refresh_all_stock_summaries(frm);
+    },
+
+    issue_type(frm) {
+        frm.trigger('set_active_batch_no');
     },
 
     new_batch_no(frm) {
+        frm.trigger('set_active_batch_no');
+    },
+
+    existing_batch_no(frm) {
         frm.trigger('set_active_batch_no');
     },
 
@@ -27,8 +40,11 @@ frappe.ui.form.on('Spindal Issue', {
     },
 
     set_active_batch_no(frm) {
-        frm.set_value('issue_type', 'New Batch');
-        frm.set_value('active_batch_no', frm.doc.new_batch_no || '');
+        if (frm.doc.issue_type === 'Re Issue') {
+            frm.set_value('active_batch_no', frm.doc.existing_batch_no || '');
+        } else {
+            frm.set_value('active_batch_no', frm.doc.new_batch_no || '');
+        }
     },
 
     process_master(frm) {
@@ -38,15 +54,32 @@ frappe.ui.form.on('Spindal Issue', {
             frm.clear_table('issue_items');
 
             (p.input_products || []).forEach(row => {
+                let product =
+                    row.product ||
+                    row.product_code ||
+                    row.item ||
+                    row.item_code ||
+                    row.input_product;
+
+                if (!product) return;
+
                 let d = frm.add_child('issue_items');
                 d.issue_date = frm.doc.issue_date || frappe.datetime.get_today();
-                d.product = row.product;
-                d.uom = row.uom;
+                d.product = product;
+                d.uom = row.uom || row.unit || 'KG';
                 d.weight = 0;
                 d.operator_name = frm.doc.operator || '';
+                d.current_stock_summary = 'Loading...';
             });
 
             frm.refresh_field('issue_items');
+
+            (frm.doc.issue_items || []).forEach(row => {
+                if (row.product) {
+                    fetch_spindal_stock_summary(frm, row.doctype, row.name, row.product);
+                }
+            });
+
             calculate_spindal_issue_totals(frm);
         });
     }
@@ -58,6 +91,14 @@ frappe.ui.form.on('Spindal Issue Item', {
         frappe.model.set_value(cdt, cdn, 'operator_name', frm.doc.operator || '');
     },
 
+    product(frm, cdt, cdn) {
+        let row = locals[cdt][cdn];
+
+        if (row.product) {
+            fetch_spindal_stock_summary(frm, cdt, cdn, row.product);
+        }
+    },
+
     weight(frm) {
         calculate_spindal_issue_totals(frm);
     },
@@ -66,6 +107,34 @@ frappe.ui.form.on('Spindal Issue Item', {
         calculate_spindal_issue_totals(frm);
     }
 });
+
+function fetch_spindal_stock_summary(frm, cdt, cdn, product) {
+    if (!product) return;
+
+    frappe.call({
+        method: "jari_core.jari_core.doctype.spindal_issue.spindal_issue.get_product_stock_summary",
+        args: {
+            product: product,
+            company: frm.doc.company || null
+        },
+        callback(r) {
+            frappe.model.set_value(
+                cdt,
+                cdn,
+                "current_stock_summary",
+                r.message || "No stock available"
+            );
+        }
+    });
+}
+
+function refresh_all_stock_summaries(frm) {
+    (frm.doc.issue_items || []).forEach(row => {
+        if (row.product) {
+            fetch_spindal_stock_summary(frm, row.doctype, row.name, row.product);
+        }
+    });
+}
 
 function set_operator_in_child_rows(frm) {
     (frm.doc.issue_items || []).forEach(row => {

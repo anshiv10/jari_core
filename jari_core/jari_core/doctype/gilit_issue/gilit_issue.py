@@ -9,10 +9,12 @@ def get_kasab_product_name():
         return "KASAB"
 
     product = frappe.db.get_value("Product Master", {"product_name": "KASAB"}, "name")
+
     if product:
         return product
 
     product = frappe.db.get_value("Product Master", {"product_name": ["like", "%KASAB%"]}, "name")
+
     return product or "KASAB"
 
 
@@ -34,13 +36,16 @@ class GilitIssue(Document):
     def set_defaults(self):
         if not self.from_department:
             self.from_department = "SPINDAL"
+
         if not self.to_department:
             self.to_department = "Gilit"
 
     def get_kasab_product(self):
         product = get_kasab_product_name()
+
         if not frappe.db.exists("Product Master", product):
             frappe.throw("KASAB product not found in Product Master.")
+
         return product
 
     def validate_peti_items(self):
@@ -48,12 +53,14 @@ class GilitIssue(Document):
             frappe.throw("At least one Spindal Peti row is required.")
 
         seen = set()
+
         for row in self.peti_items:
             if not row.spindal_peti_entry:
                 frappe.throw("Spindal Peti Entry is required.")
 
             if row.spindal_peti_entry in seen:
                 frappe.throw(f"Duplicate Spindal Peti Entry selected: {row.spindal_peti_entry}")
+
             seen.add(row.spindal_peti_entry)
 
             peti = frappe.get_doc("Spindal Peti Entry", row.spindal_peti_entry)
@@ -61,16 +68,19 @@ class GilitIssue(Document):
             if peti.docstatus != 1:
                 frappe.throw(f"Peti {peti.name} is not submitted.")
 
-            available = cint(peti.remaining_bobbin or peti.bobbin_count)
+            available = cint(peti.remaining_bobbin)
 
-            if available <= 0:
+            if available <= 0 or peti.status == "Fully Consumed":
                 frappe.throw(f"Peti {peti.name} is already fully consumed.")
 
             if cint(row.issued_bobbin) <= 0:
                 frappe.throw(f"Issued Bobbin must be greater than zero for Peti {peti.name}.")
 
             if cint(row.issued_bobbin) > available:
-                frappe.throw(f"Cannot issue {row.issued_bobbin} bobbin from Peti {peti.name}. Available Bobbin: {available}")
+                frappe.throw(
+                    f"Cannot issue {row.issued_bobbin} bobbin from Peti {peti.name}. "
+                    f"Available Bobbin: {available}"
+                )
 
             row.peti_no = peti.name
             row.quality_code = peti.quality_code
@@ -86,17 +96,25 @@ class GilitIssue(Document):
             row.operator_name = peti.operator
 
     def calculate_totals(self):
-        self.total_peti = len(self.peti_items or [])
+        self.total_peti = 0
         self.total_net_weight = 0
 
-        for row in self.peti_items:
+        for row in self.peti_items or []:
+            if not row.spindal_peti_entry:
+                continue
+
+            self.total_peti += 1
+
             if cint(row.total_bobbin):
-                self.total_net_weight += (flt(row.net_weight) / cint(row.total_bobbin)) * cint(row.issued_bobbin)
+                self.total_net_weight += (
+                    flt(row.net_weight) / cint(row.total_bobbin)
+                ) * cint(row.issued_bobbin)
 
     def update_peti_balances(self):
         for row in self.peti_items:
             peti = frappe.get_doc("Spindal Peti Entry", row.spindal_peti_entry)
-            available = cint(peti.remaining_bobbin or peti.bobbin_count)
+
+            available = cint(peti.remaining_bobbin)
             new_balance = available - cint(row.issued_bobbin)
 
             if new_balance < 0:
@@ -110,8 +128,14 @@ class GilitIssue(Document):
     def restore_peti_balances(self):
         for row in self.peti_items:
             peti = frappe.get_doc("Spindal Peti Entry", row.spindal_peti_entry)
+
             restored = cint(peti.remaining_bobbin) + cint(row.issued_bobbin)
-            status = "Received" if restored >= cint(peti.bobbin_count) else "Partially Consumed"
+
+            if restored > cint(peti.bobbin_count):
+                restored = cint(peti.bobbin_count)
+
+            status = "Received" if restored == cint(peti.bobbin_count) else "Partially Consumed"
+
             frappe.db.set_value("Spindal Peti Entry", peti.name, {
                 "remaining_bobbin": restored,
                 "status": status
@@ -120,16 +144,23 @@ class GilitIssue(Document):
     def get_last_balance(self, company, department, product):
         return frappe.db.get_value(
             "Inventory Ledger",
-            {"company": company, "department": department, "product": product},
+            {
+                "company": company,
+                "department": department,
+                "product": product
+            },
             "current_balance",
             order_by="creation desc"
         ) or 0
 
     def ledger_exists(self):
-        return frappe.db.exists("Inventory Ledger", {
-            "reference_doctype": self.doctype,
-            "reference_name": self.name
-        })
+        return frappe.db.exists(
+            "Inventory Ledger",
+            {
+                "reference_doctype": self.doctype,
+                "reference_name": self.name
+            }
+        )
 
     def post_inventory_transfer(self):
         if self.ledger_exists():
@@ -137,12 +168,17 @@ class GilitIssue(Document):
 
         product = self.get_kasab_product()
         weight = flt(self.total_net_weight)
+
         if not weight:
             return
 
         source_balance = self.get_last_balance(self.company, self.from_department, product)
+
         if weight > flt(source_balance):
-            frappe.throw(f"Insufficient KASAB stock in {self.from_department}. Available: {source_balance} KG, Required: {weight} KG")
+            frappe.throw(
+                f"Insufficient KASAB stock in {self.from_department}. "
+                f"Available: {source_balance} KG, Required: {weight} KG"
+            )
 
         frappe.get_doc({
             "doctype": "Inventory Ledger",
@@ -161,6 +197,7 @@ class GilitIssue(Document):
         }).insert(ignore_permissions=True)
 
         target_balance = self.get_last_balance(self.company, self.to_department, product)
+
         frappe.get_doc({
             "doctype": "Inventory Ledger",
             "company": self.company,

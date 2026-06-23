@@ -16,6 +16,8 @@
   "khata_no",
   "operator",
   "nang",
+  "bobbin_count",
+  "remaining_bobbin",
   "baad_weight",
   "gross_weight",
   "net_weight",
@@ -51,26 +53,18 @@
    "in_list_view": 1
   },
   {
-   "fieldname": "bobbin_count",
-   "fieldtype": "Int",
-   "label": "Bobbin Count",
-   "reqd": 0,
-   "hidden": 1
-  },
-  {
-   "fieldname": "remaining_bobbin",
-   "fieldtype": "Int",
-   "label": "Remaining Bobbin",
+   "fieldname": "quality",
+   "fieldtype": "Link",
+   "label": "Quality",
+   "options": "Quality Master",
    "read_only": 1,
-   "hidden": 1,
-   "reqd": 0
+   "in_list_view": 1
   },
   {
    "fieldname": "quality_code",
    "fieldtype": "Link",
    "label": "Quality Code",
-   "options": "Quality Master",
-   "read_only": 1
+   "options": "Quality Master"
   },
   {
    "fieldname": "khata_no",
@@ -92,16 +86,27 @@
    "label": "Nang"
   },
   {
+   "fieldname": "bobbin_count",
+   "fieldtype": "Int",
+   "label": "Bobbin Count",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "remaining_bobbin",
+   "fieldtype": "Int",
+   "label": "Remaining Bobbin",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
    "fieldname": "baad_weight",
    "fieldtype": "Float",
-   "label": "Baad Weight",
-   "reqd": 0
+   "label": "Baad Weight"
   },
   {
    "fieldname": "gross_weight",
    "fieldtype": "Float",
-   "label": "Gross Weight",
-   "reqd": 0
+   "label": "Gross Weight"
   },
   {
    "fieldname": "net_weight",
@@ -114,7 +119,7 @@
    "fieldname": "status",
    "fieldtype": "Select",
    "label": "Status",
-   "options": "Draft\nReceived\nPartially Consumed\nFully Consumed",
+   "options": "Draft\nReceived\nPartially Consumed\nFully Consumed\nCancelled",
    "default": "Draft",
    "in_list_view": 1
   },
@@ -122,21 +127,13 @@
    "fieldname": "remarks",
    "fieldtype": "Small Text",
    "label": "Remarks"
-  },
-  {
-   "fieldname": "quality",
-   "fieldtype": "Link",
-   "label": "Quality",
-   "options": "Quality Master",
-   "read_only": 1,
-   "in_list_view": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-06-15 10:00:00.000000",
+ "modified": "2026-06-23 20:30:00.000000",
  "modified_by": "Administrator",
  "module": "JARI Core",
  "name": "Spindal Peti Entry",
