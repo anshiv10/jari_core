@@ -42,7 +42,7 @@
    "fieldname": "current_stock_summary",
    "fieldtype": "Small Text",
    "in_list_view": 1,
-   "label": "Current Stock - All Departments",
+   "label": "Current Stock - All Dept",
    "read_only": 1
   },
   {
