@@ -216,6 +216,24 @@ def get_waste_products(quality_code=None):
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def melting_issue_query(doctype, txt, searchfield, start, page_len, filters):
+    company = None
+
+    if filters:
+        if isinstance(filters, str):
+            filters = frappe.parse_json(filters)
+        company = filters.get("company")
+
+    conditions = ""
+    values = {
+        "txt": f"%{txt}%",
+        "start": start,
+        "page_len": page_len
+    }
+
+    if company:
+        conditions += " AND company = %(company)s"
+        values["company"] = company
+
     return frappe.db.sql("""
         SELECT
             name,
@@ -228,19 +246,16 @@ def melting_issue_query(doctype, txt, searchfield, start, page_len, filters):
                 DATE_FORMAT(COALESCE(issue_date, creation), '%%d-%%m-%%Y')
             ) AS description
         FROM `tabMelting Issue`
-        WHERE
-            docstatus = 1
-            AND (
-                name LIKE %(txt)s
-                OR COALESCE(batch_no, '') LIKE %(txt)s
-            )
+        WHERE docstatus = 1
+          {conditions}
+          AND (
+              name LIKE %(txt)s
+              OR COALESCE(batch_no, '') LIKE %(txt)s
+              OR COALESCE(company, '') LIKE %(txt)s
+          )
         ORDER BY creation DESC
         LIMIT %(start)s, %(page_len)s
-    """, {
-        "txt": f"%{txt}%",
-        "start": start,
-        "page_len": page_len
-    })
+    """.format(conditions=conditions), values)
 
 
 @frappe.whitelist()
