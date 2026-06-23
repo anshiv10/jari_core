@@ -17,6 +17,7 @@ class PavthaIssue(Document):
     def set_defaults(self):
         if not self.from_department:
             self.from_department = "Melting"
+
         if not self.to_department:
             self.to_department = "Pavtha"
 
@@ -27,6 +28,7 @@ class PavthaIssue(Document):
         for row in self.issue_items:
             if not row.product:
                 frappe.throw("Product is required in issue item.")
+
             if flt(row.weight) <= 0:
                 frappe.throw(f"Weight must be greater than zero for product {row.product}.")
 
@@ -51,10 +53,7 @@ class PavthaIssue(Document):
                     ) or 0
                 )
 
-        frappe.throw(
-            "Quality Master is missing purity field. "
-            "Please add field 'silver_purity_percent' in Quality Master."
-        )
+        return 0
 
     def calculate_totals(self):
         total = 0
@@ -62,7 +61,6 @@ class PavthaIssue(Document):
 
         for row in self.issue_items:
             total += flt(row.weight)
-
             row.silver_weight = 0
 
             if row.product:
@@ -153,3 +151,44 @@ class PavthaIssue(Document):
                 "date": self.issue_date or today(),
                 "remarks": "Pavtha outsource material inward"
             }).insert(ignore_permissions=True)
+
+
+@frappe.whitelist()
+def get_product_stock_summary(product, company=None):
+    if not product:
+        return ""
+
+    filters = {"product": product}
+
+    if company:
+        filters["company"] = company
+
+    departments = frappe.get_all(
+        "Inventory Ledger",
+        filters=filters,
+        fields=["department"],
+        group_by="department"
+    )
+
+    lines = []
+
+    for d in departments:
+        query_filters = {
+            "product": product,
+            "department": d.department
+        }
+
+        if company:
+            query_filters["company"] = company
+
+        bal = frappe.db.get_value(
+            "Inventory Ledger",
+            query_filters,
+            "current_balance",
+            order_by="creation desc"
+        ) or 0
+
+        if flt(bal) != 0:
+            lines.append(f"{d.department} - {bal} KG")
+
+    return "\n".join(lines) if lines else "No stock available"
