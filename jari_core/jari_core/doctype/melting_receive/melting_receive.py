@@ -22,9 +22,6 @@ class MeltingReceive(Document):
     def pull_issue_details(self):
         issue_no = self.get_issue_no()
 
-        # Client requirement:
-        # Melting Receive should be allowed without Issue No.
-        # Issue can be assigned later.
         if not issue_no:
             return
 
@@ -34,8 +31,6 @@ class MeltingReceive(Document):
 
         if hasattr(issue, "batch_no"):
             self.batch_no = issue.batch_no
-        elif hasattr(issue, "active_batch_no"):
-            self.batch_no = issue.active_batch_no
 
         if hasattr(issue, "process_master"):
             self.process_master = issue.process_master
@@ -229,6 +224,7 @@ def get_waste_products(quality_code=None):
 
 
 @frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
 def melting_issue_query(doctype, txt, searchfield, start, page_len, filters):
     company = filters.get("company") if filters else None
 
@@ -240,25 +236,25 @@ def melting_issue_query(doctype, txt, searchfield, start, page_len, filters):
     }
 
     if company:
-        conditions += " and company = %(company)s"
+        conditions += " AND company = %(company)s"
         values["company"] = company
 
     return frappe.db.sql("""
-        select
+        SELECT
             name,
-            concat(
-                coalesce(active_batch_no, batch_no, name),
+            CONCAT(
+                COALESCE(batch_no, name),
                 ' | ',
-                date_format(coalesce(issue_date, posting_date, creation), '%%d-%%m-%%Y')
-            ) as description
-        from `tabMelting Issue`
-        where docstatus = 1
-        {conditions}
-        and (
-            name like %(txt)s
-            or coalesce(active_batch_no, '') like %(txt)s
-            or coalesce(batch_no, '') like %(txt)s
-        )
-        order by creation desc
-        limit %(start)s, %(page_len)s
+                DATE_FORMAT(COALESCE(issue_date, creation), '%%d-%%m-%%Y')
+            ) AS description
+        FROM `tabMelting Issue`
+        WHERE
+            docstatus = 1
+            {conditions}
+            AND (
+                name LIKE %(txt)s
+                OR COALESCE(batch_no, '') LIKE %(txt)s
+            )
+        ORDER BY creation DESC
+        LIMIT %(start)s, %(page_len)s
     """.format(conditions=conditions), values)
