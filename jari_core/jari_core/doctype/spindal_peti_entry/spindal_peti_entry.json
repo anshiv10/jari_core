@@ -8,6 +8,7 @@
  "engine": "InnoDB",
  "field_order": [
   "spindal_issue",
+  "peti_id",
   "peti_date",
   "company",
   "batch_no",
@@ -31,6 +32,13 @@
    "label": "Spindal Issue",
    "options": "Spindal Issue",
    "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "peti_id",
+   "fieldtype": "Data",
+   "label": "Peti ID",
+   "read_only": 1,
    "in_list_view": 1
   },
   {

@@ -48,6 +48,12 @@ class GilitIssue(Document):
 
         return product
 
+    def get_total_bobbin_from_peti(self, peti):
+        return cint(peti.bobbin_count or peti.nang)
+
+    def get_available_bobbin_from_peti(self, peti):
+        return cint(peti.remaining_bobbin or peti.bobbin_count or peti.nang)
+
     def validate_peti_items(self):
         if not self.peti_items:
             frappe.throw("At least one Spindal Peti row is required.")
@@ -68,7 +74,11 @@ class GilitIssue(Document):
             if peti.docstatus != 1:
                 frappe.throw(f"Peti {peti.name} is not submitted.")
 
-            available = cint(peti.remaining_bobbin)
+            total_bobbin = self.get_total_bobbin_from_peti(peti)
+            available = self.get_available_bobbin_from_peti(peti)
+
+            if total_bobbin <= 0:
+                frappe.throw(f"Bobbin Count is missing in Peti {peti.name}.")
 
             if available <= 0 or peti.status == "Fully Consumed":
                 frappe.throw(f"Peti {peti.name} is already fully consumed.")
@@ -90,7 +100,7 @@ class GilitIssue(Document):
             row.gross_weight = flt(peti.gross_weight)
             row.baad_weight = flt(peti.baad_weight)
             row.net_weight = flt(peti.net_weight)
-            row.total_bobbin = cint(peti.bobbin_count)
+            row.total_bobbin = total_bobbin
             row.available_bobbin = available
             row.balance_bobbin_after_issue = available - cint(row.issued_bobbin)
             row.operator_name = peti.operator
@@ -114,13 +124,15 @@ class GilitIssue(Document):
         for row in self.peti_items:
             peti = frappe.get_doc("Spindal Peti Entry", row.spindal_peti_entry)
 
-            available = cint(peti.remaining_bobbin)
+            total_bobbin = self.get_total_bobbin_from_peti(peti)
+            available = self.get_available_bobbin_from_peti(peti)
             new_balance = available - cint(row.issued_bobbin)
 
             if new_balance < 0:
                 frappe.throw(f"Peti {peti.name} has insufficient bobbin balance.")
 
             frappe.db.set_value("Spindal Peti Entry", peti.name, {
+                "bobbin_count": total_bobbin,
                 "remaining_bobbin": new_balance,
                 "status": "Fully Consumed" if new_balance == 0 else "Partially Consumed"
             })
@@ -129,12 +141,13 @@ class GilitIssue(Document):
         for row in self.peti_items:
             peti = frappe.get_doc("Spindal Peti Entry", row.spindal_peti_entry)
 
+            total_bobbin = self.get_total_bobbin_from_peti(peti)
             restored = cint(peti.remaining_bobbin) + cint(row.issued_bobbin)
 
-            if restored > cint(peti.bobbin_count):
-                restored = cint(peti.bobbin_count)
+            if restored > total_bobbin:
+                restored = total_bobbin
 
-            status = "Received" if restored == cint(peti.bobbin_count) else "Partially Consumed"
+            status = "Received" if restored == total_bobbin else "Partially Consumed"
 
             frappe.db.set_value("Spindal Peti Entry", peti.name, {
                 "remaining_bobbin": restored,

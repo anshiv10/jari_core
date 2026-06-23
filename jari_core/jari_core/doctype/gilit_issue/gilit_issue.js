@@ -37,7 +37,8 @@ frappe.ui.form.on('Gilit Issue Peti Item', {
         }
 
         frappe.db.get_doc('Spindal Peti Entry', row.spindal_peti_entry).then(peti => {
-            let available_bobbin = flt(peti.remaining_bobbin || peti.bobbin_count);
+            let total_bobbin = flt(peti.bobbin_count || peti.nang);
+            let available_bobbin = flt(peti.remaining_bobbin || total_bobbin);
 
             if (available_bobbin <= 0 || peti.status === 'Fully Consumed') {
                 frappe.msgprint('Selected Peti is already fully consumed.');
@@ -58,7 +59,7 @@ frappe.ui.form.on('Gilit Issue Peti Item', {
                     frappe.model.set_value(cdt, cdn, 'gross_weight', peti.gross_weight);
                     frappe.model.set_value(cdt, cdn, 'baad_weight', peti.baad_weight);
                     frappe.model.set_value(cdt, cdn, 'net_weight', peti.net_weight);
-                    frappe.model.set_value(cdt, cdn, 'total_bobbin', peti.bobbin_count);
+                    frappe.model.set_value(cdt, cdn, 'total_bobbin', total_bobbin);
                     frappe.model.set_value(cdt, cdn, 'available_bobbin', available_bobbin);
                     frappe.model.set_value(cdt, cdn, 'balance_bobbin_after_issue', available_bobbin);
                     frappe.model.set_value(cdt, cdn, 'operator_name', peti.operator);
