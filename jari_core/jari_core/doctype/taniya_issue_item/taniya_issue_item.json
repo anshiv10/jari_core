@@ -10,6 +10,7 @@
   "product",
   "uom",
   "weight",
+  "current_stock_summary",
   "silver_weight",
   "operator_name"
  ],
@@ -33,6 +34,14 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Weight"
+  },
+  {
+   "fieldname": "current_stock_summary",
+   "fieldtype": "Small Text",
+   "label": "Current Stock - All Departments",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 3
   },
   {
    "fieldname": "silver_weight",

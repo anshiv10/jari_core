@@ -1,3 +1,5 @@
+console.log("Taniya Issue JS Loaded Successfully");
+
 frappe.ui.form.on('Taniya Issue', {
     refresh(frm) {
         if (!frm.doc.issue_date) {
@@ -14,6 +16,11 @@ frappe.ui.form.on('Taniya Issue', {
 
         frm.trigger('set_batch_no');
         calculate_taniya_issue_totals(frm);
+        refresh_all_stock_summaries(frm);
+    },
+
+    company(frm) {
+        refresh_all_stock_summaries(frm);
     },
 
     new_batch_no(frm) {
@@ -51,14 +58,23 @@ frappe.ui.form.on('Taniya Issue', {
 
             (p.input_products || []).forEach(row => {
                 let d = frm.add_child('issue_items');
+
                 d.issue_date = frm.doc.issue_date || frappe.datetime.get_today();
                 d.product = row.product;
-                d.uom = row.uom;
+                d.uom = row.uom || 'KG';
                 d.weight = 0;
                 d.operator_name = frm.doc.operator || '';
+                d.current_stock_summary = 'Loading...';
             });
 
             frm.refresh_field('issue_items');
+
+            (frm.doc.issue_items || []).forEach(row => {
+                if (row.product) {
+                    fetch_taniya_stock_summary(frm, row.doctype, row.name, row.product);
+                }
+            });
+
             calculate_taniya_issue_totals(frm);
         });
     }
@@ -70,6 +86,14 @@ frappe.ui.form.on('Taniya Issue Item', {
         frappe.model.set_value(cdt, cdn, 'operator_name', frm.doc.operator || '');
     },
 
+    product(frm, cdt, cdn) {
+        let row = locals[cdt][cdn];
+
+        if (row.product) {
+            fetch_taniya_stock_summary(frm, cdt, cdn, row.product);
+        }
+    },
+
     weight(frm) {
         calculate_taniya_issue_totals(frm);
     },
@@ -78,6 +102,34 @@ frappe.ui.form.on('Taniya Issue Item', {
         calculate_taniya_issue_totals(frm);
     }
 });
+
+function fetch_taniya_stock_summary(frm, cdt, cdn, product) {
+    if (!product) return;
+
+    frappe.call({
+        method: "jari_core.jari_core.doctype.taniya_issue.taniya_issue.get_product_stock_summary",
+        args: {
+            product: product,
+            company: frm.doc.company || null
+        },
+        callback(r) {
+            frappe.model.set_value(
+                cdt,
+                cdn,
+                "current_stock_summary",
+                r.message || "No stock available"
+            );
+        }
+    });
+}
+
+function refresh_all_stock_summaries(frm) {
+    (frm.doc.issue_items || []).forEach(row => {
+        if (row.product) {
+            fetch_taniya_stock_summary(frm, row.doctype, row.name, row.product);
+        }
+    });
+}
 
 function set_operator_in_child_rows(frm) {
     (frm.doc.issue_items || []).forEach(row => {
