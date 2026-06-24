@@ -202,7 +202,7 @@ class GilitIssue(Document):
             "in_weight": 0,
             "out_weight": weight,
             "current_balance": flt(source_balance) - weight,
-            "transaction_type": "Gilit Input",
+            "transaction_type": "Stock Transfer Out",
             "reference_doctype": self.doctype,
             "reference_name": self.name,
             "date": self.issue_date or today(),
