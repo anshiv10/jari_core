@@ -53,7 +53,7 @@
    "fieldname": "weight",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Weight"
+   "label": "Waste Weight"
   },
   {
    "fieldname": "approx_silver_weight",
