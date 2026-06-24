@@ -7,10 +7,12 @@ class MeltingIssue(Document):
 
     def validate(self):
         self.set_defaults()
+        self.sync_active_batch_no()
         self.set_silver_purity()
         self.calculate_totals()
 
     def on_submit(self):
+        self.sync_active_batch_no()
         self.post_inventory_transfer()
         frappe.db.set_value(self.doctype, self.name, "status", "Issued")
 
@@ -22,18 +24,28 @@ class MeltingIssue(Document):
         if not self.to_department:
             self.to_department = "Melting"
 
+    def sync_active_batch_no(self):
+        if getattr(self, "batch_no", None):
+            self.active_batch_no = self.batch_no
+
     def set_silver_purity(self):
-        self.silver_purity_percent = frappe.db.get_value(
-            "Quality Master", self.quality_code, "silver_purity_percent"
-        ) or 0 if self.quality_code else 0
+        self.silver_purity_percent = (
+            frappe.db.get_value("Quality Master", self.quality_code, "silver_purity_percent") or 0
+            if self.quality_code else 0
+        )
 
     def calculate_totals(self):
         self.total_issue_weight = 0
-        for row in self.issue_items:
+
+        for row in self.issue_items or []:
             self.total_issue_weight += flt(row.weight)
+
             if row.product:
                 metal_type = frappe.db.get_value("Product Master", row.product, "metal_type")
-                row.silver_weight = flt(row.weight) * flt(self.silver_purity_percent) / 100 if metal_type == "Silver" else 0
+                row.silver_weight = (
+                    flt(row.weight) * flt(self.silver_purity_percent) / 100
+                    if metal_type == "Silver" else 0
+                )
 
     def get_last_balance(self, company, department, product):
         return frappe.db.get_value(
@@ -51,6 +63,7 @@ class MeltingIssue(Document):
         """, (self.company, product), as_dict=True)
 
         rows = []
+
         for d in departments:
             bal = flt(self.get_last_balance(self.company, d.department, product))
             if bal > 0:
@@ -69,9 +82,10 @@ class MeltingIssue(Document):
         if self.ledger_exists():
             return
 
-        for row in self.issue_items:
+        for row in self.issue_items or []:
             product = row.product
             required = flt(row.weight)
+
             if not product or not required:
                 continue
 
@@ -80,7 +94,9 @@ class MeltingIssue(Document):
 
             if required > total_available:
                 frappe.throw(
-                    f"Insufficient stock for {product}. Available across all departments: {total_available} KG, Requested: {required} KG"
+                    f"Insufficient stock for {product}. "
+                    f"Available across all departments: {total_available} KG, "
+                    f"Requested: {required} KG"
                 )
 
             remaining = required
@@ -135,6 +151,7 @@ def get_product_stock_summary(product, company=None):
         return ""
 
     filters = {"product": product}
+
     if company:
         filters["company"] = company
 
@@ -148,18 +165,22 @@ def get_product_stock_summary(product, company=None):
     lines = []
 
     for d in departments:
+        lookup_filters = {
+            "product": product,
+            "department": d.department
+        }
+
+        if company:
+            lookup_filters["company"] = company
+
         bal = frappe.db.get_value(
             "Inventory Ledger",
-            {
-                "product": product,
-                "department": d.department,
-                **({"company": company} if company else {})
-            },
+            lookup_filters,
             "current_balance",
             order_by="creation desc"
         ) or 0
 
-        if float(bal) != 0:
+        if flt(bal) != 0:
             lines.append(f"{d.department} - {bal} KG")
 
     return "\n".join(lines) if lines else "No stock available"

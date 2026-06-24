@@ -16,9 +16,11 @@
   "to_department",
   "col_break_2",
   "batch_no",
+  "active_batch_no",
   "process_master",
   "quality_code",
   "items_section",
+  "operator",
   "issue_items",
   "totals_section",
   "total_issue_weight",
@@ -83,6 +85,13 @@
    "in_list_view": 1,
    "label": "Batch No",
    "reqd": 1
+  },
+  {
+   "fieldname": "active_batch_no",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Active Batch No",
+   "read_only": 1
   },
   {
    "fieldname": "process_master",
@@ -168,7 +177,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-06-14 03:38:18.475118",
+ "modified": "2026-06-24 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "JARI Core",
  "name": "Melting Issue",
