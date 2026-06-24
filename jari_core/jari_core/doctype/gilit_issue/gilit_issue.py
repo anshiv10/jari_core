@@ -94,7 +94,7 @@ class GilitIssue(Document):
             row.quality_code = peti.quality_code
             row.khata_no = peti.khata_no
             row.product = self.get_kasab_product()
-            row.uom = "GM"
+            row.uom = "KG"
             row.gross_weight = flt(peti.gross_weight)
             row.baad_weight = flt(peti.baad_weight)
             row.net_weight = flt(peti.net_weight)
