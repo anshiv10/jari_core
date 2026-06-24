@@ -1,6 +1,6 @@
 import frappe
 from frappe.model.document import Document
-from frappe.utils import flt, cint
+from frappe.utils import flt, cint, today
 
 
 class SpindalPetiEntry(Document):
@@ -20,6 +20,7 @@ class SpindalPetiEntry(Document):
         if not cint(self.remaining_bobbin):
             self.db_set("remaining_bobbin", cint(self.bobbin_count or self.nang))
 
+        self.post_kasab_stock()
         self.db_set("status", "Received")
 
     def on_cancel(self):
@@ -28,6 +29,7 @@ class SpindalPetiEntry(Document):
         if consumed > 0:
             frappe.throw("Cannot cancel Peti because bobbins are already consumed in Gilit Issue.")
 
+        self.reverse_kasab_stock()
         self.db_set("status", "Cancelled")
 
     def set_peti_id(self):
@@ -80,3 +82,105 @@ class SpindalPetiEntry(Document):
 
         if cint(self.remaining_bobbin) > total_bobbin:
             frappe.throw("Remaining Bobbin cannot be greater than Bobbin Count.")
+
+    def get_kasab_product(self):
+        if frappe.db.exists("Product Master", "KASAB"):
+            return "KASAB"
+
+        product = frappe.db.get_value("Product Master", {"product_name": "KASAB"}, "name")
+        if product:
+            return product
+
+        product = frappe.db.get_value("Product Master", {"product_name": ["like", "%KASAB%"]}, "name")
+        if product:
+            return product
+
+        frappe.throw("KASAB product not found in Product Master.")
+
+    def get_department(self):
+        if self.spindal_issue:
+            return frappe.db.get_value("Spindal Issue", self.spindal_issue, "to_department") or "spindal"
+        return "spindal"
+
+    def get_last_balance(self, company, department, product):
+        return frappe.db.get_value(
+            "Inventory Ledger",
+            {
+                "company": company,
+                "department": department,
+                "product": product
+            },
+            "current_balance",
+            order_by="creation desc"
+        ) or 0
+
+    def ledger_exists(self, transaction_type):
+        return frappe.db.exists(
+            "Inventory Ledger",
+            {
+                "reference_doctype": self.doctype,
+                "reference_name": self.name,
+                "transaction_type": transaction_type
+            }
+        )
+
+    def post_kasab_stock(self):
+        if self.ledger_exists("Spindal Peti Received"):
+            return
+
+        product = self.get_kasab_product()
+        department = self.get_department()
+        weight = flt(self.net_weight)
+
+        if weight <= 0:
+            return
+
+        last_balance = self.get_last_balance(self.company, department, product)
+
+        frappe.get_doc({
+            "doctype": "Inventory Ledger",
+            "company": self.company,
+            "department": department,
+            "product": product,
+            "batch_number": self.batch_no,
+            "in_weight": weight,
+            "out_weight": 0,
+            "current_balance": flt(last_balance) + weight,
+            "transaction_type": "Spindal Peti Received",
+            "reference_doctype": self.doctype,
+            "reference_name": self.name,
+            "date": self.peti_date or today(),
+            "remarks": "Kasab stock added from Spindal Peti Entry"
+        }).insert(ignore_permissions=True)
+
+    def reverse_kasab_stock(self):
+        if self.ledger_exists("Spindal Peti Cancelled"):
+            return
+
+        product = self.get_kasab_product()
+        department = self.get_department()
+        weight = flt(self.net_weight)
+
+        if weight <= 0:
+            return
+
+        last_balance = self.get_last_balance(self.company, department, product)
+
+        if weight > flt(last_balance):
+            frappe.throw("Cannot cancel Peti because KASAB stock is already consumed.")
+
+        frappe.get_doc({
+            "doctype": "Inventory Ledger",
+            "company": self.company,
+            "department": department,
+            "product": product,
+            "batch_number": self.batch_no,
+            "in_weight": 0,
+            "out_weight": weight,
+            "current_balance": flt(last_balance) - weight,
+            "transaction_type": "Spindal Peti Cancelled",
+            "reference_doctype": self.doctype,
+            "reference_name": self.name,
+            "date": today(),
+            "remarks": "Kasab stock reversed due to Spindal Peti cancellation"
+        }).insert(ignore_permissions=True)
