@@ -32,9 +32,7 @@ frappe.ui.form.on('Gilit Issue Peti Item', {
     spindal_peti_entry(frm, cdt, cdn) {
         let row = locals[cdt][cdn];
 
-        if (!row.spindal_peti_entry) {
-            return;
-        }
+        if (!row.spindal_peti_entry) return;
 
         frappe.db.get_doc('Spindal Peti Entry', row.spindal_peti_entry).then(peti => {
             let total_bobbin = flt(peti.bobbin_count || peti.nang);
@@ -80,12 +78,6 @@ frappe.ui.form.on('Gilit Issue Peti Item', {
             return;
         }
 
-        if (flt(row.issued_bobbin) <= 0) {
-            frappe.model.set_value(cdt, cdn, 'balance_bobbin_after_issue', available);
-            calculate_gilit_totals(frm);
-            return;
-        }
-
         if (flt(row.issued_bobbin) > available) {
             frappe.msgprint('Issued Bobbin cannot be greater than Available Bobbin.');
             frappe.model.set_value(cdt, cdn, 'issued_bobbin', 0);
@@ -110,7 +102,7 @@ frappe.ui.form.on('Gilit Issue Peti Item', {
 
 function calculate_gilit_totals(frm) {
     let total_peti = 0;
-    let total_weight = 0;
+    let total_weight_kg = 0;
 
     (frm.doc.peti_items || []).forEach(row => {
         if (!row.spindal_peti_entry) return;
@@ -118,10 +110,16 @@ function calculate_gilit_totals(frm) {
         total_peti += 1;
 
         if (flt(row.total_bobbin) && flt(row.issued_bobbin)) {
-            total_weight += (flt(row.net_weight) / flt(row.total_bobbin)) * flt(row.issued_bobbin);
+            let issued_weight_gm = (flt(row.net_weight) / flt(row.total_bobbin)) * flt(row.issued_bobbin);
+            total_weight_kg += issued_weight_gm / 1000;
         }
     });
 
-    frm.set_value('total_peti', total_peti);
-    frm.set_value('total_net_weight', total_weight);
+    if (flt(frm.doc.total_peti) !== flt(total_peti)) {
+        frm.set_value('total_peti', total_peti);
+    }
+
+    if (flt(frm.doc.total_net_weight, 6) !== flt(total_weight_kg, 6)) {
+        frm.set_value('total_net_weight', total_weight_kg);
+    }
 }
