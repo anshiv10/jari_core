@@ -9,12 +9,10 @@ def get_kasab_product_name():
         return "KASAB"
 
     product = frappe.db.get_value("Product Master", {"product_name": "KASAB"}, "name")
-
     if product:
         return product
 
     product = frappe.db.get_value("Product Master", {"product_name": ["like", "%KASAB%"]}, "name")
-
     return product or "KASAB"
 
 
@@ -96,7 +94,7 @@ class GilitIssue(Document):
             row.quality_code = peti.quality_code
             row.khata_no = peti.khata_no
             row.product = self.get_kasab_product()
-            row.uom = "KG"
+            row.uom = "GM"
             row.gross_weight = flt(peti.gross_weight)
             row.baad_weight = flt(peti.baad_weight)
             row.net_weight = flt(peti.net_weight)
@@ -116,9 +114,11 @@ class GilitIssue(Document):
             self.total_peti += 1
 
             if cint(row.total_bobbin):
-                self.total_net_weight += (
+                issued_weight_in_grams = (
                     flt(row.net_weight) / cint(row.total_bobbin)
                 ) * cint(row.issued_bobbin)
+
+                self.total_net_weight += issued_weight_in_grams / 1000
 
     def update_peti_balances(self):
         for row in self.peti_items:
