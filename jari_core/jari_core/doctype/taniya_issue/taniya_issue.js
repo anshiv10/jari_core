@@ -2,17 +2,9 @@ console.log("Taniya Issue JS Loaded Successfully");
 
 frappe.ui.form.on('Taniya Issue', {
     refresh(frm) {
-        if (!frm.doc.issue_date) {
-            frm.set_value('issue_date', frappe.datetime.get_today());
-        }
+        if (!frm.doc.issue_date) frm.set_value('issue_date', frappe.datetime.get_today());
 
-        frm.set_query('process_master', function() {
-            return {
-                filters: {
-                    department: 'TANIYA'
-                }
-            };
-        });
+        frm.set_query('process_master', () => ({ filters: { department: 'TANIYA' } }));
 
         frm.trigger('set_batch_no');
         calculate_taniya_issue_totals(frm);
@@ -58,7 +50,6 @@ frappe.ui.form.on('Taniya Issue', {
 
             (p.input_products || []).forEach(row => {
                 let d = frm.add_child('issue_items');
-
                 d.issue_date = frm.doc.issue_date || frappe.datetime.get_today();
                 d.product = row.product;
                 d.uom = row.uom || 'KG';
@@ -68,13 +59,7 @@ frappe.ui.form.on('Taniya Issue', {
             });
 
             frm.refresh_field('issue_items');
-
-            (frm.doc.issue_items || []).forEach(row => {
-                if (row.product) {
-                    fetch_taniya_stock_summary(frm, row.doctype, row.name, row.product);
-                }
-            });
-
+            refresh_all_stock_summaries(frm);
             calculate_taniya_issue_totals(frm);
         });
     }
@@ -82,16 +67,25 @@ frappe.ui.form.on('Taniya Issue', {
 
 frappe.ui.form.on('Taniya Issue Item', {
     issue_items_add(frm, cdt, cdn) {
-        frappe.model.set_value(cdt, cdn, 'issue_date', frm.doc.issue_date || frappe.datetime.get_today());
-        frappe.model.set_value(cdt, cdn, 'operator_name', frm.doc.operator || '');
+        let rows = frm.doc.issue_items || [];
+        let previous = rows.length > 1 ? rows[rows.length - 2] : null;
+
+        frappe.model.set_value(cdt, cdn, 'issue_date', previous?.issue_date || frm.doc.issue_date || frappe.datetime.get_today());
+        frappe.model.set_value(cdt, cdn, 'product', previous?.product || '');
+        frappe.model.set_value(cdt, cdn, 'uom', previous?.uom || 'KG');
+        frappe.model.set_value(cdt, cdn, 'operator_name', previous?.operator_name || frm.doc.operator || '');
+        frappe.model.set_value(cdt, cdn, 'weight', 0);
+
+        if (previous?.product) {
+            fetch_taniya_stock_summary(frm, cdt, cdn, previous.product);
+        }
+
+        calculate_taniya_issue_totals(frm);
     },
 
     product(frm, cdt, cdn) {
         let row = locals[cdt][cdn];
-
-        if (row.product) {
-            fetch_taniya_stock_summary(frm, cdt, cdn, row.product);
-        }
+        if (row.product) fetch_taniya_stock_summary(frm, cdt, cdn, row.product);
     },
 
     weight(frm) {
@@ -108,26 +102,16 @@ function fetch_taniya_stock_summary(frm, cdt, cdn, product) {
 
     frappe.call({
         method: "jari_core.jari_core.doctype.taniya_issue.taniya_issue.get_product_stock_summary",
-        args: {
-            product: product,
-            company: frm.doc.company || null
-        },
+        args: { product: product, company: frm.doc.company || null },
         callback(r) {
-            frappe.model.set_value(
-                cdt,
-                cdn,
-                "current_stock_summary",
-                r.message || "No stock available"
-            );
+            frappe.model.set_value(cdt, cdn, "current_stock_summary", r.message || "No stock available");
         }
     });
 }
 
 function refresh_all_stock_summaries(frm) {
     (frm.doc.issue_items || []).forEach(row => {
-        if (row.product) {
-            fetch_taniya_stock_summary(frm, row.doctype, row.name, row.product);
-        }
+        if (row.product) fetch_taniya_stock_summary(frm, row.doctype, row.name, row.product);
     });
 }
 
@@ -139,10 +123,6 @@ function set_operator_in_child_rows(frm) {
 
 function calculate_taniya_issue_totals(frm) {
     let total = 0;
-
-    (frm.doc.issue_items || []).forEach(row => {
-        total += flt(row.weight);
-    });
-
+    (frm.doc.issue_items || []).forEach(row => total += flt(row.weight));
     frm.set_value('total_issue_weight', total);
 }
