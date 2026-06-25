@@ -52,7 +52,7 @@
    "fieldname": "weight",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Weight"
+   "label": "Received Weight"
   }
  ],
  "grid_page_length": 50,

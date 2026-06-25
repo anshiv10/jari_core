@@ -12,6 +12,7 @@
   "peti_date",
   "company",
   "batch_no",
+  "uom",
   "quality",
   "quality_code",
   "khata_no",
@@ -58,6 +59,13 @@
    "fieldtype": "Data",
    "label": "Batch No",
    "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "UOM",
+   "options": "UOM_Jari",
    "in_list_view": 1
   },
   {
