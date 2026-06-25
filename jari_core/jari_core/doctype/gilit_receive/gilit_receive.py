@@ -74,6 +74,18 @@ class GilitReceive(Document):
 
             row.weight = flt(row.used_net_weight)
 
+        if flt(self.gross_weight_without_dabba) < 0:
+            frappe.throw("G.W Without Dabba Weight cannot be negative.")
+
+        if flt(self.firki_weight) < 0:
+            frappe.throw("Firki Weight cannot be negative.")
+
+        if flt(self.filled_firki) < 0:
+            frappe.throw("Filled Firki cannot be negative.")
+
+        if flt(self.firki_nang) < 0:
+            frappe.throw("Firki Nang cannot be negative.")
+
     def calculate_totals(self):
         self.total_output_weight = sum(flt(row.used_net_weight or row.weight) for row in self.output_items)
         self.total_waste_weight = 0
@@ -90,6 +102,19 @@ class GilitReceive(Document):
             if row.waste_product:
                 metal_type = frappe.db.get_value("Product Master", row.waste_product, "metal_type")
                 row.approx_silver_weight = flt(row.weight) * flt(quality_purity) / 100 if metal_type == "Silver" else 0
+
+        self.rangayel_kasab_weight = flt(self.gross_weight_without_dabba) - flt(self.firki_weight)
+
+        self.total_jari_production = (
+            flt(self.gross_weight_without_dabba)
+            - flt(self.firki_weight)
+            - flt(self.total_waste_weight)
+        )
+
+        self.weight_of_one_firki = (
+            flt(self.total_jari_production) / flt(self.filled_firki)
+            if flt(self.filled_firki) else 0
+        )
 
         self.loss_weight = flt(self.total_input_weight) - flt(self.total_output_weight) - flt(self.total_waste_weight)
 

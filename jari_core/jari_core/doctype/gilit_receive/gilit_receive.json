@@ -19,6 +19,14 @@
   "total_input_weight",
   "total_output_weight",
   "total_waste_weight",
+  "firki_type",
+  "firki_nang",
+  "firki_weight",
+  "gross_weight_without_dabba",
+  "rangayel_kasab_weight",
+  "filled_firki",
+  "total_jari_production",
+  "weight_of_one_firki",
   "loss_weight",
   "loss_percent",
   "loss_standard_percent",
@@ -106,6 +114,49 @@
    "read_only": 1
   },
   {
+   "fieldname": "firki_type",
+   "fieldtype": "Data",
+   "label": "Type of Firki"
+  },
+  {
+   "fieldname": "firki_nang",
+   "fieldtype": "Int",
+   "label": "Firki Nang"
+  },
+  {
+   "fieldname": "firki_weight",
+   "fieldtype": "Float",
+   "label": "Firki Weight"
+  },
+  {
+   "fieldname": "gross_weight_without_dabba",
+   "fieldtype": "Float",
+   "label": "G.W Without Dabba Weight"
+  },
+  {
+   "fieldname": "rangayel_kasab_weight",
+   "fieldtype": "Float",
+   "label": "N.W / Rangayel Kasab",
+   "read_only": 1
+  },
+  {
+   "fieldname": "filled_firki",
+   "fieldtype": "Int",
+   "label": "Filled Firki"
+  },
+  {
+   "fieldname": "total_jari_production",
+   "fieldtype": "Float",
+   "label": "Total Jari Production",
+   "read_only": 1
+  },
+  {
+   "fieldname": "weight_of_one_firki",
+   "fieldtype": "Float",
+   "label": "Weight of One Firki",
+   "read_only": 1
+  },
+  {
    "fieldname": "loss_weight",
    "fieldtype": "Float",
    "label": "Loss Weight",
@@ -149,7 +200,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-06-25 20:30:00.000000",
+ "modified": "2026-06-25 21:30:00.000000",
  "modified_by": "Administrator",
  "module": "JARI Core",
  "name": "Gilit Receive",

@@ -62,13 +62,24 @@ frappe.ui.form.on('Gilit Receive', {
                 calculate_gilit_receive_totals(frm);
             }
         });
+    },
+
+    firki_weight(frm) {
+        calculate_gilit_receive_totals(frm);
+    },
+
+    gross_weight_without_dabba(frm) {
+        calculate_gilit_receive_totals(frm);
+    },
+
+    filled_firki(frm) {
+        calculate_gilit_receive_totals(frm);
     }
 });
 
 frappe.ui.form.on('Gilit Output Item', {
     used_net_weight(frm, cdt, cdn) {
         let row = locals[cdt][cdn];
-
         frappe.model.set_value(cdt, cdn, 'weight', flt(row.used_net_weight));
         calculate_gilit_receive_totals(frm);
     },
@@ -106,6 +117,15 @@ function calculate_gilit_receive_totals(frm) {
 
     frm.set_value('total_output_weight', output);
     frm.set_value('total_waste_weight', waste);
+
+    let rangayel_kasab = flt(frm.doc.gross_weight_without_dabba) - flt(frm.doc.firki_weight);
+    frm.set_value('rangayel_kasab_weight', rangayel_kasab);
+
+    let total_jari = flt(frm.doc.gross_weight_without_dabba) - flt(frm.doc.firki_weight) - waste;
+    frm.set_value('total_jari_production', total_jari);
+
+    let one_firki_weight = flt(frm.doc.filled_firki) ? total_jari / flt(frm.doc.filled_firki) : 0;
+    frm.set_value('weight_of_one_firki', one_firki_weight);
 
     let loss = flt(frm.doc.total_input_weight) - output - waste;
     frm.set_value('loss_weight', loss);
