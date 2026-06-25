@@ -28,7 +28,7 @@ frappe.ui.form.on('Gilit Receive', {
                 if (!issue) return;
 
                 frm.set_value('company', issue.company);
-                frm.set_value('active_batch_no', issue.active_batch_no);
+                frm.set_value('active_batch_no', issue.gilit_batch_no);
                 frm.set_value('process_master', issue.process_master);
                 frm.set_value('quality_code', issue.quality_code);
                 frm.set_value('operator', issue.operator);
