@@ -12,7 +12,7 @@ class GilitReceive(Document):
 
     def on_submit(self):
         self.post_outputs_and_waste()
-        frappe.db.set_value("Gilit Issue", self.gilit_issue, "status", "Received")
+        frappe.db.set_value("Gilit Issue", self.gilit_issue, "status", "Closed")
 
     def pull_issue_details(self):
         if not self.gilit_issue:
@@ -27,15 +27,31 @@ class GilitReceive(Document):
         self.operator = issue.operator
         self.total_input_weight = issue.total_net_weight
 
+        if not self.output_items:
+            for peti in issue.peti_items or []:
+                total_bobbin = flt(peti.total_bobbin)
+                issued_bobbin = flt(peti.issued_bobbin)
+                used_net_weight = 0
+
+                if total_bobbin and issued_bobbin:
+                    used_net_weight = (flt(peti.net_weight) / total_bobbin) * issued_bobbin / 1000
+
+                row = self.append("output_items", {})
+                row.spindal_peti_entry = peti.spindal_peti_entry
+                row.peti_no = peti.peti_no
+                row.total_bobbin = total_bobbin
+                row.issued_bobbin = issued_bobbin
+                row.used_net_weight = used_net_weight
+                row.uom = peti.uom
+                row.weight = used_net_weight
+
     def validate_items(self):
         if not self.output_items and not self.waste_items:
-            frappe.throw("At least one Final Jari Product or Waste Item is required.")
+            frappe.throw("At least one Final Jari Product/Peti Detail or Waste Item is required.")
 
         for row in self.output_items:
-            if not row.product:
-                frappe.throw("Final Jari Product is required.")
             if flt(row.weight) <= 0:
-                frappe.throw(f"Weight must be greater than zero for product {row.product}.")
+                frappe.throw("Weight must be greater than zero in Final Jari Product Detail.")
 
     def calculate_totals(self):
         self.total_output_weight = sum(flt(row.weight) for row in self.output_items)
@@ -52,10 +68,7 @@ class GilitReceive(Document):
 
             if row.waste_product:
                 metal_type = frappe.db.get_value("Product Master", row.waste_product, "metal_type")
-                if metal_type == "Silver":
-                    row.approx_silver_weight = flt(row.weight) * flt(quality_purity) / 100
-                else:
-                    row.approx_silver_weight = 0
+                row.approx_silver_weight = flt(row.weight) * flt(quality_purity) / 100 if metal_type == "Silver" else 0
 
         self.loss_weight = flt(self.total_input_weight) - flt(self.total_output_weight) - flt(self.total_waste_weight)
 

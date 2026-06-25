@@ -8,7 +8,7 @@ frappe.ui.form.on('Gilit Receive', {
             return {
                 filters: {
                     docstatus: 1,
-                    status: ['!=', 'Received']
+                    status: ['!=', 'Closed']
                 }
             };
         });
@@ -34,6 +34,29 @@ frappe.ui.form.on('Gilit Receive', {
                 frm.set_value('operator', issue.operator);
                 frm.set_value('total_input_weight', issue.total_net_weight);
 
+                frm.clear_table('output_items');
+
+                (issue.peti_items || []).forEach(peti => {
+                    let row = frm.add_child('output_items');
+
+                    let total_bobbin = flt(peti.total_bobbin);
+                    let issued_bobbin = flt(peti.issued_bobbin);
+                    let used_net_weight = 0;
+
+                    if (total_bobbin && issued_bobbin) {
+                        used_net_weight = (flt(peti.net_weight) / total_bobbin) * issued_bobbin / 1000;
+                    }
+
+                    row.spindal_peti_entry = peti.spindal_peti_entry;
+                    row.peti_no = peti.peti_no;
+                    row.total_bobbin = total_bobbin;
+                    row.issued_bobbin = issued_bobbin;
+                    row.used_net_weight = used_net_weight;
+                    row.uom = peti.uom;
+                    row.weight = used_net_weight;
+                });
+
+                frm.refresh_field('output_items');
                 calculate_gilit_receive_totals(frm);
             }
         });
