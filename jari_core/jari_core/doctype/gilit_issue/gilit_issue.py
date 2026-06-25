@@ -134,7 +134,7 @@ class GilitIssue(Document):
             frappe.db.set_value("Spindal Peti Entry", peti.name, {
                 "bobbin_count": total_bobbin,
                 "remaining_bobbin": new_balance,
-                "status": "Fully Consumed" if new_balance == 0 else "Partially Consumed"
+                "status": "Fully Consumed" if new_balance == 0 else "Partial"
             })
 
     def restore_peti_balances(self):
@@ -147,7 +147,7 @@ class GilitIssue(Document):
             if restored > total_bobbin:
                 restored = total_bobbin
 
-            status = "Received" if restored == total_bobbin else "Partially Consumed"
+            status = "Received" if restored == total_bobbin else "Partial"
 
             frappe.db.set_value("Spindal Peti Entry", peti.name, {
                 "remaining_bobbin": restored,

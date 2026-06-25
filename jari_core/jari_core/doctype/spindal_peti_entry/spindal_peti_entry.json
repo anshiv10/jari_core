@@ -12,7 +12,6 @@
   "peti_date",
   "company",
   "batch_no",
-  "uom",
   "quality",
   "quality_code",
   "khata_no",
@@ -20,6 +19,7 @@
   "nang",
   "bobbin_count",
   "remaining_bobbin",
+  "uom",
   "baad_weight",
   "gross_weight",
   "net_weight",
@@ -80,7 +80,8 @@
    "fieldname": "quality_code",
    "fieldtype": "Link",
    "label": "Quality Code",
-   "options": "Quality Master"
+   "options": "Quality Master",
+   "in_list_view": 1
   },
   {
    "fieldname": "khata_no",
@@ -135,7 +136,7 @@
    "fieldname": "status",
    "fieldtype": "Select",
    "label": "Status",
-   "options": "Draft\nReceived\nPartially Consumed\nFully Consumed\nCancelled",
+   "options": "Draft\nReceived\nPartial\nFully Consumed\nCancelled",
    "default": "Draft",
    "in_list_view": 1
   },
