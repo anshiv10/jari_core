@@ -90,7 +90,7 @@ class GilitIssue(Document):
                     f"Available Bobbin: {available}"
                 )
 
-            row.peti_no = peti.name
+            row.peti_no = peti.peti_no or peti.name
             row.quality_code = peti.quality_code
             row.khata_no = peti.khata_no
             row.product = self.get_kasab_product()

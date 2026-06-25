@@ -49,7 +49,7 @@ frappe.ui.form.on('Gilit Issue Peti Item', {
                 callback(r) {
                     let kasab = r.message || 'KASAB';
 
-                    frappe.model.set_value(cdt, cdn, 'peti_no', peti.name);
+                    frappe.model.set_value(cdt, cdn, 'peti_no', peti.peti_no || peti.name);
                     frappe.model.set_value(cdt, cdn, 'quality_code', peti.quality_code);
                     frappe.model.set_value(cdt, cdn, 'khata_no', peti.khata_no);
                     frappe.model.set_value(cdt, cdn, 'product', kasab);

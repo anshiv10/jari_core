@@ -9,6 +9,7 @@
  "field_order": [
   "spindal_issue",
   "peti_id",
+  "peti_no",
   "peti_date",
   "company",
   "batch_no",
@@ -43,6 +44,13 @@
    "in_list_view": 1
   },
   {
+   "fieldname": "peti_no",
+   "fieldtype": "Data",
+   "label": "Peti No.",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
    "fieldname": "peti_date",
    "fieldtype": "Date",
    "label": "Peti Date",
@@ -66,7 +74,8 @@
    "fieldtype": "Link",
    "label": "UOM",
    "options": "UOM_Jari",
-   "in_list_view": 1
+   "in_list_view": 1,
+   "reqd": 1
   },
   {
    "fieldname": "quality",
