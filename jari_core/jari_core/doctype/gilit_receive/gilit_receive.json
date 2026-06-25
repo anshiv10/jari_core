@@ -73,7 +73,7 @@
    "fieldname": "operator",
    "fieldtype": "Link",
    "label": "Operator",
-   "options": "Employee",
+   "options": "Worker Master",
    "read_only": 1
   },
   {
