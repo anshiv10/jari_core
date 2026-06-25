@@ -21,7 +21,7 @@ class GilitReceive(Document):
         issue = frappe.get_doc("Gilit Issue", self.gilit_issue)
 
         self.company = issue.company
-        self.active_batch_no = issue.active_batch_no
+        self.active_batch_no = issue.gilit_batch_no
         self.process_master = issue.process_master
         self.quality_code = issue.quality_code
         self.operator = issue.operator
