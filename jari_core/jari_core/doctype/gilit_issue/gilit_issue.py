@@ -16,11 +16,40 @@ def get_kasab_product_name():
     return product or "KASAB"
 
 
+@frappe.whitelist()
+def get_product_stock_for_gilit(company, department, product):
+    current_stock = frappe.db.get_value(
+        "Inventory Ledger",
+        {
+            "company": company,
+            "department": department,
+            "product": product
+        },
+        "current_balance",
+        order_by="creation desc"
+    ) or 0
+
+    uom = ""
+    meta = frappe.get_meta("Product Master")
+
+    for fieldname in ["uom", "stock_uom", "default_uom"]:
+        if meta.has_field(fieldname):
+            uom = frappe.db.get_value("Product Master", product, fieldname) or ""
+            if uom:
+                break
+
+    return {
+        "current_stock": current_stock,
+        "uom": uom
+    }
+
+
 class GilitIssue(Document):
 
     def validate(self):
         self.set_defaults()
         self.validate_peti_items()
+        self.validate_metal_water_inputs()
         self.calculate_totals()
 
     def on_submit(self):
@@ -103,6 +132,26 @@ class GilitIssue(Document):
             row.balance_bobbin_after_issue = available - cint(row.issued_bobbin)
             row.operator_name = peti.operator
 
+    def validate_metal_water_inputs(self):
+        for row in self.metal_water_inputs or []:
+            if not row.product:
+                frappe.throw("Product Name is required in Metal Water Input.")
+
+            if not row.input_date:
+                row.input_date = self.issue_date or today()
+
+            if flt(row.issued_aani) <= 0:
+                frappe.throw(f"Issued Aani must be greater than zero for {row.product}.")
+
+            current_stock = self.get_last_balance(self.company, self.to_department, row.product)
+            row.current_stock = current_stock
+
+            if flt(row.issued_aani) > flt(current_stock):
+                frappe.throw(
+                    f"Insufficient stock for {row.product} in {self.to_department}. "
+                    f"Available: {current_stock}, Required: {row.issued_aani}"
+                )
+
     def calculate_totals(self):
         self.total_peti = 0
         self.total_net_weight = 0
@@ -182,47 +231,67 @@ class GilitIssue(Document):
         product = self.get_kasab_product()
         weight = flt(self.total_net_weight)
 
-        if not weight:
-            return
+        if weight:
+            source_balance = self.get_last_balance(self.company, self.from_department, product)
 
-        source_balance = self.get_last_balance(self.company, self.from_department, product)
+            if weight > flt(source_balance):
+                frappe.throw(
+                    f"Insufficient KASAB stock in {self.from_department}. "
+                    f"Available: {source_balance} KG, Required: {weight} KG"
+                )
 
-        if weight > flt(source_balance):
-            frappe.throw(
-                f"Insufficient KASAB stock in {self.from_department}. "
-                f"Available: {source_balance} KG, Required: {weight} KG"
-            )
+            frappe.get_doc({
+                "doctype": "Inventory Ledger",
+                "company": self.company,
+                "department": self.from_department,
+                "product": product,
+                "batch_number": self.gilit_batch_no,
+                "in_weight": 0,
+                "out_weight": weight,
+                "current_balance": flt(source_balance) - weight,
+                "transaction_type": "Stock Transfer Out",
+                "reference_doctype": self.doctype,
+                "reference_name": self.name,
+                "date": self.issue_date or today(),
+                "remarks": "Kasab issued to Gilit"
+            }).insert(ignore_permissions=True)
 
-        frappe.get_doc({
-            "doctype": "Inventory Ledger",
-            "company": self.company,
-            "department": self.from_department,
-            "product": product,
-            "batch_number": self.gilit_batch_no,
-            "in_weight": 0,
-            "out_weight": weight,
-            "current_balance": flt(source_balance) - weight,
-            "transaction_type": "Stock Transfer Out",
-            "reference_doctype": self.doctype,
-            "reference_name": self.name,
-            "date": self.issue_date or today(),
-            "remarks": "Kasab issued to Gilit"
-        }).insert(ignore_permissions=True)
+            target_balance = self.get_last_balance(self.company, self.to_department, product)
 
-        target_balance = self.get_last_balance(self.company, self.to_department, product)
+            frappe.get_doc({
+                "doctype": "Inventory Ledger",
+                "company": self.company,
+                "department": self.to_department,
+                "product": product,
+                "batch_number": self.gilit_batch_no,
+                "in_weight": weight,
+                "out_weight": 0,
+                "current_balance": flt(target_balance) + weight,
+                "transaction_type": "Stock Transfer In",
+                "reference_doctype": self.doctype,
+                "reference_name": self.name,
+                "date": self.issue_date or today(),
+                "remarks": "Kasab received in Gilit"
+            }).insert(ignore_permissions=True)
 
-        frappe.get_doc({
-            "doctype": "Inventory Ledger",
-            "company": self.company,
-            "department": self.to_department,
-            "product": product,
-            "batch_number": self.gilit_batch_no,
-            "in_weight": weight,
-            "out_weight": 0,
-            "current_balance": flt(target_balance) + weight,
-            "transaction_type": "Stock Transfer In",
-            "reference_doctype": self.doctype,
-            "reference_name": self.name,
-            "date": self.issue_date or today(),
-            "remarks": "Kasab received in Gilit"
-        }).insert(ignore_permissions=True)
+        for row in self.metal_water_inputs or []:
+            if not row.product or not flt(row.issued_aani):
+                continue
+
+            balance = self.get_last_balance(self.company, self.to_department, row.product)
+
+            frappe.get_doc({
+                "doctype": "Inventory Ledger",
+                "company": self.company,
+                "department": self.to_department,
+                "product": row.product,
+                "batch_number": self.gilit_batch_no,
+                "in_weight": 0,
+                "out_weight": flt(row.issued_aani),
+                "current_balance": flt(balance) - flt(row.issued_aani),
+                "transaction_type": "Production Input",
+                "reference_doctype": self.doctype,
+                "reference_name": self.name,
+                "date": row.input_date or self.issue_date or today(),
+                "remarks": "Metal Water Input issued in Gilit"
+            }).insert(ignore_permissions=True)

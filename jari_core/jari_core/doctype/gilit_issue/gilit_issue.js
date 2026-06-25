@@ -85,18 +85,50 @@ frappe.ui.form.on('Gilit Issue Peti Item', {
             return;
         }
 
-        frappe.model.set_value(
-            cdt,
-            cdn,
-            'balance_bobbin_after_issue',
-            available - flt(row.issued_bobbin)
-        );
-
+        frappe.model.set_value(cdt, cdn, 'balance_bobbin_after_issue', available - flt(row.issued_bobbin));
         calculate_gilit_totals(frm);
     },
 
     peti_items_remove(frm) {
         calculate_gilit_totals(frm);
+    }
+});
+
+frappe.ui.form.on('Gilit Metal Water Input', {
+    product(frm, cdt, cdn) {
+        let row = locals[cdt][cdn];
+
+        if (!row.product) return;
+
+        frappe.model.set_value(cdt, cdn, 'input_date', frm.doc.issue_date || frappe.datetime.get_today());
+
+        frappe.call({
+            method: 'jari_core.jari_core.doctype.gilit_issue.gilit_issue.get_product_stock_for_gilit',
+            args: {
+                company: frm.doc.company,
+                department: frm.doc.to_department || 'Gilit',
+                product: row.product
+            },
+            callback(r) {
+                if (!r.message) return;
+
+                frappe.model.set_value(cdt, cdn, 'current_stock', r.message.current_stock || 0);
+                frappe.model.set_value(cdt, cdn, 'uom', r.message.uom || '');
+            }
+        });
+    },
+
+    issued_aani(frm, cdt, cdn) {
+        let row = locals[cdt][cdn];
+
+        if (flt(row.issued_aani) > flt(row.current_stock)) {
+            frappe.msgprint('Issued Aani cannot be greater than Current Stock.');
+            frappe.model.set_value(cdt, cdn, 'issued_aani', 0);
+        }
+    },
+
+    metal_water_inputs_add(frm, cdt, cdn) {
+        frappe.model.set_value(cdt, cdn, 'input_date', frm.doc.issue_date || frappe.datetime.get_today());
     }
 });
 
@@ -115,11 +147,6 @@ function calculate_gilit_totals(frm) {
         }
     });
 
-    if (flt(frm.doc.total_peti) !== flt(total_peti)) {
-        frm.set_value('total_peti', total_peti);
-    }
-
-    if (flt(frm.doc.total_net_weight, 6) !== flt(total_weight_kg, 6)) {
-        frm.set_value('total_net_weight', total_weight_kg);
-    }
+    frm.set_value('total_peti', total_peti);
+    frm.set_value('total_net_weight', total_weight_kg);
 }
