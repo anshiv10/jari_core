@@ -127,6 +127,9 @@ function calculate_gilit_receive_totals(frm) {
     let one_firki_weight = flt(frm.doc.filled_firki) ? total_jari / flt(frm.doc.filled_firki) : 0;
     frm.set_value('weight_of_one_firki', one_firki_weight);
 
+    let vadh_ghat = (total_jari - flt(frm.doc.total_input_weight)) + waste;
+    frm.set_value('vadh_ghat', vadh_ghat);
+
     let loss = flt(frm.doc.total_input_weight) - output - waste;
     frm.set_value('loss_weight', loss);
 

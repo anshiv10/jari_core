@@ -116,6 +116,12 @@ class GilitReceive(Document):
             if flt(self.filled_firki) else 0
         )
 
+        self.vadh_ghat = (
+            flt(self.total_jari_production)
+            - flt(self.total_input_weight)
+            + flt(self.total_waste_weight)
+        )
+
         self.loss_weight = flt(self.total_input_weight) - flt(self.total_output_weight) - flt(self.total_waste_weight)
 
         self.loss_percent = (

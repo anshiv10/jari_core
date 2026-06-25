@@ -27,6 +27,7 @@
   "filled_firki",
   "total_jari_production",
   "weight_of_one_firki",
+  "vadh_ghat",
   "loss_weight",
   "loss_percent",
   "loss_standard_percent",
@@ -154,6 +155,12 @@
    "fieldname": "weight_of_one_firki",
    "fieldtype": "Float",
    "label": "Weight of One Firki",
+   "read_only": 1
+  },
+  {
+   "fieldname": "vadh_ghat",
+   "fieldtype": "Float",
+   "label": "Vadh/Ghat",
    "read_only": 1
   },
   {
