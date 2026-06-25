@@ -29,7 +29,7 @@ class GilitReceive(Document):
         self.process_master = issue.process_master
         self.quality_code = issue.quality_code
         self.operator = issue.operator
-        self.total_input_weight = issue.total_net_weight
+        self.total_input_weight = flt(issue.total_net_weight) * 1000
 
         if not self.output_items:
             for peti in issue.peti_items or []:
@@ -38,7 +38,7 @@ class GilitReceive(Document):
                 used_net_weight = 0
 
                 if total_bobbin and issued_bobbin:
-                    used_net_weight = (flt(peti.net_weight) / total_bobbin) * issued_bobbin / 1000
+                    used_net_weight = (flt(peti.net_weight) / total_bobbin) * issued_bobbin
 
                 row = self.append("output_items", {})
                 row.spindal_peti_entry = peti.spindal_peti_entry

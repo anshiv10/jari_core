@@ -34,7 +34,7 @@ frappe.ui.form.on('Gilit Receive', {
                 frm.set_value('process_master', issue.process_master);
                 frm.set_value('quality_code', issue.quality_code);
                 frm.set_value('operator', issue.operator);
-                frm.set_value('total_input_weight', issue.total_net_weight);
+                frm.set_value('total_input_weight', flt(issue.total_net_weight) * 1000);
 
                 frm.clear_table('output_items');
 
@@ -46,7 +46,7 @@ frappe.ui.form.on('Gilit Receive', {
                     let consumed_net_weight = 0;
 
                     if (total_bobbin && issued_bobbin) {
-                        consumed_net_weight = (flt(peti.net_weight) / total_bobbin) * issued_bobbin / 1000;
+                        consumed_net_weight = (flt(peti.net_weight) / total_bobbin) * issued_bobbin;
                     }
 
                     row.spindal_peti_entry = peti.spindal_peti_entry;
