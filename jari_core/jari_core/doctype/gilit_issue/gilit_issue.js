@@ -106,7 +106,7 @@ frappe.ui.form.on('Gilit Metal Water Input', {
             method: 'jari_core.jari_core.doctype.gilit_issue.gilit_issue.get_product_stock_for_gilit',
             args: {
                 company: frm.doc.company,
-                department: frm.doc.to_department || 'Gilit',
+                department: 'Gilit',
                 product: row.product
             },
             callback(r) {

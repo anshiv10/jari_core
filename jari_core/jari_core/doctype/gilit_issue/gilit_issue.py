@@ -143,7 +143,7 @@ class GilitIssue(Document):
             if flt(row.issued_aani) <= 0:
                 frappe.throw(f"Issued Aani must be greater than zero for {row.product}.")
 
-            current_stock = self.get_last_balance(self.company, self.to_department, row.product)
+            current_stock = self.get_last_balance(self.company, "Gilit", row.product)
             row.current_stock = current_stock
 
             if flt(row.issued_aani) > flt(current_stock):
@@ -278,12 +278,12 @@ class GilitIssue(Document):
             if not row.product or not flt(row.issued_aani):
                 continue
 
-            balance = self.get_last_balance(self.company, self.to_department, row.product)
+            balance = self.get_last_balance(self.company, "Gilit", row.product)
 
             frappe.get_doc({
                 "doctype": "Inventory Ledger",
                 "company": self.company,
-                "department": self.to_department,
+                "department": "Gilit",
                 "product": row.product,
                 "batch_number": self.gilit_batch_no,
                 "in_weight": 0,
