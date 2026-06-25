@@ -11,8 +11,12 @@ class GilitReceive(Document):
         self.calculate_totals()
 
     def on_submit(self):
+        self.update_peti_remaining_net_weight()
         self.post_outputs_and_waste()
         frappe.db.set_value("Gilit Issue", self.gilit_issue, "status", "Closed")
+
+    def on_cancel(self):
+        self.restore_peti_remaining_net_weight()
 
     def pull_issue_details(self):
         if not self.gilit_issue:
@@ -50,11 +54,28 @@ class GilitReceive(Document):
             frappe.throw("At least one Final Jari Product/Peti Detail or Waste Item is required.")
 
         for row in self.output_items:
-            if flt(row.weight) <= 0:
-                frappe.throw("Weight must be greater than zero in Final Jari Product Detail.")
+            if not row.spindal_peti_entry:
+                continue
+
+            if flt(row.used_net_weight) <= 0:
+                frappe.throw("Consumed Net Weight must be greater than zero.")
+
+            remaining = frappe.db.get_value(
+                "Spindal Peti Entry",
+                row.spindal_peti_entry,
+                "remaining_net_weight"
+            ) or 0
+
+            if flt(row.used_net_weight) > flt(remaining):
+                frappe.throw(
+                    f"Consumed Net Weight cannot be greater than Remaining N.W for Peti {row.peti_no}. "
+                    f"Available: {remaining}, Entered: {row.used_net_weight}"
+                )
+
+            row.weight = flt(row.used_net_weight)
 
     def calculate_totals(self):
-        self.total_output_weight = sum(flt(row.weight) for row in self.output_items)
+        self.total_output_weight = sum(flt(row.used_net_weight or row.weight) for row in self.output_items)
         self.total_waste_weight = 0
 
         quality_purity = frappe.db.get_value(
@@ -85,6 +106,55 @@ class GilitReceive(Document):
 
         self.loss_status = "Excess Loss" if flt(self.loss_percent) > flt(self.loss_standard_percent) else "OK"
 
+    def update_peti_remaining_net_weight(self):
+        for row in self.output_items:
+            if not row.spindal_peti_entry:
+                continue
+
+            peti = frappe.get_doc("Spindal Peti Entry", row.spindal_peti_entry)
+            current_remaining = flt(peti.remaining_net_weight)
+            new_remaining = current_remaining - flt(row.used_net_weight)
+
+            if new_remaining < 0:
+                frappe.throw(f"Remaining N.W cannot become negative for Peti {row.peti_no}.")
+
+            status = "Partial"
+
+            if new_remaining == 0 and flt(peti.remaining_bobbin) == 0:
+                status = "Fully Consumed"
+
+            frappe.db.set_value("Spindal Peti Entry", peti.name, {
+                "remaining_net_weight": new_remaining,
+                "status": status
+            })
+
+    def restore_peti_remaining_net_weight(self):
+        for row in self.output_items:
+            if not row.spindal_peti_entry:
+                continue
+
+            peti = frappe.get_doc("Spindal Peti Entry", row.spindal_peti_entry)
+            max_weight = flt(peti.net_weight)
+
+            uom = (peti.uom or "").strip().lower()
+            if uom in ["gm", "gram", "grams", "g"]:
+                max_weight = max_weight / 1000
+
+            restored = flt(peti.remaining_net_weight) + flt(row.used_net_weight)
+
+            if restored > max_weight:
+                restored = max_weight
+
+            status = "Received"
+
+            if restored < max_weight or flt(peti.remaining_bobbin) < flt(peti.bobbin_count):
+                status = "Partial"
+
+            frappe.db.set_value("Spindal Peti Entry", peti.name, {
+                "remaining_net_weight": restored,
+                "status": status
+            })
+
     def get_last_balance(self, company, department, product):
         return frappe.db.get_value(
             "Inventory Ledger",
@@ -108,9 +178,10 @@ class GilitReceive(Document):
             return
 
         for row in self.output_items:
-            if not row.product or not flt(row.weight):
+            if not row.product or not flt(row.used_net_weight or row.weight):
                 continue
 
+            weight = flt(row.used_net_weight or row.weight)
             balance = self.get_last_balance(self.company, "Gilit", row.product)
 
             frappe.get_doc({
@@ -119,9 +190,9 @@ class GilitReceive(Document):
                 "department": "Gilit",
                 "product": row.product,
                 "batch_number": self.active_batch_no,
-                "in_weight": flt(row.weight),
+                "in_weight": weight,
                 "out_weight": 0,
-                "current_balance": flt(balance) + flt(row.weight),
+                "current_balance": flt(balance) + weight,
                 "transaction_type": "Production Output",
                 "reference_doctype": self.doctype,
                 "reference_name": self.name,

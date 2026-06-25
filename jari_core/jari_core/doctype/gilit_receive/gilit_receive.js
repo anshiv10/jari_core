@@ -12,6 +12,8 @@ frappe.ui.form.on('Gilit Receive', {
                 }
             };
         });
+
+        calculate_gilit_receive_totals(frm);
     },
 
     gilit_issue(frm) {
@@ -41,19 +43,19 @@ frappe.ui.form.on('Gilit Receive', {
 
                     let total_bobbin = flt(peti.total_bobbin);
                     let issued_bobbin = flt(peti.issued_bobbin);
-                    let used_net_weight = 0;
+                    let consumed_net_weight = 0;
 
                     if (total_bobbin && issued_bobbin) {
-                        used_net_weight = (flt(peti.net_weight) / total_bobbin) * issued_bobbin / 1000;
+                        consumed_net_weight = (flt(peti.net_weight) / total_bobbin) * issued_bobbin / 1000;
                     }
 
                     row.spindal_peti_entry = peti.spindal_peti_entry;
                     row.peti_no = peti.peti_no;
                     row.total_bobbin = total_bobbin;
                     row.issued_bobbin = issued_bobbin;
-                    row.used_net_weight = used_net_weight;
+                    row.used_net_weight = consumed_net_weight;
                     row.uom = peti.uom;
-                    row.weight = used_net_weight;
+                    row.weight = consumed_net_weight;
                 });
 
                 frm.refresh_field('output_items');
@@ -64,6 +66,13 @@ frappe.ui.form.on('Gilit Receive', {
 });
 
 frappe.ui.form.on('Gilit Output Item', {
+    used_net_weight(frm, cdt, cdn) {
+        let row = locals[cdt][cdn];
+
+        frappe.model.set_value(cdt, cdn, 'weight', flt(row.used_net_weight));
+        calculate_gilit_receive_totals(frm);
+    },
+
     weight(frm) {
         calculate_gilit_receive_totals(frm);
     },
@@ -88,7 +97,7 @@ function calculate_gilit_receive_totals(frm) {
     let waste = 0;
 
     (frm.doc.output_items || []).forEach(row => {
-        output += flt(row.weight);
+        output += flt(row.used_net_weight || row.weight);
     });
 
     (frm.doc.waste_items || []).forEach(row => {

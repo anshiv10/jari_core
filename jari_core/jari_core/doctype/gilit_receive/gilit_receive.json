@@ -51,7 +51,7 @@
   {
    "fieldname": "active_batch_no",
    "fieldtype": "Data",
-   "label": "Active Batch No",
+   "label": "Gilit Batch No",
    "read_only": 1
   },
   {
@@ -127,21 +127,13 @@
    "fieldname": "loss_status",
    "fieldtype": "Select",
    "label": "Loss Status",
-   "options": "OK\nExcess Loss"
+   "options": "OK\nExcess Loss",
+   "read_only": 1
   },
   {
    "fieldname": "remarks",
    "fieldtype": "Small Text",
    "label": "Remarks"
-  },
-  {
-   "fieldname": "amended_from",
-   "fieldtype": "Link",
-   "label": "Amended From",
-   "no_copy": 1,
-   "options": "Gilit Receive",
-   "print_hide": 1,
-   "read_only": 1
   },
   {
    "fieldname": "amended_from",
@@ -157,7 +149,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-06-14 18:14:54.135053",
+ "modified": "2026-06-25 20:30:00.000000",
  "modified_by": "Administrator",
  "module": "JARI Core",
  "name": "Gilit Receive",
@@ -179,6 +171,7 @@
    "write": 1
   }
  ],
+ "quick_entry": 0,
  "row_format": "Dynamic",
  "rows_threshold_for_grid_search": 20,
  "sort_field": "receive_date",

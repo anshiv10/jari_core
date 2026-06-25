@@ -11,6 +11,7 @@ class SpindalPetiEntry(Document):
         self.sync_bobbin_count_with_nang()
         self.calculate_net_weight()
         self.set_bobbin_balance()
+        self.set_remaining_net_weight()
         self.validate_weights()
 
     def on_submit(self):
@@ -20,14 +21,18 @@ class SpindalPetiEntry(Document):
         if not cint(self.remaining_bobbin):
             self.db_set("remaining_bobbin", cint(self.bobbin_count or self.nang))
 
+        if not flt(self.remaining_net_weight):
+            self.db_set("remaining_net_weight", self.get_net_weight_in_kg())
+
         self.post_kasab_stock()
         self.db_set("status", "Received")
 
     def on_cancel(self):
-        consumed = cint(self.bobbin_count or self.nang) - cint(self.remaining_bobbin)
+        consumed_bobbin = cint(self.bobbin_count or self.nang) - cint(self.remaining_bobbin)
+        consumed_weight = self.get_net_weight_in_kg() - flt(self.remaining_net_weight)
 
-        if consumed > 0:
-            frappe.throw("Cannot cancel Peti because bobbins are already consumed in Gilit Issue.")
+        if consumed_bobbin > 0 or consumed_weight > 0:
+            frappe.throw("Cannot cancel Peti because it is already consumed in Gilit.")
 
         self.reverse_kasab_stock()
         self.db_set("status", "Cancelled")
@@ -56,11 +61,23 @@ class SpindalPetiEntry(Document):
     def calculate_net_weight(self):
         self.net_weight = flt(self.gross_weight) - flt(self.baad_weight)
 
+    def get_net_weight_in_kg(self):
+        uom = (self.uom or "").strip().lower()
+
+        if uom in ["gm", "gram", "grams", "g"]:
+            return flt(self.net_weight) / 1000
+
+        return flt(self.net_weight)
+
     def set_bobbin_balance(self):
         total_bobbin = cint(self.bobbin_count or self.nang)
 
         if total_bobbin and not cint(self.remaining_bobbin):
             self.remaining_bobbin = total_bobbin
+
+    def set_remaining_net_weight(self):
+        if flt(self.net_weight) and not flt(self.remaining_net_weight):
+            self.remaining_net_weight = self.get_net_weight_in_kg()
 
     def validate_weights(self):
         total_bobbin = cint(self.bobbin_count or self.nang)
@@ -83,6 +100,12 @@ class SpindalPetiEntry(Document):
         if cint(self.remaining_bobbin) > total_bobbin:
             frappe.throw("Remaining Bobbin cannot be greater than Bobbin Count.")
 
+        if flt(self.remaining_net_weight) < 0:
+            frappe.throw("Remaining N.W cannot be negative.")
+
+        if flt(self.remaining_net_weight) > flt(self.get_net_weight_in_kg()):
+            frappe.throw("Remaining N.W cannot be greater than Net Weight.")
+
     def get_kasab_product(self):
         if frappe.db.exists("Product Master", "KASAB"):
             return "KASAB"
@@ -100,6 +123,7 @@ class SpindalPetiEntry(Document):
     def get_department(self):
         if self.spindal_issue:
             return frappe.db.get_value("Spindal Issue", self.spindal_issue, "to_department") or "spindal"
+
         return "spindal"
 
     def get_last_balance(self, company, department, product):
@@ -125,12 +149,12 @@ class SpindalPetiEntry(Document):
         )
 
     def post_kasab_stock(self):
-        if self.ledger_exists("Spindal Peti Received"):
+        if self.ledger_exists("Production Output"):
             return
 
         product = self.get_kasab_product()
         department = self.get_department()
-        weight = flt(self.net_weight)
+        weight = self.get_net_weight_in_kg()
 
         if weight <= 0:
             return
@@ -154,12 +178,12 @@ class SpindalPetiEntry(Document):
         }).insert(ignore_permissions=True)
 
     def reverse_kasab_stock(self):
-        if self.ledger_exists("Spindal Peti Cancelled"):
+        if self.ledger_exists("Adjustment"):
             return
 
         product = self.get_kasab_product()
         department = self.get_department()
-        weight = flt(self.net_weight)
+        weight = self.get_net_weight_in_kg()
 
         if weight <= 0:
             return
@@ -178,7 +202,7 @@ class SpindalPetiEntry(Document):
             "in_weight": 0,
             "out_weight": weight,
             "current_balance": flt(last_balance) - weight,
-            "transaction_type": "Adjustmen",
+            "transaction_type": "Adjustment",
             "reference_doctype": self.doctype,
             "reference_name": self.name,
             "date": today(),
