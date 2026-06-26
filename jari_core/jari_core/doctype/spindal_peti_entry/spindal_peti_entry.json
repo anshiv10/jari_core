@@ -124,7 +124,7 @@
    "options": "UOM_Jari",
    "in_list_view": 1,
    "reqd": 1,
-   "default": "gm"
+   "default": "gram"
   },
   {
    "fieldname": "baad_weight",

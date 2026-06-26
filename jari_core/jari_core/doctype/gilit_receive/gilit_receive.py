@@ -40,7 +40,6 @@ class GilitReceive(Document):
             return
 
         issue = frappe.get_doc("Gilit Issue", self.gilit_issue)
-        gram_uom = get_gram_uom()
 
         self.company = issue.company
         self.active_batch_no = issue.gilit_batch_no
@@ -72,7 +71,7 @@ class GilitReceive(Document):
                 row.total_bobbin = total_bobbin
                 row.issued_bobbin = issued_bobbin
                 row.used_net_weight = used_net_weight
-                row.uom = gram_uom
+                row.uom = peti.uom or issue_peti.uom or get_gram_uom()
                 row.weight = used_net_weight
 
     def get_peti_remaining_gm(self, peti):
@@ -99,8 +98,6 @@ class GilitReceive(Document):
         if not self.output_items and not self.waste_items:
             frappe.throw("At least one Final Jari Product/Peti Detail or Waste Item is required.")
 
-        gram_uom = get_gram_uom()
-
         for row in self.output_items:
             if not row.spindal_peti_entry:
                 continue
@@ -117,7 +114,8 @@ class GilitReceive(Document):
                     f"Available: {remaining_gm} gm, Entered: {row.used_net_weight} gm"
                 )
 
-            row.uom = gram_uom
+            if not row.uom:
+                row.uom = peti.uom or get_gram_uom()
             row.weight = flt(row.used_net_weight)
 
         if flt(self.gross_weight_without_dabba) < 0:
