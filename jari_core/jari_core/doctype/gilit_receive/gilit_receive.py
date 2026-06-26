@@ -10,13 +10,6 @@ def gm_value(value, uom=None):
     return flt(value)
 
 
-def kg_value(value, uom=None):
-    uom = (uom or "").strip().lower()
-    if uom in ["gm", "gram", "grams", "g"]:
-        return flt(value) / 1000
-    return flt(value)
-
-
 class GilitReceive(Document):
 
     def validate(self):
@@ -43,19 +36,18 @@ class GilitReceive(Document):
         self.process_master = issue.process_master
         self.quality_code = issue.quality_code
         self.operator = issue.operator
-
         self.total_input_weight = flt(issue.total_net_weight) * 1000
 
         if not self.output_items:
             for peti in issue.peti_items or []:
                 total_bobbin = flt(peti.total_bobbin)
                 issued_bobbin = flt(peti.issued_bobbin)
-                used_net_weight = 0
-
                 peti_net_gm = gm_value(peti.net_weight, peti.uom)
 
-                if total_bobbin and issued_bobbin:
-                    used_net_weight = (peti_net_gm / total_bobbin) * issued_bobbin
+                used_net_weight = (
+                    (peti_net_gm / total_bobbin) * issued_bobbin
+                    if total_bobbin and issued_bobbin else 0
+                )
 
                 row = self.append("output_items", {})
                 row.spindal_peti_entry = peti.spindal_peti_entry
@@ -69,12 +61,22 @@ class GilitReceive(Document):
     def get_peti_remaining_gm(self, peti):
         remaining = flt(peti.remaining_net_weight)
         net_gm = gm_value(peti.net_weight, peti.uom)
+        total_bobbin = flt(peti.bobbin_count or peti.nang)
+        remaining_bobbin = flt(peti.remaining_bobbin)
 
-        # Backward compatibility: old records stored remaining_net_weight in KG.
         if remaining and net_gm and remaining <= (net_gm / 100):
             return remaining * 1000
 
-        return remaining
+        if remaining:
+            return remaining
+
+        if net_gm and total_bobbin and remaining_bobbin:
+            return (net_gm / total_bobbin) * remaining_bobbin
+
+        if net_gm and total_bobbin and not remaining_bobbin and peti.status != "Fully Consumed":
+            return net_gm
+
+        return 0
 
     def validate_items(self):
         if not self.output_items and not self.waste_items:
@@ -168,20 +170,14 @@ class GilitReceive(Document):
                 continue
 
             peti = frappe.get_doc("Spindal Peti Entry", row.spindal_peti_entry)
-            current_remaining_gm = self.get_peti_remaining_gm(peti)
-            new_remaining_gm = current_remaining_gm - flt(row.used_net_weight)
+            new_remaining_gm = self.get_peti_remaining_gm(peti) - flt(row.used_net_weight)
 
             if new_remaining_gm < 0:
                 frappe.throw(f"Remaining N.W cannot become negative for Peti {row.peti_no}.")
 
-            status = "Partial"
-
-            if new_remaining_gm == 0 and flt(peti.remaining_bobbin) == 0:
-                status = "Fully Consumed"
-
             frappe.db.set_value("Spindal Peti Entry", peti.name, {
                 "remaining_net_weight": new_remaining_gm,
-                "status": status
+                "status": "Fully Consumed" if new_remaining_gm == 0 and flt(peti.remaining_bobbin) == 0 else "Partial"
             })
 
     def restore_peti_remaining_net_weight(self):
@@ -191,14 +187,12 @@ class GilitReceive(Document):
 
             peti = frappe.get_doc("Spindal Peti Entry", row.spindal_peti_entry)
             max_weight_gm = gm_value(peti.net_weight, peti.uom)
-
             restored = self.get_peti_remaining_gm(peti) + flt(row.used_net_weight)
 
             if restored > max_weight_gm:
                 restored = max_weight_gm
 
             status = "Received"
-
             if restored < max_weight_gm or flt(peti.remaining_bobbin) < flt(peti.bobbin_count):
                 status = "Partial"
 
