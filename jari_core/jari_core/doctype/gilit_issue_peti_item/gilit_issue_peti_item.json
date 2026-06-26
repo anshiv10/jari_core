@@ -65,7 +65,7 @@
    "in_list_view": 1,
    "label": "UOM",
    "options": "UOM_Jari",
-   "default": "KG"
+   "default": "gm"
   },
   {
    "fieldname": "gross_weight",
