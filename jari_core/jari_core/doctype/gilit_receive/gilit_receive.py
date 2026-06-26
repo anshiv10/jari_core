@@ -3,12 +3,22 @@ from frappe.model.document import Document
 from frappe.utils import flt, today
 
 
+def is_kg_uom(uom):
+    return (uom or "").strip().lower() in ["kg", "kilogram", "kilograms"]
+
+
 def gm_value(value, uom=None):
-    uom = (uom or "").strip().lower()
-    if uom in ["kg", "kilogram", "kilograms"]:
+    if is_kg_uom(uom):
         return flt(value) * 1000
     return flt(value)
 
+
+def get_gram_uom():
+    for uom in ["gram", "gm", "Gram", "GM"]:
+        if frappe.db.exists("UOM_Jari", uom):
+            return uom
+    frappe.throw("Please create UOM_Jari record for gram or gm.")
+    
 
 class GilitReceive(Document):
 
@@ -30,6 +40,7 @@ class GilitReceive(Document):
             return
 
         issue = frappe.get_doc("Gilit Issue", self.gilit_issue)
+        gram_uom = get_gram_uom()
 
         self.company = issue.company
         self.active_batch_no = issue.gilit_batch_no
@@ -39,9 +50,15 @@ class GilitReceive(Document):
         self.total_input_weight = flt(issue.total_net_weight) * 1000
 
         if not self.output_items:
-            for peti in issue.peti_items or []:
-                total_bobbin = flt(peti.total_bobbin)
-                issued_bobbin = flt(peti.issued_bobbin)
+            for issue_peti in issue.peti_items or []:
+                if not issue_peti.spindal_peti_entry:
+                    continue
+
+                peti = frappe.get_doc("Spindal Peti Entry", issue_peti.spindal_peti_entry)
+
+                total_bobbin = flt(issue_peti.total_bobbin or peti.bobbin_count or peti.nang)
+                issued_bobbin = flt(issue_peti.issued_bobbin)
+
                 peti_net_gm = gm_value(peti.net_weight, peti.uom)
 
                 used_net_weight = (
@@ -50,12 +67,12 @@ class GilitReceive(Document):
                 )
 
                 row = self.append("output_items", {})
-                row.spindal_peti_entry = peti.spindal_peti_entry
-                row.peti_no = peti.peti_no
+                row.spindal_peti_entry = peti.name
+                row.peti_no = peti.peti_no or peti.name
                 row.total_bobbin = total_bobbin
                 row.issued_bobbin = issued_bobbin
                 row.used_net_weight = used_net_weight
-                row.uom = "gm"
+                row.uom = gram_uom
                 row.weight = used_net_weight
 
     def get_peti_remaining_gm(self, peti):
@@ -82,6 +99,8 @@ class GilitReceive(Document):
         if not self.output_items and not self.waste_items:
             frappe.throw("At least one Final Jari Product/Peti Detail or Waste Item is required.")
 
+        gram_uom = get_gram_uom()
+
         for row in self.output_items:
             if not row.spindal_peti_entry:
                 continue
@@ -98,7 +117,7 @@ class GilitReceive(Document):
                     f"Available: {remaining_gm} gm, Entered: {row.used_net_weight} gm"
                 )
 
-            row.uom = "gm"
+            row.uom = gram_uom
             row.weight = flt(row.used_net_weight)
 
         if flt(self.gross_weight_without_dabba) < 0:
@@ -138,23 +157,13 @@ class GilitReceive(Document):
             - flt(self.total_waste_weight)
         )
 
-        self.weight_of_one_firki = (
-            flt(self.total_jari_production) / flt(self.filled_firki)
-            if flt(self.filled_firki) else 0
-        )
+        self.weight_of_one_firki = flt(self.total_jari_production) / flt(self.filled_firki) if flt(self.filled_firki) else 0
 
-        self.vadh_ghat = (
-            flt(self.total_jari_production)
-            - flt(self.total_input_weight)
-            + flt(self.total_waste_weight)
-        )
+        self.vadh_ghat = flt(self.total_jari_production) - flt(self.total_input_weight) + flt(self.total_waste_weight)
 
         self.loss_weight = flt(self.total_input_weight) - flt(self.total_output_weight) - flt(self.total_waste_weight)
 
-        self.loss_percent = (
-            flt(self.loss_weight) / flt(self.total_input_weight) * 100
-            if flt(self.total_input_weight) else 0
-        )
+        self.loss_percent = flt(self.loss_weight) / flt(self.total_input_weight) * 100 if flt(self.total_input_weight) else 0
 
         self.loss_standard_percent = frappe.db.get_value(
             "Loss Standard Master",
