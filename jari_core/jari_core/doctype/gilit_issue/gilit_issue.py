@@ -3,6 +3,13 @@ from frappe.model.document import Document
 from frappe.utils import flt, cint, today
 
 
+def gm_value(value, uom=None):
+    uom = (uom or "").strip().lower()
+    if uom in ["kg", "kilogram", "kilograms"]:
+        return flt(value) * 1000
+    return flt(value)
+
+
 @frappe.whitelist()
 def get_kasab_product_name():
     if frappe.db.exists("Product Master", "KASAB"):
@@ -123,7 +130,7 @@ class GilitIssue(Document):
             row.quality_code = peti.quality_code
             row.khata_no = peti.khata_no
             row.product = self.get_kasab_product()
-            row.uom = peti.uom or row.uom
+            row.uom = peti.uom or row.uom or "gm"
             row.gross_weight = flt(peti.gross_weight)
             row.baad_weight = flt(peti.baad_weight)
             row.net_weight = flt(peti.net_weight)
@@ -162,10 +169,15 @@ class GilitIssue(Document):
 
             self.total_peti += 1
 
-            if cint(row.total_bobbin):
+            total_bobbin = cint(row.total_bobbin)
+            issued_bobbin = cint(row.issued_bobbin)
+
+            if total_bobbin and issued_bobbin:
+                net_weight_gm = gm_value(row.net_weight, row.uom)
+
                 issued_weight_in_grams = (
-                    flt(row.net_weight) / cint(row.total_bobbin)
-                ) * cint(row.issued_bobbin)
+                    net_weight_gm / total_bobbin
+                ) * issued_bobbin
 
                 self.total_net_weight += issued_weight_in_grams / 1000
 
