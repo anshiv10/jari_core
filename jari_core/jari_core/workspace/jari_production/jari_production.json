@@ -1,0 +1,42 @@
+{
+ "charts": [],
+ "content": "[{\"type\":\"header\",\"data\":{\"text\":\"JARI Production\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"JARI Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"JARI Receive\"}}]",
+ "creation": "2026-06-26 10:00:00.000000",
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "manufacturing",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "JARI Production",
+ "links": [],
+ "modified": "2026-06-26 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "JARI Core",
+ "name": "JARI Production",
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 1,
+ "shortcuts": [
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "label": "JARI Issue",
+   "link_to": "JARI Issue",
+   "stats_filter": "[]",
+   "type": "Workspace"
+  },
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "JARI Receive",
+   "link_to": "JARI Receive",
+   "stats_filter": "[]",
+   "type": "Workspace"
+  }
+ ],
+ "title": "JARI Production"
+}

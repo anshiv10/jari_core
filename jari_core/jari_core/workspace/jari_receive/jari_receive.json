@@ -1,0 +1,31 @@
+{
+ "charts": [],
+ "content": "[{\"type\":\"header\",\"data\":{\"text\":\"Receive Entries\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Melting Receive\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Pavtha Receive\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Taniya Receive\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Spindal Receive\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Gilit Receive\"}}]",
+ "creation": "2026-06-26 10:00:00.000000",
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "left",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "JARI Receive",
+ "links": [],
+ "modified": "2026-06-26 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "JARI Core",
+ "name": "JARI Receive",
+ "owner": "Administrator",
+ "parent_page": "JARI Production",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 3,
+ "shortcuts": [
+  {"color":"Green","doc_view":"New","label":"New Melting Receive","link_to":"Melting Receive","stats_filter":"[]","type":"DocType"},
+  {"color":"Green","doc_view":"New","label":"New Pavtha Receive","link_to":"Pavtha Receive","stats_filter":"[]","type":"DocType"},
+  {"color":"Green","doc_view":"New","label":"New Taniya Receive","link_to":"Taniya Receive","stats_filter":"[]","type":"DocType"},
+  {"color":"Green","doc_view":"New","label":"New Spindal Receive","link_to":"Spindal Receive","stats_filter":"[]","type":"DocType"},
+  {"color":"Green","doc_view":"New","label":"New Gilit Receive","link_to":"Gilit Receive","stats_filter":"[]","type":"DocType"}
+ ],
+ "title": "JARI Receive"
+}
