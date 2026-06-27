@@ -11,7 +11,8 @@
   "product",
   "product_name",
   "uom",
-  "weight"
+  "weight",
+  "approx_silver_weight"
  ],
  "fields": [
   {
@@ -53,6 +54,13 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Received Weight"
+  },
+  {
+   "fieldname": "approx_silver_weight",
+   "fieldtype": "Float",
+   "label": "Approx Silver Weight",
+   "read_only": 1,
+   "in_list_view": 1
   }
  ],
  "grid_page_length": 50,

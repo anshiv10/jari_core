@@ -19,6 +19,7 @@
   "total_input_weight",
   "total_output_weight",
   "total_waste_weight",
+  "approx_silver_weight",
   "current_wastage_percent",
   "loss_weight",
   "loss_percent",
@@ -156,6 +157,13 @@
    "fieldtype": "Percent",
    "label": "Current Wastage %",
    "read_only": 1
+  },
+  {
+   "fieldname": "approx_silver_weight",
+   "fieldtype": "Float",
+   "label": "Approx Silver Weight",
+   "read_only": 1,
+   "in_list_view": 1
   }
  ],
  "grid_page_length": 50,

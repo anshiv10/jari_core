@@ -9,8 +9,11 @@ class MeltingReceive(Document):
         self.pull_issue_details()
         self.validate_items()
         self.calculate_totals()
+        self.set_approx_silver()
 
     def on_submit(self):
+        self.set_approx_silver()
+        self.db_set('approx_silver_weight', flt(self.approx_silver_weight))
         self.post_outputs_and_waste()
 
         if self.get_issue_no():
@@ -125,6 +128,23 @@ class MeltingReceive(Document):
             else "OK"
         )
 
+    def calculate_approx_silver(self, weight):
+        purity = self.get_quality_purity() if hasattr(self, "get_quality_purity") else 0
+        return flt(weight) * flt(purity) / 100
+
+    def set_approx_silver(self):
+        total = 0
+
+        for row in self.output_items or []:
+            row.approx_silver_weight = self.calculate_approx_silver(row.weight)
+            total += flt(row.approx_silver_weight)
+
+        for row in self.waste_items or []:
+            row.approx_silver_weight = self.calculate_approx_silver(row.weight)
+            total += flt(row.approx_silver_weight)
+
+        self.approx_silver_weight = total if self.docstatus == 1 else 0
+
     def get_last_balance(self, company, department, product):
         return frappe.db.get_value(
             "Inventory Ledger",
@@ -168,6 +188,7 @@ class MeltingReceive(Document):
                 "in_weight": flt(row.weight),
                 "out_weight": 0,
                 "current_balance": flt(balance) + flt(row.weight),
+                "approx_silver_weight": flt(row.approx_silver_weight),
                 "transaction_type": "Production Output",
                 "reference_doctype": self.doctype,
                 "reference_name": self.name,
@@ -190,6 +211,7 @@ class MeltingReceive(Document):
                 "in_weight": flt(row.weight),
                 "out_weight": 0,
                 "current_balance": flt(balance) + flt(row.weight),
+                "approx_silver_weight": flt(row.approx_silver_weight),
                 "transaction_type": "Waste Generated",
                 "reference_doctype": self.doctype,
                 "reference_name": self.name,
