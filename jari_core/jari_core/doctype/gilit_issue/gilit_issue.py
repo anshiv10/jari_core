@@ -25,16 +25,24 @@ def get_kasab_product_name():
 
 @frappe.whitelist()
 def get_product_stock_for_gilit(company, department, product):
-    current_stock = frappe.db.get_value(
-        "Inventory Ledger",
-        {
-            "company": company,
-            "department": department,
-            "product": product
-        },
-        "current_balance",
-        order_by="creation desc"
-    ) or 0
+    departments = list(set(filter(None, [
+        department,
+        "Gilit",
+        "gilit",
+        "GILIT"
+    ])))
+
+    rows = frappe.db.sql("""
+        SELECT current_balance
+        FROM `tabInventory Ledger`
+        WHERE company = %s
+          AND product = %s
+          AND department IN %s
+        ORDER BY creation DESC
+        LIMIT 1
+    """, (company, product, tuple(departments)), as_dict=True)
+
+    current_stock = flt(rows[0].current_balance) if rows else 0
 
     uom = ""
     meta = frappe.get_meta("Product Master")
@@ -70,16 +78,13 @@ class GilitIssue(Document):
     def set_defaults(self):
         if not self.from_department:
             self.from_department = "SPINDAL"
-
         if not self.to_department:
             self.to_department = "Gilit"
 
     def get_kasab_product(self):
         product = get_kasab_product_name()
-
         if not frappe.db.exists("Product Master", product):
             frappe.throw("KASAB product not found in Product Master.")
-
         return product
 
     def get_total_bobbin_from_peti(self, peti):
@@ -121,16 +126,13 @@ class GilitIssue(Document):
                 frappe.throw(f"Issued Bobbin must be greater than zero for Peti {peti.name}.")
 
             if cint(row.issued_bobbin) > available:
-                frappe.throw(
-                    f"Cannot issue {row.issued_bobbin} bobbin from Peti {peti.name}. "
-                    f"Available Bobbin: {available}"
-                )
+                frappe.throw(f"Cannot issue {row.issued_bobbin} bobbin from Peti {peti.name}. Available Bobbin: {available}")
 
             row.peti_no = peti.peti_no or peti.name
             row.quality_code = peti.quality_code
             row.khata_no = peti.khata_no
             row.product = self.get_kasab_product()
-            row.uom = peti.uom or row.uom or "gm"
+            row.uom = peti.uom or row.uom or "gram"
             row.gross_weight = flt(peti.gross_weight)
             row.baad_weight = flt(peti.baad_weight)
             row.net_weight = flt(peti.net_weight)
@@ -150,13 +152,16 @@ class GilitIssue(Document):
             if flt(row.issued_aani) <= 0:
                 frappe.throw(f"Issued Aani must be greater than zero for {row.product}.")
 
-            current_stock = self.get_last_balance(self.company, "Gilit", row.product)
-            row.current_stock = current_stock
+            stock_info = get_product_stock_for_gilit(self.company, self.to_department or "Gilit", row.product)
+            row.current_stock = flt(stock_info.get("current_stock"))
 
-            if flt(row.issued_aani) > flt(current_stock):
+            if stock_info.get("uom") and not row.uom:
+                row.uom = stock_info.get("uom")
+
+            if flt(row.issued_aani) > flt(row.current_stock):
                 frappe.throw(
                     f"Insufficient stock for {row.product} in {self.to_department}. "
-                    f"Available: {current_stock}, Required: {row.issued_aani}"
+                    f"Available: {row.current_stock}, Required: {row.issued_aani}"
                 )
 
     def calculate_totals(self):
@@ -174,17 +179,12 @@ class GilitIssue(Document):
 
             if total_bobbin and issued_bobbin:
                 net_weight_gm = gm_value(row.net_weight, row.uom)
-
-                issued_weight_in_grams = (
-                    net_weight_gm / total_bobbin
-                ) * issued_bobbin
-
+                issued_weight_in_grams = (net_weight_gm / total_bobbin) * issued_bobbin
                 self.total_net_weight += issued_weight_in_grams / 1000
 
     def update_peti_balances(self):
         for row in self.peti_items:
             peti = frappe.get_doc("Spindal Peti Entry", row.spindal_peti_entry)
-
             total_bobbin = self.get_total_bobbin_from_peti(peti)
             available = self.get_available_bobbin_from_peti(peti)
             new_balance = available - cint(row.issued_bobbin)
@@ -201,40 +201,30 @@ class GilitIssue(Document):
     def restore_peti_balances(self):
         for row in self.peti_items:
             peti = frappe.get_doc("Spindal Peti Entry", row.spindal_peti_entry)
-
             total_bobbin = self.get_total_bobbin_from_peti(peti)
             restored = cint(peti.remaining_bobbin) + cint(row.issued_bobbin)
 
             if restored > total_bobbin:
                 restored = total_bobbin
 
-            status = "Received" if restored == total_bobbin else "Partial"
-
             frappe.db.set_value("Spindal Peti Entry", peti.name, {
                 "remaining_bobbin": restored,
-                "status": status
+                "status": "Received" if restored == total_bobbin else "Partial"
             })
 
     def get_last_balance(self, company, department, product):
         return frappe.db.get_value(
             "Inventory Ledger",
-            {
-                "company": company,
-                "department": department,
-                "product": product
-            },
+            {"company": company, "department": department, "product": product},
             "current_balance",
             order_by="creation desc"
         ) or 0
 
     def ledger_exists(self):
-        return frappe.db.exists(
-            "Inventory Ledger",
-            {
-                "reference_doctype": self.doctype,
-                "reference_name": self.name
-            }
-        )
+        return frappe.db.exists("Inventory Ledger", {
+            "reference_doctype": self.doctype,
+            "reference_name": self.name
+        })
 
     def post_inventory_transfer(self):
         if self.ledger_exists():
@@ -247,10 +237,7 @@ class GilitIssue(Document):
             source_balance = self.get_last_balance(self.company, self.from_department, product)
 
             if weight > flt(source_balance):
-                frappe.throw(
-                    f"Insufficient KASAB stock in {self.from_department}. "
-                    f"Available: {source_balance} KG, Required: {weight} KG"
-                )
+                frappe.throw(f"Insufficient KASAB stock in {self.from_department}. Available: {source_balance} KG, Required: {weight} KG")
 
             frappe.get_doc({
                 "doctype": "Inventory Ledger",
@@ -290,12 +277,12 @@ class GilitIssue(Document):
             if not row.product or not flt(row.issued_aani):
                 continue
 
-            balance = self.get_last_balance(self.company, "Gilit", row.product)
+            balance = self.get_last_balance(self.company, self.to_department or "Gilit", row.product)
 
             frappe.get_doc({
                 "doctype": "Inventory Ledger",
                 "company": self.company,
-                "department": "Gilit",
+                "department": self.to_department or "Gilit",
                 "product": row.product,
                 "batch_number": self.gilit_batch_no,
                 "in_weight": 0,

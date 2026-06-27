@@ -24,7 +24,24 @@ frappe.ui.form.on('Gilit Issue', {
             };
         });
 
+        refresh_all_metal_water_stock(frm);
         calculate_gilit_totals(frm);
+    },
+
+    company(frm) {
+        refresh_all_metal_water_stock(frm);
+    },
+
+    to_department(frm) {
+        refresh_all_metal_water_stock(frm);
+    },
+
+    issue_date(frm) {
+        (frm.doc.metal_water_inputs || []).forEach(row => {
+            if (!row.input_date) {
+                frappe.model.set_value(row.doctype, row.name, 'input_date', frm.doc.issue_date);
+            }
+        });
     }
 });
 
@@ -53,7 +70,7 @@ frappe.ui.form.on('Gilit Issue Peti Item', {
                     frappe.model.set_value(cdt, cdn, 'quality_code', peti.quality_code);
                     frappe.model.set_value(cdt, cdn, 'khata_no', peti.khata_no);
                     frappe.model.set_value(cdt, cdn, 'product', kasab);
-                    frappe.model.set_value(cdt, cdn, 'uom', peti.uom || '');
+                    frappe.model.set_value(cdt, cdn, 'uom', peti.uom || 'gram');
                     frappe.model.set_value(cdt, cdn, 'gross_weight', peti.gross_weight);
                     frappe.model.set_value(cdt, cdn, 'baad_weight', peti.baad_weight);
                     frappe.model.set_value(cdt, cdn, 'net_weight', peti.net_weight);
@@ -96,26 +113,7 @@ frappe.ui.form.on('Gilit Issue Peti Item', {
 
 frappe.ui.form.on('Gilit Metal Water Input', {
     product(frm, cdt, cdn) {
-        let row = locals[cdt][cdn];
-
-        if (!row.product) return;
-
-        frappe.model.set_value(cdt, cdn, 'input_date', frm.doc.issue_date || frappe.datetime.get_today());
-
-        frappe.call({
-            method: 'jari_core.jari_core.doctype.gilit_issue.gilit_issue.get_product_stock_for_gilit',
-            args: {
-                company: frm.doc.company,
-                department: 'Gilit',
-                product: row.product
-            },
-            callback(r) {
-                if (!r.message) return;
-
-                frappe.model.set_value(cdt, cdn, 'current_stock', r.message.current_stock || 0);
-                frappe.model.set_value(cdt, cdn, 'uom', r.message.uom || '');
-            }
-        });
+        set_metal_water_stock(frm, cdt, cdn);
     },
 
     issued_aani(frm, cdt, cdn) {
@@ -132,6 +130,42 @@ frappe.ui.form.on('Gilit Metal Water Input', {
     }
 });
 
+function set_metal_water_stock(frm, cdt, cdn) {
+    let row = locals[cdt][cdn];
+
+    if (!frm.doc.company || !row.product) {
+        return;
+    }
+
+    frappe.call({
+        method: 'jari_core.jari_core.doctype.gilit_issue.gilit_issue.get_product_stock_for_gilit',
+        args: {
+            company: frm.doc.company,
+            department: frm.doc.to_department || 'Gilit',
+            product: row.product
+        },
+        callback(r) {
+            if (!r.message) return;
+
+            frappe.model.set_value(cdt, cdn, 'current_stock', flt(r.message.current_stock));
+
+            if (r.message.uom) {
+                frappe.model.set_value(cdt, cdn, 'uom', r.message.uom);
+            }
+
+            frm.refresh_field('metal_water_inputs');
+        }
+    });
+}
+
+function refresh_all_metal_water_stock(frm) {
+    (frm.doc.metal_water_inputs || []).forEach(row => {
+        if (row.product) {
+            set_metal_water_stock(frm, row.doctype, row.name);
+        }
+    });
+}
+
 function calculate_gilit_totals(frm) {
     let total_peti = 0;
     let total_weight_kg = 0;
@@ -142,7 +176,14 @@ function calculate_gilit_totals(frm) {
         total_peti += 1;
 
         if (flt(row.total_bobbin) && flt(row.issued_bobbin)) {
-            let issued_weight_gm = (flt(row.net_weight) / flt(row.total_bobbin)) * flt(row.issued_bobbin);
+            let net_weight = flt(row.net_weight);
+            let uom = (row.uom || '').toLowerCase();
+
+            if (['kg', 'kilogram', 'kilograms'].includes(uom)) {
+                net_weight = net_weight * 1000;
+            }
+
+            let issued_weight_gm = (net_weight / flt(row.total_bobbin)) * flt(row.issued_bobbin);
             total_weight_kg += issued_weight_gm / 1000;
         }
     });
