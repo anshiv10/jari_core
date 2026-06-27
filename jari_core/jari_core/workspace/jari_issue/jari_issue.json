@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"type\":\"header\",\"data\":{\"text\":\"Issue Entries\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Melting Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Pavtha Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Taniya Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Spindal Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Gilit Issue\"}}]",
+ "content": "[{\"type\":\"header\",\"data\":{\"text\":\"Issue Entries\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Melting Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Pavtha Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Taniya Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Spindal Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Gilit Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Spindal Peti Entry\"}}]",
  "creation": "2026-06-26 10:00:00.000000",
  "doctype": "Workspace",
  "for_user": "",
@@ -21,11 +21,54 @@
  "roles": [],
  "sequence_id": 2,
  "shortcuts": [
-  {"color":"Blue","doc_view":"New","label":"New Melting Issue","link_to":"Melting Issue","stats_filter":"[]","type":"DocType"},
-  {"color":"Blue","doc_view":"New","label":"New Pavtha Issue","link_to":"Pavtha Issue","stats_filter":"[]","type":"DocType"},
-  {"color":"Blue","doc_view":"New","label":"New Taniya Issue","link_to":"Taniya Issue","stats_filter":"[]","type":"DocType"},
-  {"color":"Blue","doc_view":"New","label":"New Spindal Issue","link_to":"Spindal Issue","stats_filter":"[]","type":"DocType"},
-  {"color":"Blue","doc_view":"New","label":"New Gilit Issue","link_to":"Gilit Issue","stats_filter":"[]","type":"DocType"}
+  {
+   "color": "Blue",
+   "doc_view": "New",
+   "label": "New Melting Issue",
+   "link_to": "Melting Issue",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "New",
+   "label": "New Pavtha Issue",
+   "link_to": "Pavtha Issue",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "New",
+   "label": "New Taniya Issue",
+   "link_to": "Taniya Issue",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "New",
+   "label": "New Spindal Issue",
+   "link_to": "Spindal Issue",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "New",
+   "label": "New Gilit Issue",
+   "link_to": "Gilit Issue",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "New",
+   "label": "New Spindal Peti Entry",
+   "link_to": "Spindal Peti Entry",
+   "stats_filter": "[]",
+   "type": "DocType"
+  }
  ],
  "title": "JARI Issue"
 }
