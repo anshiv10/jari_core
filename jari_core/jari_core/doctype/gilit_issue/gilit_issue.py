@@ -10,6 +10,21 @@ def gm_value(value, uom=None):
     return flt(value)
 
 
+def resolve_product(product):
+    if not product:
+        return product
+
+    if frappe.db.exists("Product Master", product):
+        return product
+
+    found = frappe.db.get_value("Product Master", {"product_name": product}, "name")
+    if found:
+        return found
+
+    found = frappe.db.get_value("Product Master", {"product_name": ["like", f"%{product}%"]}, "name")
+    return found or product
+
+
 @frappe.whitelist()
 def get_kasab_product_name():
     if frappe.db.exists("Product Master", "KASAB"):
@@ -24,25 +39,60 @@ def get_kasab_product_name():
 
 
 @frappe.whitelist()
-def get_product_stock_for_gilit(company, department, product):
-    departments = list(set(filter(None, [
-        department,
-        "Gilit",
-        "gilit",
-        "GILIT"
-    ])))
+def get_product_stock_for_gilit(company, product, department=None):
+    product = resolve_product(product)
 
-    rows = frappe.db.sql("""
-        SELECT current_balance
+    if not company or not product:
+        return {
+            "product": product,
+            "current_stock": 0,
+            "uom": "",
+            "source_department": "",
+            "breakdown": ""
+        }
+
+    dept_rows = frappe.db.sql("""
+        SELECT DISTINCT department
         FROM `tabInventory Ledger`
         WHERE company = %s
           AND product = %s
-          AND department IN %s
-        ORDER BY creation DESC
-        LIMIT 1
-    """, (company, product, tuple(departments)), as_dict=True)
+          AND IFNULL(department, '') != ''
+    """, (company, product), as_dict=True)
 
-    current_stock = flt(rows[0].current_balance) if rows else 0
+    total_stock = 0
+    source_department = ""
+    breakdown = []
+
+    preferred_departments = []
+    if department:
+        preferred_departments.append(department)
+
+    for d in ["Gilit", "gilit", "GILIT"]:
+        if d not in preferred_departments:
+            preferred_departments.append(d)
+
+    all_departments = preferred_departments + [
+        d.department for d in dept_rows if d.department not in preferred_departments
+    ]
+
+    for dept in all_departments:
+        balance = frappe.db.get_value(
+            "Inventory Ledger",
+            {
+                "company": company,
+                "department": dept,
+                "product": product
+            },
+            "current_balance",
+            order_by="creation desc"
+        ) or 0
+
+        if flt(balance) > 0:
+            total_stock += flt(balance)
+            breakdown.append(f"{dept}: {balance}")
+
+            if not source_department:
+                source_department = dept
 
     uom = ""
     meta = frappe.get_meta("Product Master")
@@ -54,8 +104,11 @@ def get_product_stock_for_gilit(company, department, product):
                 break
 
     return {
-        "current_stock": current_stock,
-        "uom": uom
+        "product": product,
+        "current_stock": total_stock,
+        "uom": uom,
+        "source_department": source_department,
+        "breakdown": ", ".join(breakdown)
     }
 
 
@@ -126,7 +179,10 @@ class GilitIssue(Document):
                 frappe.throw(f"Issued Bobbin must be greater than zero for Peti {peti.name}.")
 
             if cint(row.issued_bobbin) > available:
-                frappe.throw(f"Cannot issue {row.issued_bobbin} bobbin from Peti {peti.name}. Available Bobbin: {available}")
+                frappe.throw(
+                    f"Cannot issue {row.issued_bobbin} bobbin from Peti {peti.name}. "
+                    f"Available Bobbin: {available}"
+                )
 
             row.peti_no = peti.peti_no or peti.name
             row.quality_code = peti.quality_code
@@ -146,13 +202,20 @@ class GilitIssue(Document):
             if not row.product:
                 frappe.throw("Product Name is required in Metal Water Input.")
 
+            row.product = resolve_product(row.product)
+
             if not row.input_date:
                 row.input_date = self.issue_date or today()
 
             if flt(row.issued_aani) <= 0:
                 frappe.throw(f"Issued Aani must be greater than zero for {row.product}.")
 
-            stock_info = get_product_stock_for_gilit(self.company, self.to_department or "Gilit", row.product)
+            stock_info = get_product_stock_for_gilit(
+                self.company,
+                row.product,
+                self.to_department or "Gilit"
+            )
+
             row.current_stock = flt(stock_info.get("current_stock"))
 
             if stock_info.get("uom") and not row.uom:
@@ -160,8 +223,10 @@ class GilitIssue(Document):
 
             if flt(row.issued_aani) > flt(row.current_stock):
                 frappe.throw(
-                    f"Insufficient stock for {row.product} in {self.to_department}. "
-                    f"Available: {row.current_stock}, Required: {row.issued_aani}"
+                    f"Insufficient stock for {row.product}. "
+                    f"Available across departments: {row.current_stock}, "
+                    f"Required: {row.issued_aani}. "
+                    f"Breakdown: {stock_info.get('breakdown') or 'No stock found'}"
                 )
 
     def calculate_totals(self):
@@ -226,6 +291,74 @@ class GilitIssue(Document):
             "reference_name": self.name
         })
 
+    def post_out_from_available_department(self, product, required_qty, transaction_type, remarks, uom=None):
+        required_qty = flt(required_qty)
+        if required_qty <= 0:
+            return
+
+        stock_info = get_product_stock_for_gilit(
+            self.company,
+            product,
+            self.to_department or "Gilit"
+        )
+
+        if flt(stock_info.get("current_stock")) < required_qty:
+            frappe.throw(
+                f"Insufficient stock for {product}. "
+                f"Available: {stock_info.get('current_stock')}, Required: {required_qty}. "
+                f"Breakdown: {stock_info.get('breakdown') or 'No stock found'}"
+            )
+
+        remaining_qty = required_qty
+
+        dept_rows = frappe.db.sql("""
+            SELECT DISTINCT department
+            FROM `tabInventory Ledger`
+            WHERE company = %s
+              AND product = %s
+              AND IFNULL(department, '') != ''
+        """, (self.company, product), as_dict=True)
+
+        preferred = []
+        for dept in [self.to_department or "Gilit", "Gilit", "gilit", "GILIT"]:
+            if dept and dept not in preferred:
+                preferred.append(dept)
+
+        departments = preferred + [
+            d.department for d in dept_rows if d.department not in preferred
+        ]
+
+        for dept in departments:
+            if remaining_qty <= 0:
+                break
+
+            balance = self.get_last_balance(self.company, dept, product)
+            if flt(balance) <= 0:
+                continue
+
+            issue_qty = min(flt(balance), remaining_qty)
+
+            frappe.get_doc({
+                "doctype": "Inventory Ledger",
+                "company": self.company,
+                "department": dept,
+                "product": product,
+                "batch_number": self.gilit_batch_no,
+                "in_weight": 0,
+                "out_weight": issue_qty,
+                "current_balance": flt(balance) - issue_qty,
+                "transaction_type": transaction_type,
+                "reference_doctype": self.doctype,
+                "reference_name": self.name,
+                "date": self.issue_date or today(),
+                "remarks": remarks
+            }).insert(ignore_permissions=True)
+
+            remaining_qty -= issue_qty
+
+        if remaining_qty > 0:
+            frappe.throw(f"Unable to fully issue {product}. Remaining Qty: {remaining_qty}")
+
     def post_inventory_transfer(self):
         if self.ledger_exists():
             return
@@ -237,7 +370,10 @@ class GilitIssue(Document):
             source_balance = self.get_last_balance(self.company, self.from_department, product)
 
             if weight > flt(source_balance):
-                frappe.throw(f"Insufficient KASAB stock in {self.from_department}. Available: {source_balance} KG, Required: {weight} KG")
+                frappe.throw(
+                    f"Insufficient KASAB stock in {self.from_department}. "
+                    f"Available: {source_balance} KG, Required: {weight} KG"
+                )
 
             frappe.get_doc({
                 "doctype": "Inventory Ledger",
@@ -277,20 +413,11 @@ class GilitIssue(Document):
             if not row.product or not flt(row.issued_aani):
                 continue
 
-            balance = self.get_last_balance(self.company, self.to_department or "Gilit", row.product)
+            product = resolve_product(row.product)
 
-            frappe.get_doc({
-                "doctype": "Inventory Ledger",
-                "company": self.company,
-                "department": self.to_department or "Gilit",
-                "product": row.product,
-                "batch_number": self.gilit_batch_no,
-                "in_weight": 0,
-                "out_weight": flt(row.issued_aani),
-                "current_balance": flt(balance) - flt(row.issued_aani),
-                "transaction_type": "Production Input",
-                "reference_doctype": self.doctype,
-                "reference_name": self.name,
-                "date": row.input_date or self.issue_date or today(),
-                "remarks": "Metal Water Input issued in Gilit"
-            }).insert(ignore_permissions=True)
+            self.post_out_from_available_department(
+                product=product,
+                required_qty=flt(row.issued_aani),
+                transaction_type="Production Input",
+                remarks="Metal Water Input issued in Gilit"
+            )

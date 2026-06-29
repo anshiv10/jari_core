@@ -141,8 +141,8 @@ function set_metal_water_stock(frm, cdt, cdn) {
         method: 'jari_core.jari_core.doctype.gilit_issue.gilit_issue.get_product_stock_for_gilit',
         args: {
             company: frm.doc.company,
-            department: frm.doc.to_department || 'Gilit',
-            product: row.product
+            product: row.product,
+            department: frm.doc.to_department || 'Gilit'
         },
         callback(r) {
             if (!r.message) return;
@@ -151,6 +151,10 @@ function set_metal_water_stock(frm, cdt, cdn) {
 
             if (r.message.uom) {
                 frappe.model.set_value(cdt, cdn, 'uom', r.message.uom);
+            }
+
+            if (r.message.product) {
+                frappe.model.set_value(cdt, cdn, 'product', r.message.product);
             }
 
             frm.refresh_field('metal_water_inputs');
