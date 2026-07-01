@@ -6,7 +6,10 @@ frappe.ui.form.on('Pavtha Receive', {
 
         frm.set_query('pavtha_issue', function() {
             return {
-                query: 'jari_core.jari_core.doctype.pavtha_receive.pavtha_receive.pavtha_issue_query'
+                filters: {
+                    docstatus: 1,
+                    status: ['!=', 'Received']
+                }
             };
         });
     },

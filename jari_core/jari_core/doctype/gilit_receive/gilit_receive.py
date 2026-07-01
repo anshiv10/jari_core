@@ -23,9 +23,26 @@ def get_gram_uom():
 class GilitReceive(Document):
 
     def validate(self):
+        self.validate_duplicate_submitted_receive()
         self.pull_issue_details()
         self.validate_items()
         self.calculate_totals()
+
+    def validate_duplicate_submitted_receive(self):
+        if not self.gilit_issue:
+            return
+
+        exists = frappe.db.exists(
+            "Gilit Receive",
+            {
+                "gilit_issue": self.gilit_issue,
+                "docstatus": 1,
+                "name": ["!=", self.name]
+            }
+        )
+
+        if exists:
+            frappe.throw(f"Gilit Issue {self.gilit_issue} is already received in submitted Gilit Receive {exists}.")
 
     def on_submit(self):
         self.update_peti_remaining_net_weight()
@@ -271,3 +288,36 @@ class GilitReceive(Document):
                 "date": self.receive_date or today(),
                 "remarks": "Gilit waste generated"
             }).insert(ignore_permissions=True)
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def gilit_issue_query(doctype, txt, searchfield, start, page_len, filters):
+    return frappe.db.sql("""
+        SELECT
+            gi.name,
+            CONCAT(
+                'Batch: ', COALESCE(gi.gilit_batch_no, gi.name),
+                ' | Issue: ', gi.name,
+                ' | Date: ', DATE_FORMAT(COALESCE(gi.issue_date, gi.creation), '%%d-%%m-%%Y')
+            ) AS description
+        FROM `tabGilit Issue` gi
+        WHERE gi.docstatus = 1
+          AND NOT EXISTS (
+              SELECT 1
+              FROM `tabGilit Receive` gr
+              WHERE gr.docstatus = 1
+                AND gr.gilit_issue = gi.name
+          )
+          AND (
+              gi.name LIKE %(txt)s
+              OR COALESCE(gi.gilit_batch_no, '') LIKE %(txt)s
+              OR COALESCE(gi.company, '') LIKE %(txt)s
+          )
+        ORDER BY gi.creation DESC
+        LIMIT %(start)s, %(page_len)s
+    """, {
+        "txt": f"%{txt}%",
+        "start": start,
+        "page_len": page_len
+    })

@@ -8,7 +8,10 @@ frappe.ui.form.on('Taniya Receive', {
 
         frm.set_query('taniya_issue', function() {
             return {
-                query: 'jari_core.jari_core.doctype.taniya_receive.taniya_receive.taniya_issue_query'
+                filters: {
+                    docstatus: 1,
+                    status: ['!=', 'Closed']
+                }
             };
         });
     },

@@ -38,35 +38,50 @@ frappe.ui.form.on('Gilit Receive', {
 
                 frm.clear_table('output_items');
 
-                (issue.peti_items || []).forEach(peti => {
-                    let row = frm.add_child('output_items');
+                let calls = [];
 
-                    let total_bobbin = flt(peti.total_bobbin);
-                    let issued_bobbin = flt(peti.issued_bobbin);
-                    let net_weight_gm = flt(peti.net_weight);
+                (issue.peti_items || []).forEach(issue_peti => {
+                    if (!issue_peti.spindal_peti_entry) return;
 
-                    let uom = (peti.uom || '').toLowerCase();
-                    if (['kg', 'kilogram', 'kilograms'].includes(uom)) {
-                        net_weight_gm = net_weight_gm * 1000;
-                    }
+                    calls.push(
+                        frappe.call({
+                            method: 'frappe.client.get',
+                            args: {
+                                doctype: 'Spindal Peti Entry',
+                                name: issue_peti.spindal_peti_entry
+                            }
+                        }).then(res => {
+                            const peti = res.message;
+                            if (!peti) return;
 
-                    let consumed_net_weight = 0;
+                            let row = frm.add_child('output_items');
 
-                    if (total_bobbin && issued_bobbin) {
-                        consumed_net_weight = (net_weight_gm / total_bobbin) * issued_bobbin;
-                    }
+                            let total_bobbin = flt(issue_peti.total_bobbin || peti.bobbin_count || peti.nang);
+                            let issued_bobbin = flt(issue_peti.issued_bobbin);
+                            let net_weight = flt(peti.net_weight);
+                            let peti_uom = peti.uom || issue_peti.uom || '';
 
-                    row.spindal_peti_entry = peti.spindal_peti_entry;
-                    row.peti_no = peti.peti_no;
-                    row.total_bobbin = total_bobbin;
-                    row.issued_bobbin = issued_bobbin;
-                    row.used_net_weight = consumed_net_weight;
-                    row.uom = 'gm';
-                    row.weight = consumed_net_weight;
+                            let consumed_net_weight = 0;
+
+                            if (total_bobbin && issued_bobbin) {
+                                consumed_net_weight = (net_weight / total_bobbin) * issued_bobbin;
+                            }
+
+                            row.spindal_peti_entry = peti.name;
+                            row.peti_no = peti.peti_no || peti.name;
+                            row.total_bobbin = total_bobbin;
+                            row.issued_bobbin = issued_bobbin;
+                            row.used_net_weight = consumed_net_weight;
+                            row.uom = peti_uom;
+                            row.weight = consumed_net_weight;
+                        })
+                    );
                 });
 
-                frm.refresh_field('output_items');
-                calculate_gilit_receive_totals(frm);
+                Promise.all(calls).then(() => {
+                    frm.refresh_field('output_items');
+                    calculate_gilit_receive_totals(frm);
+                });
             }
         });
     },
@@ -87,7 +102,6 @@ frappe.ui.form.on('Gilit Receive', {
 frappe.ui.form.on('Gilit Output Item', {
     used_net_weight(frm, cdt, cdn) {
         let row = locals[cdt][cdn];
-        frappe.model.set_value(cdt, cdn, 'uom', 'gm');
         frappe.model.set_value(cdt, cdn, 'weight', flt(row.used_net_weight));
         calculate_gilit_receive_totals(frm);
     },

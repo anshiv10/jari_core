@@ -3,12 +3,6 @@ frappe.ui.form.on('Spindal Receive', {
         if (!frm.doc.receive_date) {
             frm.set_value('receive_date', frappe.datetime.get_today());
         }
-
-        frm.set_query('spindal_issue', function() {
-            return {
-                query: 'jari_core.jari_core.doctype.spindal_receive.spindal_receive.spindal_issue_query'
-            };
-        });
     },
 
     spindal_issue(frm) {

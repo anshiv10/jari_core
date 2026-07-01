@@ -6,28 +6,11 @@ from frappe.utils import flt, today
 class PavthaReceive(Document):
 
     def validate(self):
-        self.validate_duplicate_submitted_receive()
         self.pull_issue_details()
         self.validate_items()
         self.calculate_totals()
         self.set_approx_silver()
         self.calculate_payout()
-
-    def validate_duplicate_submitted_receive(self):
-        if not self.pavtha_issue:
-            return
-
-        exists = frappe.db.exists(
-            "Pavtha Receive",
-            {
-                "pavtha_issue": self.pavtha_issue,
-                "docstatus": 1,
-                "name": ["!=", self.name]
-            }
-        )
-
-        if exists:
-            frappe.throw(f"Pavtha Issue {self.pavtha_issue} is already received in submitted Pavtha Receive {exists}.")
 
     def on_submit(self):
         self.set_approx_silver()
@@ -247,36 +230,3 @@ class PavthaReceive(Document):
                 "date": self.receive_date or today(),
                 "remarks": "Pavtha waste generated"
             }).insert(ignore_permissions=True)
-
-
-@frappe.whitelist()
-@frappe.validate_and_sanitize_search_inputs
-def pavtha_issue_query(doctype, txt, searchfield, start, page_len, filters):
-    return frappe.db.sql("""
-        SELECT
-            pi.name,
-            CONCAT(
-                'Batch: ', COALESCE(pi.batch_no, pi.name),
-                ' | Issue: ', pi.name,
-                ' | Date: ', DATE_FORMAT(COALESCE(pi.issue_date, pi.creation), '%%d-%%m-%%Y')
-            ) AS description
-        FROM `tabPavtha Issue` pi
-        WHERE pi.docstatus = 1
-          AND NOT EXISTS (
-              SELECT 1
-              FROM `tabPavtha Receive` pr
-              WHERE pr.docstatus = 1
-                AND pr.pavtha_issue = pi.name
-          )
-          AND (
-              pi.name LIKE %(txt)s
-              OR COALESCE(pi.batch_no, '') LIKE %(txt)s
-              OR COALESCE(pi.company, '') LIKE %(txt)s
-          )
-        ORDER BY pi.creation DESC
-        LIMIT %(start)s, %(page_len)s
-    """, {
-        "txt": f"%{txt}%",
-        "start": start,
-        "page_len": page_len
-    })

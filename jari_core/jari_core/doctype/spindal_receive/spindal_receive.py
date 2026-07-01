@@ -6,8 +6,25 @@ from frappe.utils import flt
 class SpindalReceive(Document):
 
     def validate(self):
+        self.validate_duplicate_submitted_receive()
         self.fetch_peti_entries()
         self.calculate_totals()
+
+    def validate_duplicate_submitted_receive(self):
+        if not self.spindal_issue:
+            return
+
+        exists = frappe.db.exists(
+            "Spindal Receive",
+            {
+                "spindal_issue": self.spindal_issue,
+                "docstatus": 1,
+                "name": ["!=", self.name]
+            }
+        )
+
+        if exists:
+            frappe.throw(f"Spindal Issue {self.spindal_issue} is already received in submitted Spindal Receive {exists}.")
 
     def fetch_peti_entries(self):
         if not self.spindal_issue:
@@ -65,3 +82,37 @@ def get_spindal_peti_entries(spindal_issue):
         ],
         order_by="creation asc"
     )
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def spindal_issue_query(doctype, txt, searchfield, start, page_len, filters):
+    return frappe.db.sql("""
+        SELECT
+            si.name,
+            CONCAT(
+                'Batch: ', COALESCE(si.active_batch_no, si.new_batch_no, si.name),
+                ' | Issue: ', si.name,
+                ' | Date: ', DATE_FORMAT(COALESCE(si.issue_date, si.creation), '%%d-%%m-%%Y')
+            ) AS description
+        FROM `tabSpindal Issue` si
+        WHERE si.docstatus = 1
+          AND NOT EXISTS (
+              SELECT 1
+              FROM `tabSpindal Receive` sr
+              WHERE sr.docstatus = 1
+                AND sr.spindal_issue = si.name
+          )
+          AND (
+              si.name LIKE %(txt)s
+              OR COALESCE(si.active_batch_no, '') LIKE %(txt)s
+              OR COALESCE(si.new_batch_no, '') LIKE %(txt)s
+              OR COALESCE(si.company, '') LIKE %(txt)s
+          )
+        ORDER BY si.creation DESC
+        LIMIT %(start)s, %(page_len)s
+    """, {
+        "txt": f"%{txt}%",
+        "start": start,
+        "page_len": page_len
+    })

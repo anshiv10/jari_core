@@ -6,28 +6,10 @@ from frappe.utils import flt, today
 class MeltingReceive(Document):
 
     def validate(self):
-        self.validate_duplicate_submitted_receive()
         self.pull_issue_details()
         self.validate_items()
         self.calculate_totals()
         self.set_approx_silver()
-
-    def validate_duplicate_submitted_receive(self):
-        issue_no = self.get_issue_no()
-        if not issue_no:
-            return
-
-        exists = frappe.db.exists(
-            "Melting Receive",
-            {
-                "melting_issue": issue_no,
-                "docstatus": 1,
-                "name": ["!=", self.name]
-            }
-        )
-
-        if exists:
-            frappe.throw(f"Melting Issue {issue_no} is already received in submitted Melting Receive {exists}.")
 
     def on_submit(self):
         self.set_approx_silver()
@@ -271,35 +253,29 @@ def melting_issue_query(doctype, txt, searchfield, start, page_len, filters):
     }
 
     if company:
-        conditions += " AND mi.company = %(company)s"
+        conditions += " AND company = %(company)s"
         values["company"] = company
 
     return frappe.db.sql("""
         SELECT
-            mi.name,
+            name,
             CONCAT(
                 'Batch: ',
-                COALESCE(mi.batch_no, mi.name),
+                COALESCE(batch_no, name),
                 ' | Issue: ',
-                mi.name,
+                name,
                 ' | Date: ',
-                DATE_FORMAT(COALESCE(mi.issue_date, mi.creation), '%%d-%%m-%%Y')
+                DATE_FORMAT(COALESCE(issue_date, creation), '%%d-%%m-%%Y')
             ) AS description
-        FROM `tabMelting Issue` mi
-        WHERE mi.docstatus = 1
+        FROM `tabMelting Issue`
+        WHERE docstatus = 1
           {conditions}
-          AND NOT EXISTS (
-              SELECT 1
-              FROM `tabMelting Receive` mr
-              WHERE mr.docstatus = 1
-                AND mr.melting_issue = mi.name
-          )
           AND (
-              mi.name LIKE %(txt)s
-              OR COALESCE(mi.batch_no, '') LIKE %(txt)s
-              OR COALESCE(mi.company, '') LIKE %(txt)s
+              name LIKE %(txt)s
+              OR COALESCE(batch_no, '') LIKE %(txt)s
+              OR COALESCE(company, '') LIKE %(txt)s
           )
-        ORDER BY mi.creation DESC
+        ORDER BY creation DESC
         LIMIT %(start)s, %(page_len)s
     """.format(conditions=conditions), values)
 

@@ -6,10 +6,7 @@ frappe.ui.form.on('Gilit Receive', {
 
         frm.set_query('gilit_issue', function() {
             return {
-                filters: {
-                    docstatus: 1,
-                    status: ['!=', 'Closed']
-                }
+                query: 'jari_core.jari_core.doctype.gilit_receive.gilit_receive.gilit_issue_query'
             };
         });
 

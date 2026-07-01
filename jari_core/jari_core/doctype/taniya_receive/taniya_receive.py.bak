@@ -6,27 +6,10 @@ from frappe.utils import flt, today
 class TaniyaReceive(Document):
 
     def validate(self):
-        self.validate_duplicate_submitted_receive()
         self.pull_issue_details()
         self.validate_items()
         self.calculate_totals()
         self.set_approx_silver()
-
-    def validate_duplicate_submitted_receive(self):
-        if not self.taniya_issue:
-            return
-
-        exists = frappe.db.exists(
-            "Taniya Receive",
-            {
-                "taniya_issue": self.taniya_issue,
-                "docstatus": 1,
-                "name": ["!=", self.name]
-            }
-        )
-
-        if exists:
-            frappe.throw(f"Taniya Issue {self.taniya_issue} is already received in submitted Taniya Receive {exists}.")
 
     def on_submit(self):
         self.set_approx_silver()
@@ -174,37 +157,3 @@ class TaniyaReceive(Document):
 
         for issue in issues:
             frappe.db.set_value("Taniya Issue", issue, "status", "Partially Received")
-
-
-@frappe.whitelist()
-@frappe.validate_and_sanitize_search_inputs
-def taniya_issue_query(doctype, txt, searchfield, start, page_len, filters):
-    return frappe.db.sql("""
-        SELECT
-            ti.name,
-            CONCAT(
-                'Batch: ', COALESCE(ti.batch_no, ti.new_batch_no, ti.name),
-                ' | Issue: ', ti.name,
-                ' | Date: ', DATE_FORMAT(COALESCE(ti.issue_date, ti.creation), '%%d-%%m-%%Y')
-            ) AS description
-        FROM `tabTaniya Issue` ti
-        WHERE ti.docstatus = 1
-          AND NOT EXISTS (
-              SELECT 1
-              FROM `tabTaniya Receive` tr
-              WHERE tr.docstatus = 1
-                AND tr.taniya_issue = ti.name
-          )
-          AND (
-              ti.name LIKE %(txt)s
-              OR COALESCE(ti.batch_no, '') LIKE %(txt)s
-              OR COALESCE(ti.new_batch_no, '') LIKE %(txt)s
-              OR COALESCE(ti.company, '') LIKE %(txt)s
-          )
-        ORDER BY ti.creation DESC
-        LIMIT %(start)s, %(page_len)s
-    """, {
-        "txt": f"%{txt}%",
-        "start": start,
-        "page_len": page_len
-    })
