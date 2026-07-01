@@ -175,7 +175,7 @@ class PavthaReceive(Document):
             row.approx_silver_weight = self.calculate_approx_silver(row.weight)
             total += flt(row.approx_silver_weight)
 
-        self.approx_silver_weight = total if self.docstatus == 1 else 0
+        self.approx_silver_weight = total
 
     def get_last_balance(self, company, department, product):
         return frappe.db.get_value(
