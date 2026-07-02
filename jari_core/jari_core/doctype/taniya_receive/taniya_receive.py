@@ -86,17 +86,22 @@ class TaniyaReceive(Document):
         return flt(weight) * flt(purity) / 100
 
     def set_approx_silver(self):
-        total = 0
+        purity = self.get_quality_purity()
+
+        output_approx = 0
+        wastage_approx = 0
 
         for row in self.output_items or []:
-            row.approx_silver_weight = self.calculate_approx_silver(row.weight)
-            total += flt(row.approx_silver_weight)
+            row.approx_silver_weight = flt(row.weight) * flt(purity) / 100
+            output_approx += flt(row.approx_silver_weight)
 
         for row in self.waste_items or []:
-            row.approx_silver_weight = self.calculate_approx_silver(row.weight)
-            total += flt(row.approx_silver_weight)
+            row.approx_silver_weight = flt(row.weight) * flt(purity) / 100
+            wastage_approx += flt(row.approx_silver_weight)
 
-        self.approx_silver_weight = total
+        self.approx_silver_output = output_approx
+        self.approx_silver_wastage = wastage_approx
+        self.approx_silver_weight = output_approx + wastage_approx
 
     def get_last_balance(self, company, department, product):
         return frappe.db.get_value(

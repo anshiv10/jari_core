@@ -19,6 +19,9 @@
   "total_input_weight",
   "total_received_weight",
   "total_waste_weight",
+  "approx_silver_output",
+  "approx_silver_wastage",
+  "approx_silver_weight",
   "loss_weight",
   "loss_percent",
   "loss_standard_percent",
@@ -153,6 +156,27 @@
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "approx_silver_output",
+   "fieldtype": "Float",
+   "label": "Approx Silver in Output",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "approx_silver_wastage",
+   "fieldtype": "Float",
+   "label": "Approx Silver in Wastage",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "approx_silver_weight",
+   "fieldtype": "Float",
+   "label": "Total Approx Silver Weight",
+   "read_only": 1,
+   "in_list_view": 1
   }
  ],
  "grid_page_length": 50,

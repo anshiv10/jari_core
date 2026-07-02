@@ -9,6 +9,7 @@ class SpindalReceive(Document):
         self.validate_duplicate_submitted_receive()
         self.fetch_peti_entries()
         self.calculate_totals()
+        self.set_approx_silver()
 
     def validate_duplicate_submitted_receive(self):
         if not self.spindal_issue:
@@ -57,6 +58,29 @@ class SpindalReceive(Document):
 
         if hasattr(self, "total_receive_weight"):
             self.total_receive_weight = total_net
+
+        self.total_received_weight = total_net
+        self.total_waste_weight = sum(flt(row.weight) for row in self.waste_items or [])
+        self.loss_weight = flt(self.total_input_weight) - flt(self.total_received_weight) - flt(self.total_waste_weight)
+
+    def get_quality_purity(self):
+        if not self.quality_code:
+            return 0
+        return flt(frappe.db.get_value("Quality Master", self.quality_code, "silver_purity_percent") or 0)
+
+    def set_approx_silver(self):
+        purity = self.get_quality_purity()
+
+        output_approx = flt(self.total_received_weight) * flt(purity) / 100
+        wastage_approx = 0
+
+        for row in self.waste_items or []:
+            row.approx_silver_weight = flt(row.weight) * flt(purity) / 100
+            wastage_approx += flt(row.approx_silver_weight)
+
+        self.approx_silver_output = output_approx
+        self.approx_silver_wastage = wastage_approx
+        self.approx_silver_weight = output_approx + wastage_approx
 
 
 @frappe.whitelist()

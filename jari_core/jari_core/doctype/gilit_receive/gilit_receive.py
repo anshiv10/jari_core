@@ -27,6 +27,7 @@ class GilitReceive(Document):
         self.pull_issue_details()
         self.validate_items()
         self.calculate_totals()
+        self.set_approx_silver()
 
     def validate_duplicate_submitted_receive(self):
         if not self.gilit_issue:
@@ -187,6 +188,25 @@ class GilitReceive(Document):
         ) or 0
 
         self.loss_status = "Excess Loss" if flt(self.loss_percent) > flt(self.loss_standard_percent) else "OK"
+
+    def get_quality_purity(self):
+        if not self.quality_code:
+            return 0
+        return flt(frappe.db.get_value("Quality Master", self.quality_code, "silver_purity_percent") or 0)
+
+    def set_approx_silver(self):
+        purity = self.get_quality_purity()
+
+        output_approx = flt(self.total_output_weight) * flt(purity) / 100
+        wastage_approx = 0
+
+        for row in self.waste_items or []:
+            row.approx_silver_weight = flt(row.weight) * flt(purity) / 100
+            wastage_approx += flt(row.approx_silver_weight)
+
+        self.approx_silver_output = output_approx
+        self.approx_silver_wastage = wastage_approx
+        self.approx_silver_weight = output_approx + wastage_approx
 
     def update_peti_remaining_net_weight(self):
         for row in self.output_items:

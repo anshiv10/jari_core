@@ -1,0 +1,280 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "MR-.YYYY.-.MM.-.####",
+ "creation": "2026-06-14 03:38:34.478904",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "issue_ref_section",
+  "melting_issue",
+  "issue_batch_display",
+  "receive_date",
+  "col_break_1",
+  "company",
+  "batch_no",
+  "process_section",
+  "process_master",
+  "col_break_2",
+  "quality_code",
+  "output_section",
+  "output_items",
+  "waste_section",
+  "waste_items",
+  "weight_section",
+  "total_input_weight",
+  "total_output_weight",
+  "col_break_3",
+  "total_waste_weight",
+  "approx_silver_weight",
+  "loss_weight",
+  "loss_section",
+  "loss_percent",
+  "loss_standard_percent",
+  "col_break_4",
+  "waste_percent",
+  "wastage_standard_percent",
+  "loss_status",
+  "wastage_status",
+  "remarks_section",
+  "remarks",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "issue_ref_section",
+   "fieldtype": "Section Break",
+   "label": "Issue Reference"
+  },
+  {
+   "fieldname": "melting_issue",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Issue Batch",
+   "options": "Melting Issue",
+   "reqd": 0
+  },
+  {
+   "fieldname": "receive_date",
+   "fieldtype": "Date",
+   "label": "Receive Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "col_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company Master"
+  },
+  {
+   "fieldname": "batch_no",
+   "fieldtype": "Data",
+   "label": "Batch No",
+   "read_only": 1
+  },
+  {
+   "fieldname": "process_section",
+   "fieldtype": "Section Break",
+   "label": "Process & Quality"
+  },
+  {
+   "fieldname": "process_master",
+   "fieldtype": "Link",
+   "label": "Process",
+   "options": "Process Master",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "quality_code",
+   "fieldtype": "Link",
+   "label": "Quality Code",
+   "options": "Quality Master",
+   "read_only": 1
+  },
+  {
+   "fieldname": "output_section",
+   "fieldtype": "Section Break",
+   "label": "Out Product Detail"
+  },
+  {
+   "fieldname": "output_items",
+   "fieldtype": "Table",
+   "label": "Out Product Detail",
+   "options": "Melting Output Item"
+  },
+  {
+   "fieldname": "waste_section",
+   "fieldtype": "Section Break",
+   "label": "Waste Product Detail"
+  },
+  {
+   "fieldname": "waste_items",
+   "fieldtype": "Table",
+   "label": "Waste Product Detail",
+   "options": "Melting Waste Product Item"
+  },
+  {
+   "fieldname": "weight_section",
+   "fieldtype": "Section Break",
+   "label": "Weight Summary"
+  },
+  {
+   "bold": 1,
+   "fieldname": "total_input_weight",
+   "fieldtype": "Float",
+   "label": "Total Input Weight",
+   "read_only": 1
+  },
+  {
+   "bold": 1,
+   "fieldname": "total_output_weight",
+   "fieldtype": "Float",
+   "label": "Total Output Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_waste_weight",
+   "fieldtype": "Float",
+   "label": "Total Waste Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "loss_weight",
+   "fieldtype": "Float",
+   "label": "Loss Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "loss_section",
+   "fieldtype": "Section Break",
+   "label": "Loss Analysis"
+  },
+  {
+   "fieldname": "loss_percent",
+   "fieldtype": "Percent",
+   "label": "Loss %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "loss_standard_percent",
+   "fieldtype": "Percent",
+   "label": "Loss Standard %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "waste_percent",
+   "fieldtype": "Percent",
+   "label": "Waste %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wastage_standard_percent",
+   "fieldtype": "Percent",
+   "label": "Wastage Standard %",
+   "read_only": 1
+  },
+  {
+   "bold": 1,
+   "fieldname": "loss_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Loss Status",
+   "options": "OK\nExcess Loss",
+   "read_only": 1
+  },
+  {
+   "bold": 1,
+   "fieldname": "wastage_status",
+   "fieldtype": "Select",
+   "label": "Wastage Status",
+   "options": "OK\nExcess Wastage",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks_section",
+   "fieldtype": "Section Break",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Melting Receive",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "issue_batch_display",
+   "fieldtype": "Data",
+   "label": "Selected Issue Batch",
+   "read_only": 1,
+   "depends_on": "eval:doc.issue_no || doc.melting_issue"
+  },
+  {
+   "fieldname": "approx_silver_weight",
+   "fieldtype": "Float",
+   "label": "Approx Silver Weight",
+   "read_only": 1,
+   "in_list_view": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-06-14 03:38:34.478904",
+ "modified_by": "Administrator",
+ "module": "JARI Core",
+ "name": "Melting Receive",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "receive_date",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "quick_entry": 0
+}

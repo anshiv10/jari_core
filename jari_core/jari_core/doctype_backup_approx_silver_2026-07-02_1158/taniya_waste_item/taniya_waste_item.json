@@ -1,0 +1,80 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-14 17:54:53.426350",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "operator_name",
+  "receive_date",
+  "waste_product",
+  "product_name",
+  "uom",
+  "weight",
+  "approx_silver_weight"
+ ],
+ "fields": [
+  {
+   "fieldname": "operator_name",
+   "fieldtype": "Link",
+   "label": "Operator Name",
+   "options": "Worker Master",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "receive_date",
+   "fieldtype": "Date",
+   "label": "Receive Date",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "waste_product",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Waste Product",
+   "options": "Product Master"
+  },
+  {
+   "fieldname": "product_name",
+   "fieldtype": "Data",
+   "label": "Product Name",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "UOM",
+   "options": "UOM_Jari"
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Waste Weight"
+  },
+  {
+   "fieldname": "approx_silver_weight",
+   "fieldtype": "Float",
+   "label": "Approx Silver Weight",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-23 19:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "JARI Core",
+ "name": "Taniya Waste Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
