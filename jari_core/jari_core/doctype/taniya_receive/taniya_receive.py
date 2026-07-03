@@ -83,7 +83,7 @@ class TaniyaReceive(Document):
 
     def calculate_approx_silver(self, weight):
         purity = self.get_quality_purity() if hasattr(self, "get_quality_purity") else 0
-        return flt(weight) * flt(purity) / 100
+        return flt(weight) - (flt(weight) * flt(purity) / 100)
 
     def set_approx_silver(self):
         purity = self.get_quality_purity()
@@ -92,11 +92,11 @@ class TaniyaReceive(Document):
         wastage_approx = 0
 
         for row in self.output_items or []:
-            row.approx_silver_weight = flt(row.weight) * flt(purity) / 100
+            row.approx_silver_weight = flt(row.weight) - (flt(row.weight) * flt(purity) / 100)
             output_approx += flt(row.approx_silver_weight)
 
         for row in self.waste_items or []:
-            row.approx_silver_weight = flt(row.weight) * flt(purity) / 100
+            row.approx_silver_weight = flt(row.weight) - (flt(row.weight) * flt(purity) / 100)
             wastage_approx += flt(row.approx_silver_weight)
 
         self.approx_silver_output = output_approx

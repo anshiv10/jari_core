@@ -1,0 +1,87 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-14 01:12:09.477866",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_dzzk",
+  "waste_product",
+  "uom",
+  "expected_percent",
+  "qty",
+  "unit",
+  "rate",
+  "amount"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_dzzk",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "waste_product",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Waste Product",
+   "options": "Product Master"
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "UOM",
+   "options": "UOM_Jari"
+  },
+  {
+   "fieldname": "expected_percent",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Expected %"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "QTY"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "unit",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Unit"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Rate"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Amount"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-14 02:01:33.546603",
+ "modified_by": "Administrator",
+ "module": "JARI Core",
+ "name": "Process Waste Product Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

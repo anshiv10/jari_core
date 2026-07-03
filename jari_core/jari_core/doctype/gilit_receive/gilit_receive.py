@@ -18,34 +18,19 @@ def get_gram_uom():
         if frappe.db.exists("UOM_Jari", uom):
             return uom
     frappe.throw("Please create UOM_Jari record for gram or gm.")
-    
+
 
 class GilitReceive(Document):
 
     def validate(self):
-        self.validate_duplicate_submitted_receive()
         self.pull_issue_details()
         self.validate_items()
         self.calculate_totals()
         self.set_approx_silver()
 
-    def validate_duplicate_submitted_receive(self):
-        if not self.gilit_issue:
-            return
-
-        exists = frappe.db.exists(
-            "Gilit Receive",
-            {
-                "gilit_issue": self.gilit_issue,
-                "docstatus": 1,
-                "name": ["!=", self.name]
-            }
-        )
-
-        if exists:
-            frappe.throw(f"Gilit Issue {self.gilit_issue} is already received in submitted Gilit Receive {exists}.")
-
     def on_submit(self):
+        self.set_approx_silver()
+        self.db_set("approx_silver_weight", flt(self.approx_silver_weight))
         self.update_peti_remaining_net_weight()
         self.post_outputs_and_waste()
         frappe.db.set_value("Gilit Issue", self.gilit_issue, "status", "Closed")
@@ -75,7 +60,6 @@ class GilitReceive(Document):
 
                 total_bobbin = flt(issue_peti.total_bobbin or peti.bobbin_count or peti.nang)
                 issued_bobbin = flt(issue_peti.issued_bobbin)
-
                 peti_net_gm = gm_value(peti.net_weight, peti.uom)
 
                 used_net_weight = (
@@ -91,6 +75,34 @@ class GilitReceive(Document):
                 row.used_net_weight = used_net_weight
                 row.uom = peti.uom or issue_peti.uom or get_gram_uom()
                 row.weight = used_net_weight
+
+    def get_quality_purity(self):
+        if not self.quality_code:
+            return 0
+
+        return flt(
+            frappe.db.get_value(
+                "Quality Master",
+                self.quality_code,
+                "silver_purity_percent"
+            ) or 0
+        )
+
+    def calculate_approx_silver(self, weight):
+        purity = self.get_quality_purity()
+        return flt(weight) - (flt(weight) * flt(purity) / 100)
+
+    def set_approx_silver(self):
+        output_approx = self.calculate_approx_silver(self.total_output_weight)
+        wastage_approx = 0
+
+        for row in self.waste_items or []:
+            row.approx_silver_weight = self.calculate_approx_silver(row.weight)
+            wastage_approx += flt(row.approx_silver_weight)
+
+        self.approx_silver_output = output_approx
+        self.approx_silver_wastage = wastage_approx
+        self.approx_silver_weight = output_approx + wastage_approx
 
     def get_peti_remaining_gm(self, peti):
         remaining = flt(peti.remaining_net_weight)
@@ -134,6 +146,7 @@ class GilitReceive(Document):
 
             if not row.uom:
                 row.uom = peti.uom or get_gram_uom()
+
             row.weight = flt(row.used_net_weight)
 
         if flt(self.gross_weight_without_dabba) < 0:
@@ -149,23 +162,20 @@ class GilitReceive(Document):
             frappe.throw("Firki Nang cannot be negative.")
 
     def calculate_totals(self):
-        self.total_output_weight = sum(flt(row.used_net_weight or row.weight) for row in self.output_items)
-        self.total_waste_weight = 0
+        self.total_output_weight = sum(
+            flt(row.used_net_weight or row.weight)
+            for row in self.output_items or []
+        )
 
-        quality_purity = frappe.db.get_value(
-            "Quality Master",
-            self.quality_code,
-            "silver_purity_percent"
-        ) if self.quality_code else 0
+        self.total_waste_weight = sum(
+            flt(row.weight)
+            for row in self.waste_items or []
+        )
 
-        for row in self.waste_items:
-            self.total_waste_weight += flt(row.weight)
-
-            if row.waste_product:
-                metal_type = frappe.db.get_value("Product Master", row.waste_product, "metal_type")
-                row.approx_silver_weight = flt(row.weight) * flt(quality_purity) / 100 if metal_type == "Silver" else 0
-
-        self.rangayel_kasab_weight = flt(self.gross_weight_without_dabba) - flt(self.firki_weight)
+        self.rangayel_kasab_weight = (
+            flt(self.gross_weight_without_dabba)
+            - flt(self.firki_weight)
+        )
 
         self.total_jari_production = (
             flt(self.gross_weight_without_dabba)
@@ -173,13 +183,27 @@ class GilitReceive(Document):
             - flt(self.total_waste_weight)
         )
 
-        self.weight_of_one_firki = flt(self.total_jari_production) / flt(self.filled_firki) if flt(self.filled_firki) else 0
+        self.weight_of_one_firki = (
+            flt(self.total_jari_production) / flt(self.filled_firki)
+            if flt(self.filled_firki) else 0
+        )
 
-        self.vadh_ghat = flt(self.total_jari_production) - flt(self.total_input_weight) + flt(self.total_waste_weight)
+        self.vadh_ghat = (
+            flt(self.total_jari_production)
+            - flt(self.total_input_weight)
+            + flt(self.total_waste_weight)
+        )
 
-        self.loss_weight = flt(self.total_input_weight) - flt(self.total_output_weight) - flt(self.total_waste_weight)
+        self.loss_weight = (
+            flt(self.total_input_weight)
+            - flt(self.total_output_weight)
+            - flt(self.total_waste_weight)
+        )
 
-        self.loss_percent = flt(self.loss_weight) / flt(self.total_input_weight) * 100 if flt(self.total_input_weight) else 0
+        self.loss_percent = (
+            flt(self.loss_weight) / flt(self.total_input_weight) * 100
+            if flt(self.total_input_weight) else 0
+        )
 
         self.loss_standard_percent = frappe.db.get_value(
             "Loss Standard Master",
@@ -187,26 +211,11 @@ class GilitReceive(Document):
             "standard_loss_percent"
         ) or 0
 
-        self.loss_status = "Excess Loss" if flt(self.loss_percent) > flt(self.loss_standard_percent) else "OK"
-
-    def get_quality_purity(self):
-        if not self.quality_code:
-            return 0
-        return flt(frappe.db.get_value("Quality Master", self.quality_code, "silver_purity_percent") or 0)
-
-    def set_approx_silver(self):
-        purity = self.get_quality_purity()
-
-        output_approx = flt(self.total_output_weight) * flt(purity) / 100
-        wastage_approx = 0
-
-        for row in self.waste_items or []:
-            row.approx_silver_weight = flt(row.weight) * flt(purity) / 100
-            wastage_approx += flt(row.approx_silver_weight)
-
-        self.approx_silver_output = output_approx
-        self.approx_silver_wastage = wastage_approx
-        self.approx_silver_weight = output_approx + wastage_approx
+        self.loss_status = (
+            "Excess Loss"
+            if flt(self.loss_percent) > flt(self.loss_standard_percent)
+            else "OK"
+        )
 
     def update_peti_remaining_net_weight(self):
         for row in self.output_items:
@@ -279,6 +288,7 @@ class GilitReceive(Document):
                 "in_weight": weight_kg,
                 "out_weight": 0,
                 "current_balance": flt(balance) + weight_kg,
+                "approx_silver_weight": flt(self.calculate_approx_silver(row.used_net_weight or row.weight)),
                 "transaction_type": "Production Output",
                 "reference_doctype": self.doctype,
                 "reference_name": self.name,
@@ -302,6 +312,7 @@ class GilitReceive(Document):
                 "in_weight": weight_kg,
                 "out_weight": 0,
                 "current_balance": flt(balance) + weight_kg,
+                "approx_silver_weight": flt(row.approx_silver_weight),
                 "transaction_type": "Waste Generated",
                 "reference_doctype": self.doctype,
                 "reference_name": self.name,

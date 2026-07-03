@@ -99,7 +99,7 @@ class PavthaReceive(Document):
                 metal_type = self.get_product_metal_type(row.waste_product)
 
                 if metal_type == "Silver":
-                    row.approx_silver_weight = flt(row.weight) * flt(quality_purity) / 100
+                    row.approx_silver_weight = flt(row.weight) - (flt(row.weight) * flt(quality_purity) / 100)
 
         self.total_output_weight = output_total
         self.total_waste_weight = waste_total
@@ -162,7 +162,7 @@ class PavthaReceive(Document):
 
     def calculate_approx_silver(self, weight):
         purity = self.get_quality_purity() if hasattr(self, "get_quality_purity") else 0
-        return flt(weight) * flt(purity) / 100
+        return flt(weight) - (flt(weight) * flt(purity) / 100)
 
     def set_approx_silver(self):
         purity = self.get_quality_purity()
@@ -171,11 +171,11 @@ class PavthaReceive(Document):
         wastage_approx = 0
 
         for row in self.output_items or []:
-            row.approx_silver_weight = flt(row.weight) * flt(purity) / 100
+            row.approx_silver_weight = flt(row.weight) - (flt(row.weight) * flt(purity) / 100)
             output_approx += flt(row.approx_silver_weight)
 
         for row in self.waste_items or []:
-            row.approx_silver_weight = flt(row.weight) * flt(purity) / 100
+            row.approx_silver_weight = flt(row.weight) - (flt(row.weight) * flt(purity) / 100)
             wastage_approx += flt(row.approx_silver_weight)
 
         self.approx_silver_output = output_approx

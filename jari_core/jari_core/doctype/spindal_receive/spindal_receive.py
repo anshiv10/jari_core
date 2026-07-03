@@ -71,11 +71,11 @@ class SpindalReceive(Document):
     def set_approx_silver(self):
         purity = self.get_quality_purity()
 
-        output_approx = flt(self.total_received_weight) * flt(purity) / 100
+        output_approx = flt(self.total_received_weight) - (flt(self.total_received_weight) * flt(purity) / 100)
         wastage_approx = 0
 
         for row in self.waste_items or []:
-            row.approx_silver_weight = flt(row.weight) * flt(purity) / 100
+            row.approx_silver_weight = flt(row.weight) - (flt(row.weight) * flt(purity) / 100)
             wastage_approx += flt(row.approx_silver_weight)
 
         self.approx_silver_output = output_approx
