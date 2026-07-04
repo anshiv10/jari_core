@@ -18,11 +18,11 @@
  "name": "JARI Issue",
  "number_cards": [],
  "owner": "Administrator",
- "parent_page": "",
+ "parent_page": "JARI Production",
  "public": 1,
  "quick_lists": [],
  "roles": [],
- "sequence_id": 1,
+ "sequence_id": 2.0,
  "shortcuts": [
   {
    "color": "Blue",
