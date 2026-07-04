@@ -25,17 +25,17 @@
    "color": "Blue",
    "doc_view": "",
    "label": "JARI Issue",
-   "link_to": "jari-issue",
+   "link_to": "JARI Issue",
    "stats_filter": "[]",
-   "type": "Page"
+   "type": "Workspace"
   },
   {
    "color": "Green",
    "doc_view": "",
    "label": "JARI Receive",
-   "link_to": "jari-receive",
+   "link_to": "JARI Receive",
    "stats_filter": "[]",
-   "type": "Page"
+   "type": "Workspace"
   }
  ],
  "title": "JARI Production"
