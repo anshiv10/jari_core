@@ -7,6 +7,7 @@ class SpindalReceive(Document):
 
     def validate(self):
         self.validate_duplicate_submitted_receive()
+        self.pull_issue_details()
         self.fetch_peti_entries()
         self.calculate_totals()
         self.set_approx_silver()
@@ -28,6 +29,28 @@ class SpindalReceive(Document):
 
         if exists:
             frappe.throw(f"Spindal Issue {self.spindal_issue} is already received in submitted Spindal Receive {exists}.")
+
+
+    def pull_issue_details(self):
+        if not self.spindal_issue:
+            return
+
+        issue = frappe.get_doc("Spindal Issue", self.spindal_issue)
+
+        self.company = issue.company
+        self.active_batch_no = issue.active_batch_no
+        self.process_master = issue.process_master
+        self.quality_code = issue.quality_code
+        self.operator = issue.operator
+
+        total = frappe.db.sql("""
+            SELECT SUM(total_issue_weight)
+            FROM `tabSpindal Issue`
+            WHERE docstatus = 1
+              AND active_batch_no = %s
+        """, self.active_batch_no)[0][0]
+
+        self.total_input_weight = flt(total)
 
     def fetch_peti_entries(self):
         if not self.spindal_issue:
