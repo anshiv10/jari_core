@@ -29,7 +29,15 @@
   "wastage_standard_percent",
   "loss_status",
   "remarks",
-  "amended_from"
+  "amended_from",
+  "payout_format",
+  "payout_calculation_section",
+  "majoori_rate",
+  "estimated_goti",
+  "estimated_aur",
+  "majoori_on",
+  "calculated_payout_amount",
+  "payout_summary"
  ],
  "fields": [
   {
@@ -180,6 +188,52 @@
    "label": "Approx Silver in Wastage",
    "read_only": 1,
    "in_list_view": 1
+  },
+  {
+   "fieldname": "payout_format",
+   "fieldtype": "Link",
+   "label": "Payout Format",
+   "options": "Payout Format Master"
+  },
+  {
+   "fieldname": "payout_calculation_section",
+   "fieldtype": "Section Break",
+   "label": "PDF Payout Calculation"
+  },
+  {
+   "fieldname": "payout_summary",
+   "fieldtype": "Long Text",
+   "label": "Payout Summary",
+   "read_only": 1
+  },
+  {
+   "fieldname": "calculated_payout_amount",
+   "fieldtype": "Currency",
+   "label": "Calculated Payout Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "majoori_rate",
+   "fieldtype": "Currency",
+   "label": "Majoori Rate"
+  },
+  {
+   "fieldname": "estimated_goti",
+   "fieldtype": "Float",
+   "label": "Estimated Goti",
+   "read_only": 1
+  },
+  {
+   "fieldname": "estimated_aur",
+   "fieldtype": "Float",
+   "label": "Estimated AUR",
+   "read_only": 1
+  },
+  {
+   "fieldname": "majoori_on",
+   "fieldtype": "Currency",
+   "label": "Majoori On",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,

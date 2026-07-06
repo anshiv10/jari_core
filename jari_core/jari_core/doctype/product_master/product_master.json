@@ -12,6 +12,7 @@
   "product_category",
   "quality_code",
   "unit",
+  "product_tag",
   "product_type",
   "metal_type"
  ],
@@ -68,6 +69,14 @@
    "in_standard_filter": 1,
    "label": "Metal Type",
    "options": "\nSilver\nCopper\nCadmium\nOther"
+  },
+  {
+   "fieldname": "product_tag",
+   "fieldtype": "Select",
+   "label": "Product Tag",
+   "options": "\nTAR\nTAR (Y)\nSILVER\nPASA\nAUR\nKACHI GOTI\nBADLA GOTI\nGOTI\nGULLA\nDATA\nKASAB\nKAPAN\nDUCHO\nJARI\nPOLYSTER\nYTC",
+   "in_list_view": 1,
+   "in_standard_filter": 1
   }
  ],
  "grid_page_length": 50,
@@ -111,5 +120,5 @@
  "states": [],
  "track_changes": 1,
  "title_field": "product_name",
- "search_fields": "product_name,product_code"
+ "search_fields": "product_name,product_code,product_tag"
 }

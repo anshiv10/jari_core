@@ -11,6 +11,8 @@ class TaniyaReceive(Document):
         self.validate_items()
         self.calculate_totals()
         self.set_approx_silver()
+        from jari_core.jari_core.payout_utils import calculate_taniya_payout
+        calculate_taniya_payout(self)
 
     def validate_duplicate_submitted_receive(self):
         if not self.taniya_issue:

@@ -49,7 +49,18 @@
   "payout_given",
   "remarks_section",
   "remarks",
-  "amended_from"
+  "amended_from",
+  "payout_format",
+  "payout_calculation_section",
+  "mel",
+  "return_weight",
+  "bg_deduction_percent",
+  "used_silver",
+  "given_silver",
+  "balance_silver",
+  "remaining_tar",
+  "calculated_payout_amount",
+  "payout_summary"
  ],
  "fields": [
   {
@@ -311,6 +322,69 @@
    "label": "Approx Silver in Wastage",
    "read_only": 1,
    "in_list_view": 1
+  },
+  {
+   "fieldname": "payout_format",
+   "fieldtype": "Link",
+   "label": "Payout Format",
+   "options": "Payout Format Master"
+  },
+  {
+   "fieldname": "payout_calculation_section",
+   "fieldtype": "Section Break",
+   "label": "PDF Payout Calculation"
+  },
+  {
+   "fieldname": "payout_summary",
+   "fieldtype": "Long Text",
+   "label": "Payout Summary",
+   "read_only": 1
+  },
+  {
+   "fieldname": "calculated_payout_amount",
+   "fieldtype": "Currency",
+   "label": "Calculated Payout Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "mel",
+   "fieldtype": "Float",
+   "label": "Mel"
+  },
+  {
+   "fieldname": "return_weight",
+   "fieldtype": "Float",
+   "label": "Return"
+  },
+  {
+   "fieldname": "bg_deduction_percent",
+   "fieldtype": "Percent",
+   "label": "B.G. Deduction %",
+   "default": "7"
+  },
+  {
+   "fieldname": "used_silver",
+   "fieldtype": "Float",
+   "label": "Used Silver",
+   "read_only": 1
+  },
+  {
+   "fieldname": "given_silver",
+   "fieldtype": "Float",
+   "label": "Given Silver",
+   "read_only": 1
+  },
+  {
+   "fieldname": "balance_silver",
+   "fieldtype": "Float",
+   "label": "Balance Silver",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remaining_tar",
+   "fieldtype": "Float",
+   "label": "Remaining TAR",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,

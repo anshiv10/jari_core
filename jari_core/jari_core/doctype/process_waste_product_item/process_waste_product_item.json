@@ -38,7 +38,7 @@
    "fieldname": "expected_percent",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Expected %"
+   "label": "Estimate Waste"
   },
   {
    "allow_in_quick_entry": 1,

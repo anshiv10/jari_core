@@ -12,6 +12,8 @@ class PavthaReceive(Document):
         self.calculate_totals()
         self.set_approx_silver()
         self.calculate_payout()
+        from jari_core.jari_core.payout_utils import calculate_pavtha_payout
+        calculate_pavtha_payout(self)
 
     def validate_duplicate_submitted_receive(self):
         if not self.pavtha_issue:

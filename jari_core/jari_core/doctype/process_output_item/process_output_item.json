@@ -12,7 +12,8 @@
   "qty",
   "unit",
   "rate",
-  "amount"
+  "amount",
+  "estimated_output"
  ],
  "fields": [
   {
@@ -62,6 +63,12 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Amount"
+  },
+  {
+   "fieldname": "estimated_output",
+   "fieldtype": "Float",
+   "label": "Estimated Output",
+   "in_list_view": 1
   }
  ],
  "grid_page_length": 50,
