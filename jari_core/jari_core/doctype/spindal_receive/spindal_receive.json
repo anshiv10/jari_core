@@ -28,7 +28,6 @@
   "loss_status",
   "remarks",
   "amended_from",
-  "amended_from",
   "payout_format",
   "payout_calculation_section",
   "labour_rate",
@@ -160,16 +159,6 @@
    "options": "Spindal Receive",
    "print_hide": 1,
    "read_only": 1
-  },
-  {
-   "fieldname": "amended_from",
-   "fieldtype": "Link",
-   "label": "Amended From",
-   "no_copy": 1,
-   "options": "Spindal Receive",
-   "print_hide": 1,
-   "read_only": 1,
-   "search_index": 1
   },
   {
    "fieldname": "approx_silver_output",

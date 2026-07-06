@@ -31,7 +31,6 @@
   "issued_by",
   "approved_by",
   "status",
-  "amended_from",
   "amended_from"
  ],
  "fields": [
@@ -195,16 +194,6 @@
    "options": "Pavtha Issue",
    "print_hide": 1,
    "read_only": 1
-  },
-  {
-   "fieldname": "amended_from",
-   "fieldtype": "Link",
-   "label": "Amended From",
-   "no_copy": 1,
-   "options": "Pavtha Issue",
-   "print_hide": 1,
-   "read_only": 1,
-   "search_index": 1
   }
  ],
  "grid_page_length": 50,
