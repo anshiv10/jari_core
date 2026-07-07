@@ -74,7 +74,7 @@
    "fieldname": "product_tag",
    "fieldtype": "Select",
    "label": "Product Tag",
-   "options": "\nTAR\nTAR (Y)\nSILVER\nPASA\nAUR\nKACHI GOTI\nBADLA GOTI\nGOTI\nGULLA\nDATA\nKASAB\nKAPAN\nDUCHO\nJARI\nPOLYSTER\nYTC",
+   "options": "\nTAR\nTAR (Y)\nSILVER\nPASA\nAUR\nKACHI GOTI\nBADLA GOTI\nGOTI\nGULLA\nDATA\nKASAB\nKAPAN\nDUCHO\nJARI\nPOLYSTER\nYTC\nSILK",
    "in_list_view": 1,
    "in_standard_filter": 1
   }
