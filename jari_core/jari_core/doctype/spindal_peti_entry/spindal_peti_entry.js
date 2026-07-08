@@ -2,6 +2,12 @@ frappe.ui.form.on('Spindal Peti Entry', {
     refresh(frm) {
         frm.toggle_display('bobbin_count', false);
         frm.toggle_display('remaining_bobbin', false);
+
+        frm.set_query('spindal_issue', function() {
+            return {
+                query: 'jari_core.jari_core.doctype.spindal_receive.spindal_receive.spindal_issue_for_peti_query'
+            };
+        });
     },
 
     gross_weight(frm) {

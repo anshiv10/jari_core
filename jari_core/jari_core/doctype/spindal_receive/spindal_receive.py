@@ -3,14 +3,27 @@ from frappe.model.document import Document
 from frappe.utils import flt, today
 
 
+def get_kasab_product():
+    if frappe.db.exists("Product Master", "KASAB"):
+        return "KASAB"
+
+    product = frappe.db.get_value("Product Master", {"product_name": ["like", "%kasab%"]}, "name")
+    if product:
+        return product
+
+    frappe.throw("KASAB product not found in Product Master.")
+
+
 class SpindalReceive(Document):
 
     def validate(self):
         self.validate_duplicate_submitted_receive()
         self.pull_issue_details()
         self.fetch_peti_entries()
+        self.normalize_product_links()
         self.calculate_totals()
         self.set_approx_silver()
+
         from jari_core.jari_core.payout_utils import calculate_spindal_payout
         calculate_spindal_payout(self)
 
@@ -61,39 +74,45 @@ class SpindalReceive(Document):
         if self.received_peti_items:
             return
 
+        kasab = get_kasab_product()
         petis = get_spindal_peti_entries(self.spindal_issue)
 
         for peti in petis:
             row = self.append("received_peti_items", {})
-            row.spindal_peti_entry = peti.get("name")
             row.peti_no = peti.get("name")
-            row.batch_no = peti.get("batch_no")
-            row.quality_code = peti.get("quality_code")
-            row.khata_no = peti.get("khata_no")
-            row.product = peti.get("product") or "kasab"
+            row.product = kasab
+            row.uom = peti.get("uom") or "gram"
             row.gross_weight = flt(peti.get("gross_weight"))
-            row.baad_weight = flt(peti.get("baad_weight"))
             row.net_weight = flt(peti.get("net_weight"))
 
-    def calculate_totals(self):
-        total_net = 0
+    def normalize_product_links(self):
+        kasab = get_kasab_product()
 
         for row in self.received_peti_items or []:
-            total_net += flt(row.net_weight)
+            row.product = kasab
 
-        if hasattr(self, "total_net_weight"):
-            self.total_net_weight = total_net
-
-        if hasattr(self, "total_receive_weight"):
-            self.total_receive_weight = total_net
+    def calculate_totals(self):
+        total_net = sum(flt(row.net_weight) for row in self.received_peti_items or [])
 
         self.total_received_weight = total_net
         self.total_waste_weight = sum(flt(row.weight) for row in self.waste_items or [])
         self.loss_weight = flt(self.total_input_weight) - flt(self.total_received_weight) - flt(self.total_waste_weight)
 
+        if flt(self.total_input_weight):
+            self.loss_percent = flt(self.loss_weight) / flt(self.total_input_weight) * 100
+        else:
+            self.loss_percent = 0
+
+        self.loss_standard_percent = frappe.db.get_value(
+            "Loss Standard Master", {"department": "Spindal"}, "standard_loss_percent"
+        ) or 0
+
+        self.loss_status = "Excess Loss" if flt(self.loss_percent) > flt(self.loss_standard_percent) else "OK"
+
     def get_quality_purity(self):
         if not self.quality_code:
             return 0
+
         return flt(frappe.db.get_value("Quality Master", self.quality_code, "silver_purity_percent") or 0)
 
     def set_approx_silver(self):
@@ -159,13 +178,19 @@ class SpindalReceive(Document):
             return
 
         department = "Spindal"
+        kasab = get_kasab_product()
 
         for row in self.received_peti_items or []:
-            product = getattr(row, "product", None) or "kasab"
+            uom = (row.uom or "").lower()
+            weight = flt(row.net_weight)
+
+            if uom in ["gm", "gram", "grams", "g"]:
+                weight = weight / 1000
+
             self.add_ledger(
                 department=department,
-                product=product,
-                in_weight=flt(row.net_weight),
+                product=kasab,
+                in_weight=weight,
                 out_weight=0,
                 transaction_type="Production Output",
                 remarks="Spindal peti output received"
@@ -173,6 +198,7 @@ class SpindalReceive(Document):
 
         for row in self.waste_items or []:
             product = getattr(row, "waste_product", None)
+
             self.add_ledger(
                 department=department,
                 product=product,
@@ -184,6 +210,29 @@ class SpindalReceive(Document):
 
 
 @frappe.whitelist()
+def get_spindal_receive_data(spindal_issue):
+    issue = frappe.get_doc("Spindal Issue", spindal_issue)
+
+    total = frappe.db.sql("""
+        SELECT SUM(total_issue_weight)
+        FROM `tabSpindal Issue`
+        WHERE docstatus = 1
+          AND active_batch_no = %s
+    """, issue.active_batch_no)[0][0]
+
+    return {
+        "company": issue.company,
+        "active_batch_no": issue.active_batch_no,
+        "process_master": issue.process_master,
+        "quality_code": issue.quality_code,
+        "operator": issue.operator,
+        "total_input_weight": flt(total),
+        "kasab_product": get_kasab_product(),
+        "petis": get_spindal_peti_entries(spindal_issue)
+    }
+
+
+@frappe.whitelist()
 def get_spindal_peti_entries(spindal_issue):
     issue = frappe.get_doc("Spindal Issue", spindal_issue)
 
@@ -192,7 +241,8 @@ def get_spindal_peti_entries(spindal_issue):
         filters={
             "spindal_issue": spindal_issue,
             "batch_no": issue.active_batch_no,
-            "docstatus": 1
+            "docstatus": 1,
+            "status": ["!=", "Cancelled"]
         },
         fields=[
             "name",
@@ -200,6 +250,7 @@ def get_spindal_peti_entries(spindal_issue):
             "batch_no",
             "quality_code",
             "khata_no",
+            "uom",
             "gross_weight",
             "baad_weight",
             "net_weight"
@@ -216,8 +267,48 @@ def spindal_issue_query(doctype, txt, searchfield, start, page_len, filters):
             si.name,
             CONCAT(
                 'Batch: ', COALESCE(si.active_batch_no, si.new_batch_no, si.name),
-                ' | Issue: ', si.name,
-                ' | Date: ', DATE_FORMAT(COALESCE(si.issue_date, si.creation), '%%d-%%m-%%Y')
+                ' | Date: ', DATE_FORMAT(COALESCE(si.issue_date, si.creation), '%%d-%%m-%%Y'),
+                ' | Issue: ', si.name
+            ) AS description
+        FROM `tabSpindal Issue` si
+        WHERE si.docstatus = 1
+          AND EXISTS (
+              SELECT 1
+              FROM `tabSpindal Peti Entry` pe
+              WHERE pe.docstatus = 1
+                AND pe.spindal_issue = si.name
+          )
+          AND NOT EXISTS (
+              SELECT 1
+              FROM `tabSpindal Receive` sr
+              WHERE sr.docstatus = 1
+                AND sr.spindal_issue = si.name
+          )
+          AND (
+              si.name LIKE %(txt)s
+              OR COALESCE(si.active_batch_no, '') LIKE %(txt)s
+              OR COALESCE(si.new_batch_no, '') LIKE %(txt)s
+              OR COALESCE(si.company, '') LIKE %(txt)s
+          )
+        ORDER BY si.issue_date DESC, si.creation DESC
+        LIMIT %(start)s, %(page_len)s
+    """, {
+        "txt": f"%{txt}%",
+        "start": start,
+        "page_len": page_len
+    })
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def spindal_issue_for_peti_query(doctype, txt, searchfield, start, page_len, filters):
+    return frappe.db.sql("""
+        SELECT
+            si.name,
+            CONCAT(
+                'Batch: ', COALESCE(si.active_batch_no, si.new_batch_no, si.name),
+                ' | Date: ', DATE_FORMAT(COALESCE(si.issue_date, si.creation), '%%d-%%m-%%Y'),
+                ' | Issue: ', si.name
             ) AS description
         FROM `tabSpindal Issue` si
         WHERE si.docstatus = 1
@@ -233,27 +324,10 @@ def spindal_issue_query(doctype, txt, searchfield, start, page_len, filters):
               OR COALESCE(si.new_batch_no, '') LIKE %(txt)s
               OR COALESCE(si.company, '') LIKE %(txt)s
           )
-        ORDER BY si.creation DESC
+        ORDER BY si.issue_date DESC, si.creation DESC
         LIMIT %(start)s, %(page_len)s
     """, {
         "txt": f"%{txt}%",
         "start": start,
         "page_len": page_len
     })
-
-
-@frappe.whitelist()
-def backfill_spindal_receive_ledgers():
-    names = frappe.get_all("Spindal Receive", filters={"docstatus": 1}, pluck="name")
-    created_for = []
-
-    for name in names:
-        if frappe.db.exists("Inventory Ledger", {"reference_doctype": "Spindal Receive", "reference_name": name}):
-            continue
-
-        doc = frappe.get_doc("Spindal Receive", name)
-        doc.post_inventory_ledgers()
-        created_for.append(name)
-
-    frappe.db.commit()
-    return created_for

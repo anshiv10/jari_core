@@ -24,6 +24,7 @@
   "process_master",
   "quality_code",
   "items_section",
+  "operator",
   "issue_items",
   "totals_section",
   "total_issue_weight",
