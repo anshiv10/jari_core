@@ -38,7 +38,7 @@ frappe.ui.form.on('Taniya Receive', {
                         doctype: 'Taniya Issue',
                         filters: {
                             batch_no: issue.batch_no,
-                            docstatus: 1
+                            docstatus: ['in', [0, 1]]
                         },
                         fields: ['name', 'total_issue_weight'],
                         limit_page_length: 500
@@ -67,7 +67,6 @@ frappe.ui.form.on('Taniya Receive', {
 
                         (p.output_products || []).forEach(row => {
                             let product = row.product || row.product_code || row.item || row.item_code || row.output_product;
-
                             let d = frm.add_child('output_items');
                             d.receive_date = frm.doc.receive_date || frappe.datetime.get_today();
                             d.operator_name = frm.doc.operator;
@@ -78,7 +77,6 @@ frappe.ui.form.on('Taniya Receive', {
 
                         (p.custom_waste_product_items || []).forEach(row => {
                             let waste_product = row.waste_product || row.product || row.product_code || row.item || row.item_code;
-
                             let d = frm.add_child('waste_items');
                             d.receive_date = frm.doc.receive_date || frappe.datetime.get_today();
                             d.operator_name = frm.doc.operator;
@@ -89,7 +87,6 @@ frappe.ui.form.on('Taniya Receive', {
 
                         frm.refresh_field('output_items');
                         frm.refresh_field('waste_items');
-
                         set_all_product_names(frm);
                     }
                 });
@@ -122,15 +119,11 @@ frappe.ui.form.on('Taniya Waste Item', {
 
 function set_all_product_names(frm) {
     (frm.doc.output_items || []).forEach(row => {
-        if (row.product) {
-            set_product_name(row.doctype, row.name, 'product');
-        }
+        if (row.product) set_product_name(row.doctype, row.name, 'product');
     });
 
     (frm.doc.waste_items || []).forEach(row => {
-        if (row.waste_product) {
-            set_product_name(row.doctype, row.name, 'waste_product');
-        }
+        if (row.waste_product) set_product_name(row.doctype, row.name, 'waste_product');
     });
 }
 
@@ -144,11 +137,6 @@ function set_product_name(cdt, cdn, product_field) {
     }
 
     frappe.db.get_value('Product Master', product, 'product_name').then(r => {
-        frappe.model.set_value(
-            cdt,
-            cdn,
-            'product_name',
-            (r.message && r.message.product_name) || product
-        );
+        frappe.model.set_value(cdt, cdn, 'product_name', (r.message && r.message.product_name) || product);
     });
 }

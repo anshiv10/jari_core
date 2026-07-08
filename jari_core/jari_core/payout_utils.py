@@ -11,42 +11,54 @@ def get_product_tag(product):
 def get_rate(doc, tag):
     if not doc.get("payout_format"):
         return 0
+
     pf = frappe.get_doc("Payout Format Master", doc.payout_format)
+
     for row in pf.rate_items or []:
         if (row.product_tag or "").strip() == tag:
             return flt(row.rate)
+
     return 0
 
 
 def get_expected_percent(process_master, tag):
     if not process_master:
         return 0
+
     pm = frappe.get_doc("Process Master", process_master)
+
     for row in pm.custom_waste_product_items or []:
         if get_product_tag(row.waste_product) == tag:
             return flt(row.expected_percent)
+
     return 0
 
 
 def sum_issue_by_tag(issue_doc, tag):
     total = 0
+
     for row in issue_doc.issue_items or []:
         if get_product_tag(row.product) == tag:
             total += flt(row.weight)
+
     return total
 
 
 def sum_receive_by_tag(doc, tag):
     total = 0
+
     for row in doc.get("output_items") or []:
         if get_product_tag(row.product) == tag:
             total += flt(row.weight)
+
     for row in doc.get("waste_items") or []:
         if get_product_tag(row.waste_product) == tag:
             total += flt(row.weight)
+
     for row in doc.get("received_peti_items") or []:
         if get_product_tag(row.product) == tag:
             total += flt(row.net_weight)
+
     return total
 
 
@@ -99,11 +111,12 @@ def calculate_taniya_payout(doc):
 
     issues = frappe.get_all(
         "Taniya Issue",
-        filters={"batch_no": doc.batch_no, "docstatus": 1},
+        filters={"batch_no": doc.batch_no, "docstatus": ["in", [0, 1]]},
         pluck="name"
     )
 
     total_issue = 0
+
     for name in issues:
         total_issue += flt(frappe.db.get_value("Taniya Issue", name, "total_issue_weight"))
 
@@ -119,12 +132,16 @@ def calculate_taniya_payout(doc):
 
     tar_received = sum_receive_by_tag(doc, "TAR") + sum_receive_by_tag(doc, "TAR (Y)")
     goti_received = sum_receive_by_tag(doc, "GOTI")
+    total_receive = tar_received + goti_received
 
     tar_diff = tar_received - estimated_aur
     goti_diff = goti_received - estimated_goti
 
-    tar_amt = abs(tar_diff) * get_rate(doc, "TAR")
-    goti_amt = abs(goti_diff) * get_rate(doc, "GOTI")
+    tar_rate = get_rate(doc, "TAR")
+    goti_rate = get_rate(doc, "GOTI")
+
+    tar_amt = tar_diff * tar_rate
+    goti_amt = goti_diff * goti_rate
 
     doc.estimated_goti = estimated_goti
     doc.estimated_aur = estimated_aur
@@ -133,12 +150,13 @@ def calculate_taniya_payout(doc):
 
     doc.payout_summary = (
         f"Total Issue: {total_issue}\n"
+        f"Total Receive: {total_receive}\n"
         f"Estimated Goti %: {goti_percent}\n"
         f"Estimated Goti: {estimated_goti}\n"
         f"Estimated AUR: {estimated_aur}\n"
         f"Majoori On: {estimated_aur} x {flt(doc.majoori_rate)} = {majoori_on}\n\n"
-        f"TAR Received: {tar_received}, Estimated: {estimated_aur}, Difference: {tar_diff}, Amount: {tar_amt}\n"
-        f"GOTI Received: {goti_received}, Estimated: {estimated_goti}, Difference: {goti_diff}, Amount: {goti_amt}\n"
+        f"TAR Received: {tar_received}, Estimated: {estimated_aur}, Difference: {tar_diff}, Rate: {tar_rate}, Amount: {tar_amt}\n"
+        f"GOTI Received: {goti_received}, Estimated: {estimated_goti}, Difference: {goti_diff}, Rate: {goti_rate}, Amount: {goti_amt}\n"
         f"Total Payout: {doc.calculated_payout_amount}"
     )
 
@@ -196,6 +214,7 @@ def calculate_spindal_payout(doc):
     total = labour_on * flt(doc.labour_rate)
 
     lines = []
+
     for tag, diff in diffs.items():
         rate = get_rate(doc, tag)
         amount = abs(diff) * rate

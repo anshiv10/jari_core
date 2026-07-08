@@ -52,7 +52,7 @@ class TaniyaReceive(Document):
         total = frappe.db.sql("""
             SELECT SUM(total_issue_weight)
             FROM `tabTaniya Issue`
-            WHERE docstatus = 1
+            WHERE docstatus IN (0, 1)
               AND batch_no = %s
         """, self.batch_no)[0][0]
 
@@ -192,10 +192,11 @@ def taniya_issue_query(doctype, txt, searchfield, start, page_len, filters):
             CONCAT(
                 'Batch: ', COALESCE(ti.batch_no, ti.new_batch_no, ti.name),
                 ' | Issue: ', ti.name,
-                ' | Date: ', DATE_FORMAT(COALESCE(ti.issue_date, ti.creation), '%%d-%%m-%%Y')
+                ' | Date: ', DATE_FORMAT(COALESCE(ti.issue_date, ti.creation), '%%d-%%m-%%Y'),
+                ' | Status: ', IF(ti.docstatus = 0, 'Saved', 'Submitted')
             ) AS description
         FROM `tabTaniya Issue` ti
-        WHERE ti.docstatus = 1
+        WHERE ti.docstatus IN (0, 1)
           AND NOT EXISTS (
               SELECT 1
               FROM `tabTaniya Receive` tr
