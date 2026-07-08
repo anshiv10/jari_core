@@ -116,18 +116,18 @@ class SpindalPetiEntry(Document):
             frappe.throw("Remaining N.W cannot be greater than Net Weight.")
 
     def get_kasab_product(self):
+        product = frappe.db.get_value("Product Master", {"product_tag": "KASAB"}, "name")
+        if product:
+            return product
+
         if frappe.db.exists("Product Master", "KASAB"):
             return "KASAB"
 
-        product = frappe.db.get_value("Product Master", {"product_name": "KASAB"}, "name")
+        product = frappe.db.get_value("Product Master", {"product_name": ["like", "%kasab%"]}, "name")
         if product:
             return product
 
-        product = frappe.db.get_value("Product Master", {"product_name": ["like", "%KASAB%"]}, "name")
-        if product:
-            return product
-
-        frappe.throw("KASAB product not found in Product Master.")
+        frappe.throw("KASAB product not found in Product Master. Please set Product Tag = KASAB in Product Master.")
 
     def get_department(self):
         if self.spindal_issue:
