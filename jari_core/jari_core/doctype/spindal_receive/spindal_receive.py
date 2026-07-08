@@ -4,6 +4,10 @@ from frappe.utils import flt, today
 
 
 def get_kasab_product():
+    product = frappe.db.get_value("Product Master", {"product_tag": "KASAB"}, "name")
+    if product:
+        return product
+
     if frappe.db.exists("Product Master", "KASAB"):
         return "KASAB"
 
@@ -11,7 +15,7 @@ def get_kasab_product():
     if product:
         return product
 
-    frappe.throw("KASAB product not found in Product Master.")
+    frappe.throw("KASAB product not found in Product Master. Please set Product Tag = KASAB in Product Master.")
 
 
 class SpindalReceive(Document):
