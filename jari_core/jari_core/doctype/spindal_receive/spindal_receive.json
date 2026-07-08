@@ -36,6 +36,7 @@
   "estimated_badla_goti",
   "badlu",
   "estimated_polyster",
+  "ytc_goods",
   "estimated_kapan",
   "estimated_ducho",
   "estimated_ytc",
@@ -198,8 +199,8 @@
   },
   {
    "fieldname": "payout_summary",
-   "fieldtype": "Long Text",
-   "label": "Payout Summary",
+   "fieldtype": "Text Editor",
+   "label": "Structured Payout Summary",
    "read_only": 1
   },
   {
@@ -288,6 +289,12 @@
    "fieldname": "ytc_amount",
    "fieldtype": "Currency",
    "label": "YTC Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ytc_goods",
+   "fieldtype": "Float",
+   "label": "YTC Goods",
    "read_only": 1
   }
  ],

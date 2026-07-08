@@ -62,7 +62,7 @@
    "fieldname": "rate",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Payout Rate"
+   "label": "Rate"
   },
   {
    "allow_in_quick_entry": 1,
