@@ -1,0 +1,71 @@
+{
+ "actions": [],
+ "creation": "2026-06-16 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "product",
+  "uom",
+  "gross_weight",
+  "purity_percent",
+  "deduction_weight",
+  "net_weight"
+ ],
+ "fields": [
+  {
+   "fieldname": "product",
+   "fieldtype": "Link",
+   "label": "Product",
+   "options": "Product Master",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "UOM",
+   "options": "UOM_Jari",
+   "default": "KG",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "gross_weight",
+   "fieldtype": "Float",
+   "label": "Gross Weight",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "purity_percent",
+   "fieldtype": "Percent",
+   "label": "Purity %",
+   "default": "100"
+  },
+  {
+   "fieldname": "deduction_weight",
+   "fieldtype": "Float",
+   "label": "Deduction Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "net_weight",
+   "fieldtype": "Float",
+   "label": "Net Weight",
+   "read_only": 1,
+   "in_list_view": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-16 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "JARI Core",
+ "name": "Purchase Entry Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

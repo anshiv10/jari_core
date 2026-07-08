@@ -2,224 +2,185 @@ import frappe
 from frappe.utils import flt
 
 
-def get_product_tag(product):
+def product_tag(product):
     if not product:
         return ""
-    return (frappe.db.get_value("Product Master", product, "product_tag") or "").strip()
+    return (frappe.db.get_value("Product Master", product, "product_tag") or "").strip().upper()
 
 
-def get_rate(doc, tag):
-    if not doc.get("payout_format"):
-        return 0
-
-    pf = frappe.get_doc("Payout Format Master", doc.payout_format)
-
-    for row in pf.rate_items or []:
-        if (row.product_tag or "").strip() == tag:
-            return flt(row.rate)
-
-    return 0
+def product_matches_tag(product, tag):
+    return product_tag(product) == tag.upper()
 
 
-def get_expected_percent(process_master, tag):
+def get_process_doc(process_master):
     if not process_master:
+        return None
+    return frappe.get_doc("Process Master", process_master)
+
+
+def get_payout_rate_from_process(process_master, tag):
+    """
+    Permanent rule:
+    payout rate is fetched from Process Master row where selected Product Master has matching Product Tag.
+    For YTC row in Spindal payout, tag must be KASAB, as per client.
+    """
+    p = get_process_doc(process_master)
+    if not p:
         return 0
 
-    pm = frappe.get_doc("Process Master", process_master)
+    tables = [
+        "input_products",
+        "output_products",
+        "custom_waste_product_items",
+    ]
 
-    for row in pm.custom_waste_product_items or []:
-        if get_product_tag(row.waste_product) == tag:
-            return flt(row.expected_percent)
+    for table in tables:
+        for row in p.get(table) or []:
+            product = getattr(row, "product", None) or getattr(row, "waste_product", None)
+            if product_matches_tag(product, tag):
+                return flt(
+                    getattr(row, "payout_rate", 0)
+                    or getattr(row, "rate", 0)
+                    or 0
+                )
 
     return 0
 
 
-def sum_issue_by_tag(issue_doc, tag):
+def get_expected_waste_percent(process_master, tag):
+    p = get_process_doc(process_master)
+    if not p:
+        return 0
+
+    for row in p.get("custom_waste_product_items") or []:
+        if product_matches_tag(getattr(row, "waste_product", None), tag):
+            return flt(getattr(row, "expected_percent", 0))
+
+    return 0
+
+
+def get_issue_weight_by_tag(active_batch_no, tag):
+    if not active_batch_no:
+        return 0
+
+    rows = frappe.db.sql("""
+        SELECT sii.product, sii.weight
+        FROM `tabSpindal Issue Item` sii
+        INNER JOIN `tabSpindal Issue` si ON si.name = sii.parent
+        WHERE si.docstatus = 1
+          AND si.active_batch_no = %s
+    """, active_batch_no, as_dict=True)
+
+    return sum(flt(r.weight) for r in rows if product_matches_tag(r.product, tag))
+
+
+def get_received_weight_by_tag(doc, tag):
     total = 0
-
-    for row in issue_doc.issue_items or []:
-        if get_product_tag(row.product) == tag:
-            total += flt(row.weight)
-
-    return total
-
-
-def sum_receive_by_tag(doc, tag):
-    total = 0
-
-    for row in doc.get("output_items") or []:
-        if get_product_tag(row.product) == tag:
-            total += flt(row.weight)
-
-    for row in doc.get("waste_items") or []:
-        if get_product_tag(row.waste_product) == tag:
-            total += flt(row.weight)
 
     for row in doc.get("received_peti_items") or []:
-        if get_product_tag(row.product) == tag:
-            total += flt(row.net_weight)
+        product = getattr(row, "product", None)
+        if product_matches_tag(product, tag):
+            total += flt(getattr(row, "net_weight", 0))
 
     return total
 
 
-def calculate_pavtha_payout(doc):
-    if not doc.get("pavtha_issue"):
-        return
+def get_waste_weight_by_tag(doc, tag):
+    total = 0
 
-    issue = frappe.get_doc("Pavtha Issue", doc.pavtha_issue)
+    for row in doc.get("waste_items") or []:
+        product = getattr(row, "waste_product", None)
+        if product_matches_tag(product, tag):
+            total += flt(getattr(row, "weight", 0))
 
-    total_receive = flt(doc.total_output_weight) + flt(doc.total_waste_weight)
-    total_issue = flt(issue.total_issue_weight)
-    difference = total_receive - total_issue
-
-    given_silver = sum_issue_by_tag(issue, "SILVER")
-    kachi_goti = sum_issue_by_tag(issue, "KACHI GOTI") + sum_receive_by_tag(doc, "GOTI")
-    badla_goti = sum_issue_by_tag(issue, "BADLA GOTI")
-    bg_gms = badla_goti - (badla_goti * flt(doc.bg_deduction_percent or 7) / 100)
-
-    mel_factor = (flt(doc.mel) + 1000) / 1000 if flt(doc.mel) else 1
-    net = total_receive - flt(doc.return_weight) - kachi_goti - bg_gms
-    used_silver = net / mel_factor if mel_factor else 0
-    balance_silver = given_silver - used_silver
-    remaining_tar = balance_silver * mel_factor
-
-    doc.given_silver = given_silver
-    doc.used_silver = used_silver
-    doc.balance_silver = balance_silver
-    doc.remaining_tar = remaining_tar
-    doc.calculated_payout_amount = flt(doc.payout_given or doc.payout_suggestion)
-
-    doc.payout_summary = (
-        f"Total Receive: {total_receive}\n"
-        f"Total Issue: {total_issue}\n"
-        f"Difference Receive - Issue: {difference}\n"
-        f"Return: {flt(doc.return_weight)}\n"
-        f"Total Kachi Goti: {kachi_goti}\n"
-        f"Badla Goti: {badla_goti}\n"
-        f"B.G. Gms after deduction: {bg_gms}\n"
-        f"Net: {net}\n"
-        f"Used Silver: {used_silver}\n"
-        f"Given Silver: {given_silver}\n"
-        f"Balance Silver: {balance_silver}\n"
-        f"Remaining TAR: {remaining_tar}"
-    )
+    return total
 
 
-def calculate_taniya_payout(doc):
-    if not doc.get("batch_no"):
-        return
-
-    issues = frappe.get_all(
-        "Taniya Issue",
-        filters={"batch_no": doc.batch_no, "docstatus": ["in", [0, 1]]},
-        pluck="name"
-    )
-
-    total_issue = 0
-
-    for name in issues:
-        total_issue += flt(frappe.db.get_value("Taniya Issue", name, "total_issue_weight"))
-
-    goti_percent = get_expected_percent(doc.process_master, "GOTI")
-    estimated_goti = total_issue * goti_percent / 100
-    estimated_aur = total_issue - estimated_goti
-
-    if not flt(doc.majoori_rate) and doc.get("payout_format"):
-        pf = frappe.get_doc("Payout Format Master", doc.payout_format)
-        doc.majoori_rate = flt(pf.majoori_rate)
-
-    majoori_on = estimated_aur * flt(doc.majoori_rate)
-
-    tar_received = sum_receive_by_tag(doc, "TAR") + sum_receive_by_tag(doc, "TAR (Y)")
-    goti_received = sum_receive_by_tag(doc, "GOTI")
-    total_receive = tar_received + goti_received
-
-    tar_diff = tar_received - estimated_aur
-    goti_diff = goti_received - estimated_goti
-
-    tar_rate = get_rate(doc, "TAR")
-    goti_rate = get_rate(doc, "GOTI")
-
-    tar_amt = tar_diff * tar_rate
-    goti_amt = goti_diff * goti_rate
-
-    doc.estimated_goti = estimated_goti
-    doc.estimated_aur = estimated_aur
-    doc.majoori_on = majoori_on
-    doc.calculated_payout_amount = majoori_on + tar_amt + goti_amt
-
-    doc.payout_summary = (
-        f"Total Issue: {total_issue}\n"
-        f"Total Receive: {total_receive}\n"
-        f"Estimated Goti %: {goti_percent}\n"
-        f"Estimated Goti: {estimated_goti}\n"
-        f"Estimated AUR: {estimated_aur}\n"
-        f"Majoori On: {estimated_aur} x {flt(doc.majoori_rate)} = {majoori_on}\n\n"
-        f"TAR Received: {tar_received}, Estimated: {estimated_aur}, Difference: {tar_diff}, Rate: {tar_rate}, Amount: {tar_amt}\n"
-        f"GOTI Received: {goti_received}, Estimated: {estimated_goti}, Difference: {goti_diff}, Rate: {goti_rate}, Amount: {goti_amt}\n"
-        f"Total Payout: {doc.calculated_payout_amount}"
-    )
+def amount(diff, rate):
+    return flt(diff) * flt(rate)
 
 
 def calculate_spindal_payout(doc):
-    if not doc.get("active_batch_no"):
-        return
+    """
+    Spindal payout as per client PDF.
+    Important correction:
+    YTC received = SUM received peti/output rows where Product Tag = KASAB.
+    YTC payout rate = payout rate of KASAB labelled product from Process Master.
+    """
 
-    issues = frappe.get_all(
-        "Spindal Issue",
-        filters={"active_batch_no": doc.active_batch_no, "docstatus": 1},
-        pluck="name"
+    process_master = doc.process_master
+    batch = doc.active_batch_no
+
+    issued_polyster = get_issue_weight_by_tag(batch, "POLYSTER")
+    issued_tar = get_issue_weight_by_tag(batch, "TAR")
+    issued_kachi_goti = get_issue_weight_by_tag(batch, "KACHI GOTI")
+
+    received_badla_goti = get_waste_weight_by_tag(doc, "BADLA GOTI") + get_received_weight_by_tag(doc, "BADLA GOTI")
+    received_kapan = get_waste_weight_by_tag(doc, "KAPAN") + get_received_weight_by_tag(doc, "KAPAN")
+    received_ducho = get_waste_weight_by_tag(doc, "DUCHO") + get_received_weight_by_tag(doc, "DUCHO")
+
+    # Client correction:
+    # YTC received means KASAB labelled received/output item total.
+    received_ytc = get_received_weight_by_tag(doc, "KASAB")
+
+    gross_tar = flt(issued_tar) - flt(issued_kachi_goti)
+
+    badla_percent = get_expected_waste_percent(process_master, "BADLA GOTI")
+    kapan_percent = get_expected_waste_percent(process_master, "KAPAN")
+    ducho_percent = get_expected_waste_percent(process_master, "DUCHO")
+
+    estimated_badla_goti = flt(gross_tar) * flt(badla_percent) / 100
+    badlu = flt(issued_tar) - flt(estimated_badla_goti)
+
+    bethak_ratio = flt(doc.bethak_ratio)
+    estimated_polyster = flt(badlu) / bethak_ratio if bethak_ratio else 0
+
+    ytc_goods = flt(badlu) + flt(estimated_polyster)
+    estimated_kapan = flt(ytc_goods) * flt(kapan_percent) / 100
+    estimated_ducho = flt(estimated_polyster) * flt(ducho_percent) / 100
+    estimated_ytc = flt(ytc_goods) - flt(estimated_kapan) - flt(estimated_ducho)
+
+    labour_on = flt(estimated_ytc) - flt(estimated_polyster)
+
+    a1 = flt(estimated_polyster) - flt(issued_polyster)
+    a2 = flt(received_badla_goti) - flt(estimated_badla_goti)
+    a3 = flt(received_kapan) - flt(estimated_kapan)
+    a4 = flt(received_ducho) - flt(estimated_ducho)
+    a5 = flt(gross_tar) - flt(issued_tar)
+
+    # Client correction:
+    # A6 = KASAB labelled received item total - Estimated YTC
+    a6 = flt(received_ytc) - flt(estimated_ytc)
+
+    rate_polyster = get_payout_rate_from_process(process_master, "POLYSTER")
+    rate_badla = get_payout_rate_from_process(process_master, "BADLA GOTI")
+    rate_kapan = get_payout_rate_from_process(process_master, "KAPAN")
+    rate_ducho = get_payout_rate_from_process(process_master, "DUCHO")
+    rate_tar = get_payout_rate_from_process(process_master, "TAR")
+
+    # Client correction:
+    # YTC row payout rate must come from KASAB labelled product in Process Master.
+    rate_ytc = get_payout_rate_from_process(process_master, "KASAB")
+
+    labour_rate = flt(doc.labour_rate)
+
+    amt_polyster = amount(a1, rate_polyster)
+    amt_badla = amount(a2, rate_badla)
+    amt_kapan = amount(a3, rate_kapan)
+    amt_ducho = amount(a4, rate_ducho)
+    amt_tar = amount(a5, rate_tar)
+    amt_ytc = amount(a6, rate_ytc)
+    amt_labour = amount(labour_on, labour_rate)
+
+    total = (
+        flt(amt_polyster)
+        + flt(amt_badla)
+        + flt(amt_kapan)
+        + flt(amt_ducho)
+        + flt(amt_tar)
+        + flt(amt_ytc)
+        + flt(amt_labour)
     )
-
-    polyster = tar = kachi_goti = 0
-
-    for name in issues:
-        issue = frappe.get_doc("Spindal Issue", name)
-        polyster += sum_issue_by_tag(issue, "POLYSTER")
-        tar += sum_issue_by_tag(issue, "TAR")
-        kachi_goti += sum_issue_by_tag(issue, "KACHI GOTI")
-
-    gross_tar = tar - kachi_goti
-    badla_percent = get_expected_percent(doc.process_master, "BADLA GOTI")
-    kapan_percent = get_expected_percent(doc.process_master, "KAPAN")
-    ducho_percent = get_expected_percent(doc.process_master, "DUCHO")
-
-    estimated_badla_goti = gross_tar * badla_percent / 100
-    badlu = tar - estimated_badla_goti
-    estimated_polyster = badlu / flt(doc.bethak_ratio) if flt(doc.bethak_ratio) else 0
-    ytc_goods = badlu + estimated_polyster
-    estimated_kapan = ytc_goods * kapan_percent / 100
-    estimated_ducho = estimated_polyster * ducho_percent / 100
-    estimated_ytc = ytc_goods - estimated_kapan - estimated_ducho
-    labour_on = estimated_ytc - estimated_polyster
-
-    actual_badla = sum_receive_by_tag(doc, "BADLA GOTI")
-    actual_kapan = sum_receive_by_tag(doc, "KAPAN")
-    actual_ducho = sum_receive_by_tag(doc, "DUCHO")
-    actual_ytc = sum_receive_by_tag(doc, "YTC") or flt(doc.total_received_weight)
-
-    diffs = {
-        "POLYSTER": estimated_polyster - polyster,
-        "BADLA GOTI": actual_badla - estimated_badla_goti,
-        "KAPAN": actual_kapan - estimated_kapan,
-        "DUCHO": actual_ducho - estimated_ducho,
-        "TAR": gross_tar - tar,
-        "YTC": actual_ytc - estimated_ytc,
-    }
-
-    if not flt(doc.labour_rate) and doc.get("payout_format"):
-        pf = frappe.get_doc("Payout Format Master", doc.payout_format)
-        doc.labour_rate = flt(pf.labour_rate)
-
-    total = labour_on * flt(doc.labour_rate)
-
-    lines = []
-
-    for tag, diff in diffs.items():
-        rate = get_rate(doc, tag)
-        amount = abs(diff) * rate
-        total += amount
-        lines.append(f"{tag}: Difference {diff}, Rate {rate}, Amount {amount}")
 
     doc.gross_tar = gross_tar
     doc.estimated_badla_goti = estimated_badla_goti
@@ -229,21 +190,66 @@ def calculate_spindal_payout(doc):
     doc.estimated_ducho = estimated_ducho
     doc.estimated_ytc = estimated_ytc
     doc.labour_on = labour_on
+
+    if hasattr(doc, "actual_ytc_received"):
+        doc.actual_ytc_received = received_ytc
+    if hasattr(doc, "ytc_difference"):
+        doc.ytc_difference = a6
+    if hasattr(doc, "ytc_payout_rate"):
+        doc.ytc_payout_rate = rate_ytc
+    if hasattr(doc, "ytc_amount"):
+        doc.ytc_amount = amt_ytc
+
     doc.calculated_payout_amount = total
 
-    doc.payout_summary = (
-        f"Polyster Given: {polyster}\n"
-        f"TAR Given: {tar}\n"
-        f"Kachi Goti Given: {kachi_goti}\n"
-        f"Gross TAR: {gross_tar}\n"
-        f"Estimated Badla Goti: {estimated_badla_goti}\n"
-        f"Badlu: {badlu}\n"
-        f"Estimated Polyster: {estimated_polyster}\n"
-        f"YTC Goods: {ytc_goods}\n"
-        f"Estimated Kapan: {estimated_kapan}\n"
-        f"Estimated Ducho: {estimated_ducho}\n"
-        f"Estimated YTC: {estimated_ytc}\n"
-        f"Labour On: {labour_on}, Labour Rate: {flt(doc.labour_rate)}\n\n"
-        + "\n".join(lines)
-        + f"\nTotal Majoori: {total}"
-    )
+    doc.payout_summary = f"""
+Spindal Payout Calculation
+
+Given / Used:
+POLYSTER Given: {issued_polyster}
+POLYSTER Used / Estimated: {estimated_polyster}
+A1 Difference: {a1}
+Rate: {rate_polyster}
+Amount: {amt_polyster}
+
+TAR Given: {issued_tar}
+Gross TAR Used: {gross_tar}
+A5 Difference: {a5}
+Rate: {rate_tar}
+Amount: {amt_tar}
+
+Remaining Goods:
+BADLA GOTI Received: {received_badla_goti}
+BADLA GOTI Estimated: {estimated_badla_goti}
+A2 Difference: {a2}
+Rate: {rate_badla}
+Amount: {amt_badla}
+
+KAPAN Received: {received_kapan}
+KAPAN Estimated: {estimated_kapan}
+A3 Difference: {a3}
+Rate: {rate_kapan}
+Amount: {amt_kapan}
+
+DUCHO Received: {received_ducho}
+DUCHO Estimated: {estimated_ducho}
+A4 Difference: {a4}
+Rate: {rate_ducho}
+Amount: {amt_ducho}
+
+YTC / KASAB:
+YTC Received from KASAB labelled output: {received_ytc}
+Estimated YTC: {estimated_ytc}
+A6 Difference: {a6}
+YTC Payout Rate from KASAB labelled Process Master product: {rate_ytc}
+YTC Amount: {amt_ytc}
+
+Labour:
+Labour On: {labour_on}
+Labour Rate: {labour_rate}
+Labour Amount: {amt_labour}
+
+Total Majoori: {total}
+""".strip()
+
+    return doc

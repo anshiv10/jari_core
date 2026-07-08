@@ -8,6 +8,7 @@
  "field_order": [
   "product",
   "uom",
+  "payout_rate",
   "is_mandatory",
   "silver_bearing",
   "qty",
@@ -69,6 +70,12 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Amount"
+  },
+  {
+   "fieldname": "payout_rate",
+   "fieldtype": "Currency",
+   "label": "Payout Rate",
+   "in_list_view": 1
   }
  ],
  "grid_page_length": 50,

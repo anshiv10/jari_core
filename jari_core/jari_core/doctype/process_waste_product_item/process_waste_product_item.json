@@ -10,6 +10,7 @@
   "waste_product",
   "uom",
   "expected_percent",
+  "payout_rate",
   "qty",
   "unit",
   "rate",
@@ -67,6 +68,12 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Amount"
+  },
+  {
+   "fieldname": "payout_rate",
+   "fieldtype": "Currency",
+   "label": "Payout Rate",
+   "in_list_view": 1
   }
  ],
  "grid_page_length": 50,

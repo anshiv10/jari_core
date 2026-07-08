@@ -39,6 +39,10 @@
   "estimated_kapan",
   "estimated_ducho",
   "estimated_ytc",
+  "actual_ytc_received",
+  "ytc_difference",
+  "ytc_payout_rate",
+  "ytc_amount",
   "labour_on",
   "calculated_payout_amount",
   "payout_summary"
@@ -260,6 +264,30 @@
    "fieldname": "labour_on",
    "fieldtype": "Float",
    "label": "Labour On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actual_ytc_received",
+   "fieldtype": "Float",
+   "label": "Actual YTC Received From KASAB",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ytc_difference",
+   "fieldtype": "Float",
+   "label": "YTC Difference A6",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ytc_payout_rate",
+   "fieldtype": "Currency",
+   "label": "YTC Payout Rate From KASAB",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ytc_amount",
+   "fieldtype": "Currency",
+   "label": "YTC Amount",
    "read_only": 1
   }
  ],

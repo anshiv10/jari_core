@@ -13,7 +13,8 @@
   "unit",
   "rate",
   "amount",
-  "estimated_output"
+  "estimated_output",
+  "payout_rate"
  ],
  "fields": [
   {
@@ -68,6 +69,12 @@
    "fieldname": "estimated_output",
    "fieldtype": "Float",
    "label": "Estimated Output",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "payout_rate",
+   "fieldtype": "Currency",
+   "label": "Payout Rate",
    "in_list_view": 1
   }
  ],
