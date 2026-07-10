@@ -13,8 +13,6 @@ class PavthaReceive(Document):
         self.calculate_totals()
         self.set_approx_silver()
         self.calculate_payout()
-        from jari_core.jari_core.payout_utils import calculate_pavtha_payout
-        calculate_pavtha_payout(self)
 
     def validate_issue_is_not_cancelled(self):
         if not self.pavtha_issue:
@@ -71,7 +69,7 @@ class PavthaReceive(Document):
         self.process_master = issue.process_master
         self.quality_code = issue.quality_code
         self.outsourcer = issue.outsourcer
-        self.rate_per_kg = issue.rate_per_kg
+        self.rate_per_kg = getattr(issue, 'rate_per_kg', 0) or 0
         self.total_input_weight = issue.total_issue_weight
 
     def validate_items(self):
