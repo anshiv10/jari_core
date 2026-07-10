@@ -1,7 +1,8 @@
 console.log("Pavtha Issue JS Loaded Successfully");
 
 frappe.ui.form.on('Pavtha Issue', {
-    refresh(frm) {\n        set_product_query_by_department(frm);
+    refresh(frm) {
+        set_product_query_by_department(frm);
         set_process_query_by_department(frm);
         if (!frm.doc.issue_date) {
             frm.set_value('issue_date', frappe.datetime.get_today());
@@ -10,7 +11,8 @@ frappe.ui.form.on('Pavtha Issue', {
         refresh_all_stock_summaries(frm);
     },
 
-    to_department(frm) {\n        set_product_query_by_department(frm);
+    to_department(frm) {
+        set_product_query_by_department(frm);
         clear_process_if_department_changed(frm);
         set_process_query_by_department(frm);
     },
@@ -146,7 +148,8 @@ function clear_process_if_department_changed(frm) {
         frm.set_value('process_master', '');
     }
 }
-\n
+
+
 function set_product_query_by_department(frm) {
     frm.set_query('product', 'issue_items', function() {
         return {
