@@ -14,7 +14,8 @@
   "unit",
   "product_tag",
   "product_type",
-  "metal_type"
+  "metal_type",
+  "allowed_departments"
  ],
  "fields": [
   {
@@ -77,6 +78,12 @@
    "options": "\nTAR\nTAR (Y)\nSILVER\nPASA\nAUR\nKACHI GOTI\nBADLA GOTI\nGOTI\nGULLA\nDATA\nKASAB\nKAPAN\nDUCHO\nJARI\nPOLYSTER\nYTC\nSILK",
    "in_list_view": 1,
    "in_standard_filter": 1
+  },
+  {
+   "fieldname": "allowed_departments",
+   "fieldtype": "Table",
+   "label": "Allowed Departments",
+   "options": "Product Department Item"
   }
  ],
  "grid_page_length": 50,

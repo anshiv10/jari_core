@@ -12,22 +12,7 @@ def get_last_balance(company, department, product):
 
 
 def get_issueable_balance(company, department, product):
-    result = frappe.db.sql("""
-        SELECT
-            SUM(
-                CASE
-                    WHEN transaction_type != 'Stock Transfer In'
-                    THEN IFNULL(in_weight, 0)
-                    ELSE 0
-                END
-            ) - SUM(IFNULL(out_weight, 0)) AS balance
-        FROM `tabInventory Ledger`
-        WHERE company = %s
-          AND department = %s
-          AND product = %s
-    """, (company, department, product), as_dict=True)
-
-    return flt(result[0].balance if result and result[0].balance is not None else 0)
+    return flt(get_last_balance(company, department, product))
 
 
 def get_issueable_sources(company, product, preferred_department=None):
@@ -44,10 +29,7 @@ def get_issueable_sources(company, product, preferred_department=None):
     for d in departments:
         bal = get_issueable_balance(company, d.department, product)
         if bal > 0:
-            rows.append({
-                "department": d.department,
-                "balance": bal
-            })
+            rows.append({"department": d.department, "balance": bal})
 
     rows.sort(key=lambda x: (0 if x["department"] == preferred_department else 1, -x["balance"]))
     return rows
@@ -64,9 +46,7 @@ def consume_issueable_stock(doc, product, required_qty, batch_no, posting_date, 
 
     if required_qty > total_available:
         frappe.throw(
-            f"Insufficient issueable stock for {product}. "
-            f"Available across all departments: {total_available} KG, Requested: {required_qty} KG. "
-            f"WIP / Stock Transfer In stock is not allowed for re-issue."
+            f"Insufficient stock for {product}. Available: {total_available} KG, Requested: {required_qty} KG."
         )
 
     remaining = required_qty
@@ -127,22 +107,61 @@ def get_product_stock_summary(product, company=None):
     if not product:
         return ""
 
-    filters = {"product": product}
-    if company:
-        filters["company"] = company
+    conditions = ["product = %(product)s"]
+    values = {"product": product}
 
-    departments = frappe.get_all(
-        "Inventory Ledger",
-        filters=filters,
-        fields=["department"],
-        group_by="department"
-    )
+    if company:
+        conditions.append("company = %(company)s")
+        values["company"] = company
+
+    rows = frappe.db.sql("""
+        SELECT company, department, current_balance
+        FROM `tabInventory Ledger` latest
+        INNER JOIN (
+            SELECT company AS c, department AS d, product AS p, MAX(creation) AS max_creation
+            FROM `tabInventory Ledger`
+            WHERE {conditions}
+            GROUP BY company, department, product
+        ) x
+        ON latest.company = x.c
+        AND latest.department = x.d
+        AND latest.product = x.p
+        AND latest.creation = x.max_creation
+        WHERE latest.current_balance > 0
+        ORDER BY latest.company, latest.department
+    """.format(conditions=" AND ".join(conditions)), values, as_dict=True)
 
     lines = []
+    for r in rows:
+        lines.append(r.company + " | " + r.department + " - " + str(flt(r.current_balance, 3)) + " KG")
 
-    for d in departments:
-        bal = get_issueable_balance(company, d.department, product) if company else 0
-        if flt(bal) > 0:
-            lines.append(f"{d.department} - {bal} KG")
+    return "\n".join(lines) if lines else "No stock available"
 
-    return "\n".join(lines) if lines else "No issueable stock available"
+
+@frappe.whitelist()
+def product_query_by_department(doctype, txt, searchfield, start, page_len, filters):
+    department = filters.get("department") if filters else None
+
+    if not department:
+        return []
+
+    return frappe.db.sql("""
+        SELECT DISTINCT pm.name, pm.product_name
+        FROM `tabProduct Master` pm
+        INNER JOIN `tabProduct Department Item` pdi
+            ON pdi.parent = pm.name
+        WHERE pdi.department = %(department)s
+          AND (
+              pm.name LIKE %(txt)s
+              OR pm.product_name LIKE %(txt)s
+              OR pm.product_code LIKE %(txt)s
+              OR pm.product_tag LIKE %(txt)s
+          )
+        ORDER BY pm.product_name
+        LIMIT %(start)s, %(page_len)s
+    """, {
+        "department": department,
+        "txt": "%" + txt + "%",
+        "start": start,
+        "page_len": page_len
+    })
