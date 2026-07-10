@@ -2,13 +2,19 @@ console.log("Spindal Issue JS Loaded Successfully");
 
 frappe.ui.form.on('Spindal Issue', {
     refresh(frm) {
+        set_process_query_by_department(frm);
         if (!frm.doc.issue_date) frm.set_value('issue_date', frappe.datetime.get_today());
 
-        frm.set_query('process_master', () => ({ filters: { department: 'SPINDAL' } }));
+        set_process_query_by_department(frm);
 
         frm.trigger('set_active_batch_no');
         calculate_spindal_issue_totals(frm);
         refresh_all_stock_summaries(frm);
+    },
+
+    to_department(frm) {
+        clear_process_if_department_changed(frm);
+        set_process_query_by_department(frm);
     },
 
     company(frm) {
@@ -126,4 +132,20 @@ function calculate_spindal_issue_totals(frm) {
     let total_weight = 0;
     (frm.doc.issue_items || []).forEach(row => total_weight += flt(row.weight));
     frm.set_value('total_issue_weight', total_weight);
+}
+
+function set_process_query_by_department(frm) {
+    frm.set_query('process_master', function() {
+        return {
+            filters: {
+                department: frm.doc.to_department || ''
+            }
+        };
+    });
+}
+
+function clear_process_if_department_changed(frm) {
+    if (frm.doc.process_master) {
+        frm.set_value('process_master', '');
+    }
 }

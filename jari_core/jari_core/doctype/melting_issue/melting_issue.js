@@ -2,11 +2,17 @@ console.log("Melting Issue JS Loaded Successfully");
 
 frappe.ui.form.on('Melting Issue', {
     refresh(frm) {
+        set_process_query_by_department(frm);
         if (!frm.doc.issue_date) {
             frm.set_value('issue_date', frappe.datetime.get_today());
         }
 
         refresh_all_stock_summaries(frm);
+    },
+
+    to_department(frm) {
+        clear_process_if_department_changed(frm);
+        set_process_query_by_department(frm);
     },
 
     company(frm) {
@@ -150,4 +156,20 @@ function calculate_total_issue_weight(frm) {
     });
 
     frm.set_value('total_issue_weight', total);
+}
+
+function set_process_query_by_department(frm) {
+    frm.set_query('process_master', function() {
+        return {
+            filters: {
+                department: frm.doc.to_department || ''
+            }
+        };
+    });
+}
+
+function clear_process_if_department_changed(frm) {
+    if (frm.doc.process_master) {
+        frm.set_value('process_master', '');
+    }
 }
