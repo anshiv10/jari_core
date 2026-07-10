@@ -6,6 +6,7 @@ from frappe.utils import flt, today
 class PavthaReceive(Document):
 
     def validate(self):
+        self.validate_issue_is_not_cancelled()
         self.validate_duplicate_submitted_receive()
         self.pull_issue_details()
         self.validate_items()
@@ -14,6 +15,27 @@ class PavthaReceive(Document):
         self.calculate_payout()
         from jari_core.jari_core.payout_utils import calculate_pavtha_payout
         calculate_pavtha_payout(self)
+
+    def validate_issue_is_not_cancelled(self):
+        if not self.pavtha_issue:
+            return
+
+        docstatus = frappe.db.get_value("Pavtha Issue", self.pavtha_issue, "docstatus")
+
+        if docstatus == 2:
+            frappe.throw(f"Pavtha Issue {self.pavtha_issue} is cancelled and cannot be selected.")
+
+    def validate_issue_is_submitted_for_receive_submit(self):
+        if not self.pavtha_issue:
+            return
+
+        docstatus = frappe.db.get_value("Pavtha Issue", self.pavtha_issue, "docstatus")
+
+        if docstatus != 1:
+            frappe.throw(
+                f"Pavtha Issue {self.pavtha_issue} is still in Draft. "
+                "You can save Pavtha Receive as Draft, but submit Pavtha Issue first before submitting Pavtha Receive."
+            )
 
     def validate_duplicate_submitted_receive(self):
         if not self.pavtha_issue:
@@ -32,6 +54,7 @@ class PavthaReceive(Document):
             frappe.throw(f"Pavtha Issue {self.pavtha_issue} is already received in submitted Pavtha Receive {exists}.")
 
     def on_submit(self):
+        self.validate_issue_is_submitted_for_receive_submit()
         self.set_approx_silver()
         self.db_set('approx_silver_weight', flt(self.approx_silver_weight))
         self.post_outputs_and_waste()
@@ -268,7 +291,7 @@ def pavtha_issue_query(doctype, txt, searchfield, start, page_len, filters):
                 ' | Date: ', DATE_FORMAT(COALESCE(pi.issue_date, pi.creation), '%%d-%%m-%%Y')
             ) AS description
         FROM `tabPavtha Issue` pi
-        WHERE pi.docstatus = 1
+        WHERE pi.docstatus IN (0, 1)
           AND NOT EXISTS (
               SELECT 1
               FROM `tabPavtha Receive` pr
