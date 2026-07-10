@@ -64,7 +64,6 @@ class PavthaIssue(Document):
                     row.silver_weight = flt(row.weight) * flt(quality_purity) / 100
 
         self.total_issue_weight = total
-        self.total_payout = flt(self.total_issue_weight) * flt(self.rate_per_kg)
 
     def get_last_balance(self, company, department, product):
         return frappe.db.get_value(

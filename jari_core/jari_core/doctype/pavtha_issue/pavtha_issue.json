@@ -13,9 +13,6 @@
   "company",
   "outsourcing_section",
   "outsourcer",
-  "rate_per_kg",
-  "col_break_2",
-  "total_payout",
   "dept_batch_section",
   "from_department",
   "to_department",
@@ -72,21 +69,6 @@
    "label": "Outsourcer",
    "options": "Jobworker Master",
    "reqd": 1
-  },
-  {
-   "fieldname": "rate_per_kg",
-   "fieldtype": "Currency",
-   "label": "Rate Per KG"
-  },
-  {
-   "fieldname": "col_break_2",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "total_payout",
-   "fieldtype": "Currency",
-   "label": "Total Payout",
-   "read_only": 1
   },
   {
    "fieldname": "dept_batch_section",
