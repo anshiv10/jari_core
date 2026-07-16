@@ -26,6 +26,10 @@ frappe.ui.form.on('Pavtha Receive', {
 
                 frm.set_value('company', issue.company);
                 frm.set_value('batch_no', issue.batch_no);
+                frm.set_value(
+                    'issue_receive_type',
+                    issue.issue_receive_type || 'In-house'
+                );
                 frm.set_value('process_master', issue.process_master);
                 frm.set_value('quality_code', issue.quality_code);
                 frm.set_value('outsourcer', issue.outsourcer);

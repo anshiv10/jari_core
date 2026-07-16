@@ -3,10 +3,18 @@ from frappe.model.document import Document
 from frappe.utils import flt, today
 
 
+VALID_ISSUE_RECEIVE_TYPES = {
+    "In-house",
+    "Readymade",
+    "Return",
+}
+
+
 class PavthaIssue(Document):
 
     def validate(self):
         self.set_defaults()
+        self.validate_issue_receive_type()
         self.validate_items()
         self.calculate_totals()
 
@@ -20,6 +28,15 @@ class PavthaIssue(Document):
 
         if not self.to_department:
             self.to_department = "Pavtha"
+
+        if not self.issue_receive_type:
+            self.issue_receive_type = "In-house"
+
+    def validate_issue_receive_type(self):
+        if self.issue_receive_type not in VALID_ISSUE_RECEIVE_TYPES:
+            frappe.throw(
+                "Issue/Receive Type must be In-house, Readymade, or Return."
+            )
 
     def validate_items(self):
         if not self.issue_items:
@@ -157,7 +174,10 @@ class PavthaIssue(Document):
                     in_weight=0,
                     out_weight=consume,
                     transaction_type="Production Input",
-                    remarks=f"Pavtha issue consumed from {src['department']}"
+                    remarks=(
+                        f"Pavtha {self.issue_receive_type} issue "
+                        f"consumed from {src['department']}"
+                    )
                 )
 
                 remaining -= consume
@@ -168,7 +188,7 @@ class PavthaIssue(Document):
                 in_weight=required,
                 out_weight=0,
                 transaction_type="Stock Transfer In",
-                remarks="Pavtha outsource material inward"
+                remarks=f"Pavtha {self.issue_receive_type} material inward"
             )
 
 

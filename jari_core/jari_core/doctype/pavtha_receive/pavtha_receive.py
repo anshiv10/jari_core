@@ -3,12 +3,20 @@ from frappe.model.document import Document
 from frappe.utils import flt, today
 
 
+VALID_ISSUE_RECEIVE_TYPES = {
+    "In-house",
+    "Readymade",
+    "Return",
+}
+
+
 class PavthaReceive(Document):
 
     def validate(self):
         self.validate_issue_is_not_cancelled()
         self.validate_duplicate_submitted_receive()
         self.pull_issue_details()
+        self.validate_issue_receive_type()
         self.validate_items()
         self.calculate_totals()
         self.set_approx_silver()
@@ -66,11 +74,36 @@ class PavthaReceive(Document):
 
         self.company = issue.company
         self.batch_no = issue.batch_no
+        self.issue_receive_type = (
+            getattr(issue, "issue_receive_type", None)
+            or "In-house"
+        )
         self.process_master = issue.process_master
         self.quality_code = issue.quality_code
         self.outsourcer = issue.outsourcer
         self.rate_per_kg = getattr(issue, 'rate_per_kg', 0) or 0
         self.total_input_weight = issue.total_issue_weight
+
+    def validate_issue_receive_type(self):
+        if self.issue_receive_type not in VALID_ISSUE_RECEIVE_TYPES:
+            frappe.throw(
+                "Issue/Receive Type must be In-house, Readymade, or Return."
+            )
+
+        if not self.pavtha_issue:
+            return
+
+        issue_type = frappe.db.get_value(
+            "Pavtha Issue",
+            self.pavtha_issue,
+            "issue_receive_type"
+        ) or "In-house"
+
+        if self.issue_receive_type != issue_type:
+            frappe.throw(
+                f"Issue/Receive Type must match Pavtha Issue "
+                f"{self.pavtha_issue}. Expected: {issue_type}."
+            )
 
     def validate_items(self):
         if not self.output_items and not self.waste_items:
@@ -250,7 +283,7 @@ class PavthaReceive(Document):
                 "reference_doctype": self.doctype,
                 "reference_name": self.name,
                 "date": self.receive_date or today(),
-                "remarks": "Pavtha output received"
+                "remarks": f"Pavtha {self.issue_receive_type} output received"
             }).insert(ignore_permissions=True)
 
         for row in self.waste_items:
@@ -273,7 +306,7 @@ class PavthaReceive(Document):
                 "reference_doctype": self.doctype,
                 "reference_name": self.name,
                 "date": self.receive_date or today(),
-                "remarks": "Pavtha waste generated"
+                "remarks": f"Pavtha {self.issue_receive_type} waste generated"
             }).insert(ignore_permissions=True)
 
 
@@ -286,6 +319,7 @@ def pavtha_issue_query(doctype, txt, searchfield, start, page_len, filters):
             CONCAT(
                 'Batch: ', COALESCE(pi.batch_no, pi.name),
                 ' | Issue: ', pi.name,
+                ' | Type: ', COALESCE(pi.issue_receive_type, 'In-house'),
                 ' | Date: ', DATE_FORMAT(COALESCE(pi.issue_date, pi.creation), '%%d-%%m-%%Y')
             ) AS description
         FROM `tabPavtha Issue` pi

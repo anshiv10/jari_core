@@ -8,6 +8,10 @@ frappe.ui.form.on('Pavtha Issue', {
             frm.set_value('issue_date', frappe.datetime.get_today());
         }
 
+        if (!frm.doc.issue_receive_type) {
+            frm.set_value('issue_receive_type', 'In-house');
+        }
+
         refresh_all_stock_summaries(frm);
     },
 
