@@ -7,3 +7,5 @@
 
 jari_core.patches.fix_negative_inventory_out_weight
 jari_core.patches.audit_inventory_ledger_integrity
+
+jari_core.patches.v1_0.backfill_pavtha_issue_receive_type
