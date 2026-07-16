@@ -81,32 +81,8 @@ class PavthaReceive(Document):
         self.process_master = issue.process_master
         self.quality_code = issue.quality_code
         self.outsourcer = issue.outsourcer
-        self.rate_per_kg = self.get_jobworker_rate()
+        self.rate_per_kg = getattr(issue, 'rate_per_kg', 0) or 0
         self.total_input_weight = issue.total_issue_weight
-
-    def get_jobworker_rate(self):
-        if not self.outsourcer:
-            return 0
-
-        return flt(
-            frappe.db.get_value(
-                "Jobworker Master",
-                self.outsourcer,
-                "rate_per_kg"
-            ) or 0
-        )
-
-    def get_jobworker_standard_loss(self):
-        if not self.outsourcer:
-            return 0
-
-        return flt(
-            frappe.db.get_value(
-                "Jobworker Master",
-                self.outsourcer,
-                "standard_loss_percent"
-            ) or 0
-        )
 
     def validate_issue_receive_type(self):
         if self.issue_receive_type not in VALID_ISSUE_RECEIVE_TYPES:
@@ -152,20 +128,16 @@ class PavthaReceive(Document):
         return ""
 
     def get_standard_percent(self, fieldname):
-        if frappe.db.has_column("Loss Standard Master", fieldname):
-            value = frappe.db.get_value(
+        if not frappe.db.has_column("Loss Standard Master", fieldname):
+            return 0
+
+        return flt(
+            frappe.db.get_value(
                 "Loss Standard Master",
                 {"department": "Pavtha"},
                 fieldname
-            )
-
-            if value is not None:
-                return flt(value)
-
-        if fieldname == "standard_loss_percent":
-            return self.get_jobworker_standard_loss()
-
-        return 0
+            ) or 0
+        )
 
     def calculate_totals(self):
         output_total = 0
