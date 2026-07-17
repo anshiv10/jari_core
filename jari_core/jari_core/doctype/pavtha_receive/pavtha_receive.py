@@ -1,4 +1,5 @@
 import frappe
+from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt, today
 
@@ -16,73 +17,244 @@ class PavthaReceive(Document):
         self.validate_issue_is_not_cancelled()
         self.validate_duplicate_submitted_receive()
         self.pull_issue_details()
-        self.validate_issue_receive_type()
+        self.set_child_type_defaults()
         self.validate_items()
+        self.validate_issue_receive_types()
         self.calculate_totals()
         self.set_approx_silver()
         self.calculate_payout()
+
+    def on_submit(self):
+        self.validate_issue_is_submitted_for_receive_submit()
+        self.validate_duplicate_submitted_receive()
+
+        self.set_approx_silver()
+
+        self.db_set(
+            "approx_silver_weight",
+            flt(self.approx_silver_weight),
+            update_modified=False,
+        )
+
+        self.post_outputs_and_waste()
+
+        frappe.db.set_value(
+            "Pavtha Issue",
+            self.pavtha_issue,
+            "status",
+            "Received",
+            update_modified=False,
+        )
 
     def validate_issue_is_not_cancelled(self):
         if not self.pavtha_issue:
             return
 
-        docstatus = frappe.db.get_value("Pavtha Issue", self.pavtha_issue, "docstatus")
+        docstatus = frappe.db.get_value(
+            "Pavtha Issue",
+            self.pavtha_issue,
+            "docstatus",
+        )
 
         if docstatus == 2:
-            frappe.throw(f"Pavtha Issue {self.pavtha_issue} is cancelled and cannot be selected.")
+            frappe.throw(
+                _(
+                    "Pavtha Issue {0} is cancelled and cannot be selected."
+                ).format(
+                    frappe.bold(self.pavtha_issue)
+                )
+            )
 
     def validate_issue_is_submitted_for_receive_submit(self):
         if not self.pavtha_issue:
-            return
+            frappe.throw(
+                _("Pavtha Issue is required before submission.")
+            )
 
-        docstatus = frappe.db.get_value("Pavtha Issue", self.pavtha_issue, "docstatus")
+        docstatus = frappe.db.get_value(
+            "Pavtha Issue",
+            self.pavtha_issue,
+            "docstatus",
+        )
 
         if docstatus != 1:
             frappe.throw(
-                f"Pavtha Issue {self.pavtha_issue} is still in Draft. "
-                "You can save Pavtha Receive as Draft, but submit Pavtha Issue first before submitting Pavtha Receive."
+                _(
+                    "Pavtha Issue {0} is still in Draft. "
+                    "You may save Pavtha Receive as Draft, but the "
+                    "Pavtha Issue must be submitted before submitting "
+                    "this Pavtha Receive."
+                ).format(
+                    frappe.bold(self.pavtha_issue)
+                )
             )
 
     def validate_duplicate_submitted_receive(self):
         if not self.pavtha_issue:
             return
 
-        exists = frappe.db.exists(
+        existing_receive = frappe.db.exists(
             "Pavtha Receive",
             {
                 "pavtha_issue": self.pavtha_issue,
                 "docstatus": 1,
-                "name": ["!=", self.name]
-            }
+                "name": ["!=", self.name],
+            },
         )
 
-        if exists:
-            frappe.throw(f"Pavtha Issue {self.pavtha_issue} is already received in submitted Pavtha Receive {exists}.")
-
-    def on_submit(self):
-        self.validate_issue_is_submitted_for_receive_submit()
-        self.set_approx_silver()
-        self.db_set('approx_silver_weight', flt(self.approx_silver_weight))
-        self.post_outputs_and_waste()
-        frappe.db.set_value("Pavtha Issue", self.pavtha_issue, "status", "Received")
+        if existing_receive:
+            frappe.throw(
+                _(
+                    "Pavtha Issue {0} has already been received in "
+                    "submitted Pavtha Receive {1}."
+                ).format(
+                    frappe.bold(self.pavtha_issue),
+                    frappe.bold(existing_receive),
+                )
+            )
 
     def pull_issue_details(self):
+        """
+        Pull parent information from Pavtha Issue.
+
+        issue_receive_type is no longer copied to Pavtha Receive because
+        the field now exists only on child rows.
+        """
         if not self.pavtha_issue:
             return
 
-        issue = frappe.get_doc("Pavtha Issue", self.pavtha_issue)
+        issue = frappe.get_doc(
+            "Pavtha Issue",
+            self.pavtha_issue,
+        )
 
         self.company = issue.company
         self.batch_no = issue.batch_no
-        self.issue_receive_type = (
-            getattr(issue, "issue_receive_type", None)
-            or "In-house"
-        )
         self.process_master = issue.process_master
         self.quality_code = issue.quality_code
         self.outsourcer = issue.outsourcer
         self.rate_per_kg = self.get_jobworker_rate()
-        self.total_input_weight = issue.total_issue_weight
+        self.total_input_weight = flt(issue.total_issue_weight)
+
+    def get_issue_receive_types(self):
+        """
+        Return the distinct transaction types used in the linked
+        Pavtha Issue child rows.
+        """
+        if not self.pavtha_issue:
+            return set()
+
+        issue_types = frappe.get_all(
+            "Pavtha Issue Item",
+            filters={
+                "parent": self.pavtha_issue,
+                "parenttype": "Pavtha Issue",
+                "parentfield": "issue_items",
+            },
+            pluck="issue_receive_type",
+        )
+
+        return {
+            issue_type
+            for issue_type in issue_types
+            if issue_type
+        }
+
+    def get_default_issue_receive_type(self):
+        """
+        A default can be copied automatically only when the issue has
+        exactly one distinct child-row type.
+
+        For old records without child values, use In-house as the
+        backward-compatible default.
+        """
+        issue_types = self.get_issue_receive_types()
+
+        if not issue_types:
+            return "In-house"
+
+        if len(issue_types) == 1:
+            return next(iter(issue_types))
+
+        return None
+
+    def set_child_type_defaults(self):
+        """
+        Populate blank receive child-row types only when the linked issue
+        has one unambiguous transaction type.
+        """
+        default_type = self.get_default_issue_receive_type()
+
+        if not default_type:
+            return
+
+        for row in self.output_items or []:
+            if not row.issue_receive_type:
+                row.issue_receive_type = default_type
+
+        for row in self.waste_items or []:
+            if not row.issue_receive_type:
+                row.issue_receive_type = default_type
+
+    def validate_issue_receive_types(self):
+        """
+        Validate output and waste row transaction types.
+
+        The receive row type must:
+        1. Be one of the allowed values.
+        2. Exist among the transaction types in the linked Pavtha Issue.
+        """
+        issue_types = self.get_issue_receive_types()
+
+        # Compatibility for older submitted issue documents where the
+        # child field may have been blank.
+        if not issue_types:
+            issue_types = {"In-house"}
+
+        child_tables = (
+            ("output_items", _("Output Item")),
+            ("waste_items", _("Waste Item")),
+        )
+
+        for table_fieldname, table_label in child_tables:
+            for row in self.get(table_fieldname) or []:
+                issue_receive_type = row.issue_receive_type
+
+                if not issue_receive_type:
+                    frappe.throw(
+                        _(
+                            "{0} row #{1}: Issue/Receive Type is required."
+                        ).format(
+                            table_label,
+                            row.idx,
+                        )
+                    )
+
+                if issue_receive_type not in VALID_ISSUE_RECEIVE_TYPES:
+                    frappe.throw(
+                        _(
+                            "{0} row #{1}: Issue/Receive Type must be "
+                            "In-house, Readymade, or Return."
+                        ).format(
+                            table_label,
+                            row.idx,
+                        )
+                    )
+
+                if issue_receive_type not in issue_types:
+                    frappe.throw(
+                        _(
+                            "{0} row #{1}: Type {2} does not exist in "
+                            "the linked Pavtha Issue {3}. Available issue "
+                            "types are: {4}."
+                        ).format(
+                            table_label,
+                            row.idx,
+                            frappe.bold(issue_receive_type),
+                            frappe.bold(self.pavtha_issue),
+                            ", ".join(sorted(issue_types)),
+                        )
+                    )
 
     def get_jobworker_rate(self):
         if not self.outsourcer:
@@ -92,8 +264,9 @@ class PavthaReceive(Document):
             frappe.db.get_value(
                 "Jobworker Master",
                 self.outsourcer,
-                "rate_per_kg"
-            ) or 0
+                "rate_per_kg",
+            )
+            or 0
         )
 
     def get_jobworker_standard_loss(self):
@@ -104,41 +277,71 @@ class PavthaReceive(Document):
             frappe.db.get_value(
                 "Jobworker Master",
                 self.outsourcer,
-                "standard_loss_percent"
-            ) or 0
+                "standard_loss_percent",
+            )
+            or 0
         )
-
-    def validate_issue_receive_type(self):
-        if self.issue_receive_type not in VALID_ISSUE_RECEIVE_TYPES:
-            frappe.throw(
-                "Issue/Receive Type must be In-house, Readymade, or Return."
-            )
-
-        if not self.pavtha_issue:
-            return
-
-        issue_type = frappe.db.get_value(
-            "Pavtha Issue",
-            self.pavtha_issue,
-            "issue_receive_type"
-        ) or "In-house"
-
-        if self.issue_receive_type != issue_type:
-            frappe.throw(
-                f"Issue/Receive Type must match Pavtha Issue "
-                f"{self.pavtha_issue}. Expected: {issue_type}."
-            )
 
     def validate_items(self):
         if not self.output_items and not self.waste_items:
-            frappe.throw("At least one output or waste item is required.")
+            frappe.throw(
+                _("At least one output or waste item is required.")
+            )
+
+        for row in self.output_items or []:
+            if not row.product:
+                frappe.throw(
+                    _(
+                        "Product is required in output item row #{0}."
+                    ).format(row.idx)
+                )
+
+            if flt(row.weight) < 0:
+                frappe.throw(
+                    _(
+                        "Weight cannot be negative in output item "
+                        "row #{0}."
+                    ).format(row.idx)
+                )
+
+        for row in self.waste_items or []:
+            if not row.waste_product:
+                frappe.throw(
+                    _(
+                        "Waste Product is required in waste item "
+                        "row #{0}."
+                    ).format(row.idx)
+                )
+
+            if flt(row.weight) < 0:
+                frappe.throw(
+                    _(
+                        "Weight cannot be negative in waste item "
+                        "row #{0}."
+                    ).format(row.idx)
+                )
 
     def get_quality_purity(self):
         if not self.quality_code:
             return 0
 
-        if frappe.db.has_column("Quality Master", "silver_purity_percent"):
-            return flt(frappe.db.get_value("Quality Master", self.quality_code, "silver_purity_percent") or 0)
+        possible_fields = [
+            "silver_purity_percent",
+            "purity_percent",
+            "purity",
+            "quality_percent",
+        ]
+
+        for fieldname in possible_fields:
+            if frappe.db.has_column("Quality Master", fieldname):
+                return flt(
+                    frappe.db.get_value(
+                        "Quality Master",
+                        self.quality_code,
+                        fieldname,
+                    )
+                    or 0
+                )
 
         return 0
 
@@ -147,16 +350,26 @@ class PavthaReceive(Document):
             return ""
 
         if frappe.db.has_column("Product Master", "metal_type"):
-            return frappe.db.get_value("Product Master", product, "metal_type") or ""
+            return (
+                frappe.db.get_value(
+                    "Product Master",
+                    product,
+                    "metal_type",
+                )
+                or ""
+            )
 
         return ""
 
     def get_standard_percent(self, fieldname):
-        if frappe.db.has_column("Loss Standard Master", fieldname):
+        if frappe.db.has_column(
+            "Loss Standard Master",
+            fieldname,
+        ):
             value = frappe.db.get_value(
                 "Loss Standard Master",
                 {"department": "Pavtha"},
-                fieldname
+                fieldname,
             )
 
             if value is not None:
@@ -172,18 +385,27 @@ class PavthaReceive(Document):
         waste_total = 0
         quality_purity = self.get_quality_purity()
 
-        for row in self.output_items:
+        for row in self.output_items or []:
             output_total += flt(row.weight)
 
-        for row in self.waste_items:
+        for row in self.waste_items or []:
             waste_total += flt(row.weight)
             row.approx_silver_weight = 0
 
             if row.waste_product:
-                metal_type = self.get_product_metal_type(row.waste_product)
+                metal_type = self.get_product_metal_type(
+                    row.waste_product
+                )
 
                 if metal_type == "Silver":
-                    row.approx_silver_weight = flt(row.weight) - (flt(row.weight) * flt(quality_purity) / 100)
+                    row.approx_silver_weight = (
+                        flt(row.weight)
+                        - (
+                            flt(row.weight)
+                            * flt(quality_purity)
+                            / 100
+                        )
+                    )
 
         self.total_output_weight = output_total
         self.total_waste_weight = waste_total
@@ -195,58 +417,117 @@ class PavthaReceive(Document):
         )
 
         self.waste_percent = (
-            flt(self.total_waste_weight) / flt(self.total_input_weight) * 100
-            if flt(self.total_input_weight) else 0
+            flt(self.total_waste_weight)
+            / flt(self.total_input_weight)
+            * 100
+            if flt(self.total_input_weight)
+            else 0
         )
 
         self.loss_percent = (
-            flt(self.loss_weight) / flt(self.total_input_weight) * 100
-            if flt(self.total_input_weight) else 0
+            flt(self.loss_weight)
+            / flt(self.total_input_weight)
+            * 100
+            if flt(self.total_input_weight)
+            else 0
         )
 
-        self.loss_standard_percent = self.get_standard_percent("standard_loss_percent")
-        self.wastage_standard_percent = self.get_standard_percent("standard_wastage_percent")
+        self.loss_standard_percent = self.get_standard_percent(
+            "standard_loss_percent"
+        )
+
+        self.wastage_standard_percent = self.get_standard_percent(
+            "standard_wastage_percent"
+        )
+
+        if flt(self.loss_weight) < 0:
+            frappe.throw(
+                _(
+                    "Total Output Weight plus Total Waste Weight cannot "
+                    "exceed Total Input Weight. Input: {0} KG, "
+                    "Output: {1} KG, Waste: {2} KG."
+                ).format(
+                    flt(self.total_input_weight),
+                    flt(self.total_output_weight),
+                    flt(self.total_waste_weight),
+                )
+            )
 
         self.loss_status = (
             "Excess Loss"
-            if flt(self.loss_percent) > flt(self.loss_standard_percent)
+            if flt(self.loss_percent)
+            > flt(self.loss_standard_percent)
             else "OK"
         )
 
         self.wastage_status = (
             "Excess Wastage"
-            if flt(self.waste_percent) > flt(self.wastage_standard_percent)
+            if flt(self.waste_percent)
+            > flt(self.wastage_standard_percent)
             else "OK"
         )
 
     def calculate_payout(self):
-        self.base_payout = flt(self.total_input_weight) * flt(self.rate_per_kg)
+        self.base_payout = (
+            flt(self.total_input_weight)
+            * flt(self.rate_per_kg)
+        )
 
-        excess_loss_percent = flt(self.loss_percent) - flt(self.loss_standard_percent)
+        excess_loss_percent = (
+            flt(self.loss_percent)
+            - flt(self.loss_standard_percent)
+        )
 
         self.bonus_amount = 0
         self.deduction_amount = 0
 
         if excess_loss_percent > 0:
-            excess_weight = flt(self.total_input_weight) * excess_loss_percent / 100
-            self.deduction_amount = excess_weight * flt(self.rate_per_kg)
+            excess_weight = (
+                flt(self.total_input_weight)
+                * excess_loss_percent
+                / 100
+            )
+
+            self.deduction_amount = (
+                excess_weight
+                * flt(self.rate_per_kg)
+            )
 
         elif excess_loss_percent < 0:
-            saved_weight = flt(self.total_input_weight) * abs(excess_loss_percent) / 100
-            self.bonus_amount = saved_weight * flt(self.rate_per_kg)
+            saved_weight = (
+                flt(self.total_input_weight)
+                * abs(excess_loss_percent)
+                / 100
+            )
 
-        self.payout_suggestion = (
-            flt(self.base_payout)
-            + flt(self.bonus_amount)
-            - flt(self.deduction_amount)
+            self.bonus_amount = (
+                saved_weight
+                * flt(self.rate_per_kg)
+            )
+
+        self.payout_suggestion = max(
+            0,
+            (
+                flt(self.base_payout)
+                + flt(self.bonus_amount)
+                - flt(self.deduction_amount)
+            ),
         )
 
         if not flt(self.payout_given):
             self.payout_given = self.payout_suggestion
 
     def calculate_approx_silver(self, weight):
-        purity = self.get_quality_purity() if hasattr(self, "get_quality_purity") else 0
-        return flt(weight) - (flt(weight) * flt(purity) / 100)
+        purity = self.get_quality_purity()
+
+        return (
+            flt(weight)
+            - (
+                flt(weight)
+                * flt(purity)
+                / 100
+            )
+        )
 
     def set_approx_silver(self):
         purity = self.get_quality_purity()
@@ -255,100 +536,211 @@ class PavthaReceive(Document):
         wastage_approx = 0
 
         for row in self.output_items or []:
-            row.approx_silver_weight = flt(row.weight) - (flt(row.weight) * flt(purity) / 100)
-            output_approx += flt(row.approx_silver_weight)
+            row.approx_silver_weight = (
+                flt(row.weight)
+                - (
+                    flt(row.weight)
+                    * flt(purity)
+                    / 100
+                )
+            )
+
+            output_approx += flt(
+                row.approx_silver_weight
+            )
 
         for row in self.waste_items or []:
-            row.approx_silver_weight = flt(row.weight) - (flt(row.weight) * flt(purity) / 100)
-            wastage_approx += flt(row.approx_silver_weight)
+            row.approx_silver_weight = (
+                flt(row.weight)
+                - (
+                    flt(row.weight)
+                    * flt(purity)
+                    / 100
+                )
+            )
+
+            wastage_approx += flt(
+                row.approx_silver_weight
+            )
 
         self.approx_silver_output = output_approx
         self.approx_silver_wastage = wastage_approx
-        self.approx_silver_weight = output_approx + wastage_approx
+        self.approx_silver_weight = (
+            output_approx + wastage_approx
+        )
 
-    def get_last_balance(self, company, department, product):
-        return frappe.db.get_value(
-            "Inventory Ledger",
-            {
-                "company": company,
-                "department": department,
-                "product": product
-            },
-            "current_balance",
-            order_by="creation desc"
-        ) or 0
+    def get_last_balance(
+        self,
+        company,
+        department,
+        product,
+    ):
+        return (
+            frappe.db.get_value(
+                "Inventory Ledger",
+                {
+                    "company": company,
+                    "department": department,
+                    "product": product,
+                },
+                "current_balance",
+                order_by="creation desc",
+            )
+            or 0
+        )
 
     def ledger_exists(self):
         return frappe.db.exists(
             "Inventory Ledger",
             {
                 "reference_doctype": self.doctype,
-                "reference_name": self.name
-            }
+                "reference_name": self.name,
+            },
         )
 
     def post_outputs_and_waste(self):
+        """
+        Post output and waste inventory using the transaction type
+        stored on each individual child row.
+        """
         if self.ledger_exists():
             return
 
-        for row in self.output_items:
-            if not row.product or not flt(row.weight):
+        destination_department = "Pavtha"
+
+        for row in self.output_items or []:
+            if not row.product or flt(row.weight) <= 0:
                 continue
 
-            balance = self.get_last_balance(self.company, "Pavtha", row.product)
+            issue_receive_type = (
+                row.issue_receive_type or "In-house"
+            )
 
-            frappe.get_doc({
-                "doctype": "Inventory Ledger",
-                "company": self.company,
-                "department": "Pavtha",
-                "product": row.product,
-                "batch_number": self.batch_no,
-                "in_weight": flt(row.weight),
-                "out_weight": 0,
-                "current_balance": flt(balance) + flt(row.weight),
-                "approx_silver_weight": flt(row.approx_silver_weight),
-                "transaction_type": "Production Output",
-                "reference_doctype": self.doctype,
-                "reference_name": self.name,
-                "date": self.receive_date or today(),
-                "remarks": f"Pavtha {self.issue_receive_type} output received"
-            }).insert(ignore_permissions=True)
+            balance = self.get_last_balance(
+                self.company,
+                destination_department,
+                row.product,
+            )
 
-        for row in self.waste_items:
-            if not row.waste_product or not flt(row.weight):
+            frappe.get_doc(
+                {
+                    "doctype": "Inventory Ledger",
+                    "company": self.company,
+                    "department": destination_department,
+                    "product": row.product,
+                    "batch_number": self.batch_no,
+                    "in_weight": flt(row.weight),
+                    "out_weight": 0,
+                    "current_balance": (
+                        flt(balance) + flt(row.weight)
+                    ),
+                    "approx_silver_weight": flt(
+                        row.approx_silver_weight
+                    ),
+                    "transaction_type": "Production Output",
+                    "reference_doctype": self.doctype,
+                    "reference_name": self.name,
+                    "date": self.receive_date or today(),
+                    "remarks": (
+                        f"Pavtha {issue_receive_type} "
+                        f"output received"
+                    ),
+                }
+            ).insert(ignore_permissions=True)
+
+        for row in self.waste_items or []:
+            if (
+                not row.waste_product
+                or flt(row.weight) <= 0
+            ):
                 continue
 
-            balance = self.get_last_balance(self.company, "Pavtha", row.waste_product)
+            issue_receive_type = (
+                row.issue_receive_type or "In-house"
+            )
 
-            frappe.get_doc({
-                "doctype": "Inventory Ledger",
-                "company": self.company,
-                "department": "Pavtha",
-                "product": row.waste_product,
-                "batch_number": self.batch_no,
-                "in_weight": flt(row.weight),
-                "out_weight": 0,
-                "current_balance": flt(balance) + flt(row.weight),
-                "approx_silver_weight": flt(row.approx_silver_weight),
-                "transaction_type": "Waste Generated",
-                "reference_doctype": self.doctype,
-                "reference_name": self.name,
-                "date": self.receive_date or today(),
-                "remarks": f"Pavtha {self.issue_receive_type} waste generated"
-            }).insert(ignore_permissions=True)
+            balance = self.get_last_balance(
+                self.company,
+                destination_department,
+                row.waste_product,
+            )
+
+            frappe.get_doc(
+                {
+                    "doctype": "Inventory Ledger",
+                    "company": self.company,
+                    "department": destination_department,
+                    "product": row.waste_product,
+                    "batch_number": self.batch_no,
+                    "in_weight": flt(row.weight),
+                    "out_weight": 0,
+                    "current_balance": (
+                        flt(balance) + flt(row.weight)
+                    ),
+                    "approx_silver_weight": flt(
+                        row.approx_silver_weight
+                    ),
+                    "transaction_type": "Waste Generated",
+                    "reference_doctype": self.doctype,
+                    "reference_name": self.name,
+                    "date": self.receive_date or today(),
+                    "remarks": (
+                        f"Pavtha {issue_receive_type} "
+                        f"waste generated"
+                    ),
+                }
+            ).insert(ignore_permissions=True)
 
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
-def pavtha_issue_query(doctype, txt, searchfield, start, page_len, filters):
-    return frappe.db.sql("""
+def pavtha_issue_query(
+    doctype,
+    txt,
+    searchfield,
+    start,
+    page_len,
+    filters,
+):
+    """
+    Search available Pavtha Issues.
+
+    The parent issue_receive_type column was removed. The displayed
+    types are now collected from Pavtha Issue Item child rows.
+    """
+    return frappe.db.sql(
+        """
         SELECT
             pi.name,
             CONCAT(
-                'Batch: ', COALESCE(pi.batch_no, pi.name),
-                ' | Issue: ', pi.name,
-                ' | Type: ', COALESCE(pi.issue_receive_type, 'In-house'),
-                ' | Date: ', DATE_FORMAT(COALESCE(pi.issue_date, pi.creation), '%%d-%%m-%%Y')
+                'Batch: ',
+                COALESCE(pi.batch_no, pi.name),
+                ' | Issue: ',
+                pi.name,
+                ' | Type: ',
+                COALESCE(
+                    (
+                        SELECT GROUP_CONCAT(
+                            DISTINCT pii.issue_receive_type
+                            ORDER BY pii.issue_receive_type
+                            SEPARATOR ', '
+                        )
+                        FROM `tabPavtha Issue Item` pii
+                        WHERE pii.parent = pi.name
+                          AND pii.parenttype = 'Pavtha Issue'
+                          AND pii.parentfield = 'issue_items'
+                          AND COALESCE(
+                              pii.issue_receive_type,
+                              ''
+                          ) != ''
+                    ),
+                    'In-house'
+                ),
+                ' | Date: ',
+                DATE_FORMAT(
+                    COALESCE(pi.issue_date, pi.creation),
+                    '%%d-%%m-%%Y'
+                )
             ) AS description
         FROM `tabPavtha Issue` pi
         WHERE pi.docstatus IN (0, 1)
@@ -365,8 +757,10 @@ def pavtha_issue_query(doctype, txt, searchfield, start, page_len, filters):
           )
         ORDER BY pi.creation DESC
         LIMIT %(start)s, %(page_len)s
-    """, {
-        "txt": f"%{txt}%",
-        "start": start,
-        "page_len": page_len
-    })
+        """,
+        {
+            "txt": f"%{txt}%",
+            "start": start,
+            "page_len": page_len,
+        },
+    )
