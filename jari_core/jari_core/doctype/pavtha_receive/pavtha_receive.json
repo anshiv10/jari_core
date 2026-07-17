@@ -13,7 +13,6 @@
   "col_break_1",
   "company",
   "batch_no",
-  "issue_receive_type",
   "process_section",
   "process_master",
   "quality_code",
@@ -386,17 +385,6 @@
    "fieldtype": "Float",
    "label": "Remaining TAR",
    "read_only": 1
-  },
-  {
-   "default": "In-house",
-   "fieldname": "issue_receive_type",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Issue/Receive Type",
-   "options": "In-house\nReadymade\nReturn",
-   "read_only": 1,
-   "reqd": 1
   }
  ],
  "grid_page_length": 50,
