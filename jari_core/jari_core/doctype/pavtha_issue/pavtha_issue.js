@@ -11,7 +11,10 @@ frappe.ui.form.on('Pavtha Issue', {
         set_process_query_by_department(frm);
 
         if (frm.is_new() && !frm.doc.issue_date) {
-            frm.set_value('issue_date', frappe.datetime.get_today());
+            frm.set_value(
+                'issue_date',
+                frappe.datetime.get_today()
+            );
         }
 
         set_default_type_on_existing_issue_items(frm);
@@ -41,7 +44,10 @@ frappe.ui.form.on('Pavtha Issue', {
 
 frappe.ui.form.on('Pavtha Issue Item', {
     issue_items_add(frm, cdt, cdn) {
-        const row = frappe.get_doc(cdt, cdn);
+        const row = frappe.get_doc(
+            cdt,
+            cdn
+        );
 
         if (!row.issue_receive_type) {
             frappe.model.set_value(
@@ -54,10 +60,18 @@ frappe.ui.form.on('Pavtha Issue Item', {
     },
 
     product(frm, cdt, cdn) {
-        const row = frappe.get_doc(cdt, cdn);
+        const row = frappe.get_doc(
+            cdt,
+            cdn
+        );
 
         if (row.product) {
-            fetch_stock_summary(frm, cdt, cdn, row.product);
+            fetch_stock_summary(
+                frm,
+                cdt,
+                cdn,
+                row.product
+            );
         }
     },
 
@@ -87,15 +101,20 @@ async function fetch_process_items(frm) {
 
         frm.clear_table('issue_items');
 
-        const inputRows = process.input_products || [];
-        const transactionType = get_pavtha_transaction_type(frm);
+        const inputRows =
+            process.input_products || [];
+
+        const transactionType =
+            get_pavtha_transaction_type(frm);
 
         if (!inputRows.length) {
             frm.refresh_field('issue_items');
 
             frappe.msgprint({
                 title: __('Process Master'),
-                message: __('No input products were found in the selected Process Master.'),
+                message: __(
+                    'No input products were found in the selected Process Master.'
+                ),
                 indicator: 'orange'
             });
 
@@ -121,17 +140,22 @@ async function fetch_process_items(frm) {
                 return;
             }
 
-            const child = frm.add_child('issue_items', {
-                product: product,
-                uom: uom,
-                weight: flt(
-                    sourceRow.weight ||
-                    sourceRow.qty ||
-                    sourceRow.input_weight
-                ),
-                issue_receive_type: transactionType,
-                current_stock_summary: __('Loading...')
-            });
+            const child = frm.add_child(
+                'issue_items',
+                {
+                    product: product,
+                    uom: uom,
+                    weight: flt(
+                        sourceRow.weight ||
+                        sourceRow.qty ||
+                        sourceRow.input_weight
+                    ),
+                    issue_receive_type:
+                        transactionType,
+                    current_stock_summary:
+                        __('Loading...')
+                }
+            );
 
             fetch_stock_summary(
                 frm,
@@ -145,11 +169,15 @@ async function fetch_process_items(frm) {
         calculate_total_issue_weight(frm);
 
         frappe.show_alert({
-            message: __('Pavtha input products were loaded.'),
+            message:
+                __('Pavtha input products were loaded.'),
             indicator: 'green'
         });
     } catch (error) {
-        console.error('Unable to load Pavtha process items:', error);
+        console.error(
+            'Unable to load Pavtha process items:',
+            error
+        );
 
         frappe.msgprint({
             title: __('Unable to Load Process'),
@@ -163,12 +191,19 @@ async function fetch_process_items(frm) {
 
 
 function get_pavtha_transaction_type(frm) {
-    return frm.doc.outsourcer ? 'Outsource' : 'In-house';
+    /*
+     * Outsource is not a permitted child value.
+     * Outsourced/jobworker Pavtha rows use Readymade.
+     */
+    return frm.doc.outsourcer
+        ? 'Readymade'
+        : 'In-house';
 }
 
 
 function synchronize_issue_item_types(frm) {
-    const transactionType = get_pavtha_transaction_type(frm);
+    const transactionType =
+        get_pavtha_transaction_type(frm);
 
     (frm.doc.issue_items || []).forEach(row => {
         frappe.model.set_value(
@@ -182,7 +217,8 @@ function synchronize_issue_item_types(frm) {
 
 
 function set_default_type_on_existing_issue_items(frm) {
-    const transactionType = get_pavtha_transaction_type(frm);
+    const transactionType =
+        get_pavtha_transaction_type(frm);
 
     (frm.doc.issue_items || []).forEach(row => {
         if (!row.issue_receive_type) {
@@ -197,7 +233,12 @@ function set_default_type_on_existing_issue_items(frm) {
 }
 
 
-function fetch_stock_summary(frm, cdt, cdn, product) {
+function fetch_stock_summary(
+    frm,
+    cdt,
+    cdn,
+    product
+) {
     if (!product) {
         return;
     }
@@ -216,7 +257,8 @@ function fetch_stock_summary(frm, cdt, cdn, product) {
                 cdt,
                 cdn,
                 'current_stock_summary',
-                r.message || __('No stock available')
+                r.message ||
+                    __('No stock available')
             );
         },
 
@@ -252,8 +294,11 @@ function refresh_all_stock_summaries(frm) {
 
 
 function calculate_total_issue_weight(frm) {
-    const total = (frm.doc.issue_items || []).reduce(
-        (sum, row) => sum + flt(row.weight),
+    const total = (
+        frm.doc.issue_items || []
+    ).reduce(
+        (sum, row) =>
+            sum + flt(row.weight),
         0
     );
 
@@ -266,19 +311,26 @@ function calculate_total_issue_weight(frm) {
 
 
 function set_process_query_by_department(frm) {
-    frm.set_query('process_master', () => {
-        return {
-            filters: {
-                department: frm.doc.to_department || ''
-            }
-        };
-    });
+    frm.set_query(
+        'process_master',
+        () => {
+            return {
+                filters: {
+                    department:
+                        frm.doc.to_department || ''
+                }
+            };
+        }
+    );
 }
 
 
 function clear_process_if_department_changed(frm) {
     if (frm.doc.process_master) {
-        frm.set_value('process_master', null);
+        frm.set_value(
+            'process_master',
+            null
+        );
     } else {
         frm.clear_table('issue_items');
         frm.refresh_field('issue_items');
@@ -288,24 +340,43 @@ function clear_process_if_department_changed(frm) {
 
 
 function set_product_query_by_department(frm) {
-    frm.set_query('product', 'issue_items', () => {
-        return {
-            query:
-                'jari_core.jari_core.stock_utils.product_query_by_department',
+    frm.set_query(
+        'product',
+        'issue_items',
+        () => {
+            return {
+                query:
+                    'jari_core.jari_core.stock_utils.product_query_by_department',
 
-            filters: {
-                department: frm.doc.to_department || ''
-            }
-        };
-    });
+                filters: {
+                    department:
+                        frm.doc.to_department || ''
+                }
+            };
+        }
+    );
 }
 
 
-function set_parent_value_if_changed(frm, fieldname, value) {
-    const currentValue = flt(frm.doc[fieldname]);
+function set_parent_value_if_changed(
+    frm,
+    fieldname,
+    value
+) {
+    const currentValue = flt(
+        frm.doc[fieldname]
+    );
+
     const nextValue = flt(value);
 
-    if (Math.abs(currentValue - nextValue) > 0.000001) {
-        frm.set_value(fieldname, nextValue);
+    if (
+        Math.abs(
+            currentValue - nextValue
+        ) > 0.000001
+    ) {
+        frm.set_value(
+            fieldname,
+            nextValue
+        );
     }
 }

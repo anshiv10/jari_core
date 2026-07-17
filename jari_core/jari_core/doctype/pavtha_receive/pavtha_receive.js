@@ -1,5 +1,8 @@
 console.log('Pavtha Receive JS Loaded Successfully');
 
+let pdfPayoutPreviewTimer = null;
+
+
 frappe.ui.form.on('Pavtha Receive', {
     setup(frm) {
         set_pavtha_issue_query(frm);
@@ -17,11 +20,12 @@ frappe.ui.form.on('Pavtha Receive', {
 
         set_default_type_on_receive_rows(frm);
         calculate_pavtha_preview(frm);
+        schedule_pdf_payout_preview(frm);
     },
 
     async pavtha_issue(frm) {
         if (!frm.doc.pavtha_issue) {
-            clear_pavtha_issue_details(frm);
+            await clear_pavtha_issue_details(frm);
             return;
         }
 
@@ -38,6 +42,22 @@ frappe.ui.form.on('Pavtha Receive', {
 
     payout_given(frm) {
         calculate_payout_variance(frm);
+    },
+
+    payout_format(frm) {
+        schedule_pdf_payout_preview(frm);
+    },
+
+    mel(frm) {
+        schedule_pdf_payout_preview(frm);
+    },
+
+    return_weight(frm) {
+        schedule_pdf_payout_preview(frm);
+    },
+
+    bg_deduction_percent(frm) {
+        schedule_pdf_payout_preview(frm);
     }
 });
 
@@ -45,14 +65,22 @@ frappe.ui.form.on('Pavtha Receive', {
 frappe.ui.form.on('Pavtha Output Item', {
     output_items_add(frm, cdt, cdn) {
         set_receive_row_type(frm, cdt, cdn);
+        schedule_pdf_payout_preview(frm);
+    },
+
+    product(frm) {
+        calculate_pavtha_preview(frm);
+        schedule_pdf_payout_preview(frm);
     },
 
     weight(frm) {
         calculate_pavtha_preview(frm);
+        schedule_pdf_payout_preview(frm);
     },
 
     output_items_remove(frm) {
         calculate_pavtha_preview(frm);
+        schedule_pdf_payout_preview(frm);
     }
 });
 
@@ -60,14 +88,22 @@ frappe.ui.form.on('Pavtha Output Item', {
 frappe.ui.form.on('Pavtha Waste Item', {
     waste_items_add(frm, cdt, cdn) {
         set_receive_row_type(frm, cdt, cdn);
+        schedule_pdf_payout_preview(frm);
+    },
+
+    waste_product(frm) {
+        calculate_pavtha_preview(frm);
+        schedule_pdf_payout_preview(frm);
     },
 
     weight(frm) {
         calculate_pavtha_preview(frm);
+        schedule_pdf_payout_preview(frm);
     },
 
     waste_items_remove(frm) {
         calculate_pavtha_preview(frm);
+        schedule_pdf_payout_preview(frm);
     }
 });
 
@@ -90,14 +126,13 @@ async function load_pavtha_issue(frm) {
         );
 
         if (!issue) {
-            frappe.throw(__('The selected Pavtha Issue was not found.'));
+            frappe.throw(
+                __('The selected Pavtha Issue was not found.')
+            );
         }
 
-        /*
-         * issue_receive_type is no longer set on Pavtha Receive.
-         * It is now populated on output and waste child rows.
-         */
-        const transactionType = determine_issue_transaction_type(issue);
+        const transactionType =
+            determine_issue_transaction_type(issue);
 
         await frm.set_value({
             company: issue.company || null,
@@ -105,10 +140,16 @@ async function load_pavtha_issue(frm) {
             process_master: issue.process_master || null,
             quality_code: issue.quality_code || null,
             outsourcer: issue.outsourcer || null,
-            total_input_weight: flt(issue.total_issue_weight)
+            total_input_weight: flt(
+                issue.total_issue_weight
+            )
         });
 
-        await load_jobworker_values(frm, issue);
+        await load_jobworker_values(
+            frm,
+            issue
+        );
+
         await load_process_output_and_waste_items(
             frm,
             issue.process_master,
@@ -116,8 +157,12 @@ async function load_pavtha_issue(frm) {
         );
 
         calculate_pavtha_preview(frm);
+        schedule_pdf_payout_preview(frm);
     } catch (error) {
-        console.error('Unable to load Pavtha Issue:', error);
+        console.error(
+            'Unable to load Pavtha Issue:',
+            error
+        );
 
         frappe.msgprint({
             title: __('Unable to Load Pavtha Issue'),
@@ -142,7 +187,7 @@ function determine_issue_transaction_type(issue) {
     if (itemTypes.length > 1) {
         frappe.throw(
             __(
-                'The selected Pavtha Issue contains both In-house and Outsource item types. A single Pavtha Receive cannot process mixed transaction types.'
+                'The selected Pavtha Issue contains multiple Issue/Receive Types. A single Pavtha Receive cannot process mixed transaction types.'
             )
         );
     }
@@ -151,7 +196,9 @@ function determine_issue_transaction_type(issue) {
         return itemTypes[0];
     }
 
-    return issue.outsourcer ? 'Outsource' : 'In-house';
+    return issue.outsourcer
+        ? 'Readymade'
+        : 'In-house';
 }
 
 
@@ -169,19 +216,27 @@ async function load_jobworker_values(frm, issue) {
         const response = await frappe.db.get_value(
             'Jobworker Master',
             issue.outsourcer,
-            ['rate_per_kg', 'standard_loss_percent']
+            [
+                'rate_per_kg',
+                'standard_loss_percent'
+            ]
         );
 
         const values = response.message || {};
 
         await frm.set_value({
-            rate_per_kg: flt(values.rate_per_kg),
+            rate_per_kg: flt(
+                values.rate_per_kg
+            ),
             loss_standard_percent: flt(
                 values.standard_loss_percent
             )
         });
     } catch (error) {
-        console.error('Unable to load Jobworker Master:', error);
+        console.error(
+            'Unable to load Jobworker Master:',
+            error
+        );
 
         await frm.set_value({
             rate_per_kg: 0,
@@ -189,7 +244,8 @@ async function load_jobworker_values(frm, issue) {
         });
 
         frappe.show_alert({
-            message: __('Unable to load jobworker rate and loss standard.'),
+            message:
+                __('Unable to load jobworker rate and loss standard.'),
             indicator: 'orange'
         });
     }
@@ -239,11 +295,9 @@ async function load_process_output_and_waste_items(
         });
     });
 
-    /*
-     * Preserve your existing Process Master child-table fieldname:
-     * custom_waste_product_items.
-     */
-    (process.custom_waste_product_items || []).forEach(sourceRow => {
+    (
+        process.custom_waste_product_items || []
+    ).forEach(sourceRow => {
         const wasteProduct =
             sourceRow.waste_product ||
             sourceRow.product ||
@@ -290,7 +344,9 @@ function get_receive_transaction_type(frm) {
         return existingTypes[0];
     }
 
-    return frm.doc.outsourcer ? 'Outsource' : 'In-house';
+    return frm.doc.outsourcer
+        ? 'Readymade'
+        : 'In-house';
 }
 
 
@@ -309,7 +365,8 @@ function set_receive_row_type(frm, cdt, cdn) {
 
 
 function set_default_type_on_receive_rows(frm) {
-    const transactionType = get_receive_transaction_type(frm);
+    const transactionType =
+        get_receive_transaction_type(frm);
 
     [
         ...(frm.doc.output_items || []),
@@ -328,69 +385,94 @@ function set_default_type_on_receive_rows(frm) {
 
 
 function calculate_pavtha_preview(frm) {
-    const inputWeight = flt(frm.doc.total_input_weight);
+    const inputWeight = flt(
+        frm.doc.total_input_weight
+    );
 
-    const outputWeight = (frm.doc.output_items || []).reduce(
-        (total, row) => total + flt(row.weight),
+    const outputWeight = (
+        frm.doc.output_items || []
+    ).reduce(
+        (total, row) =>
+            total + flt(row.weight),
         0
     );
 
-    const wasteWeight = (frm.doc.waste_items || []).reduce(
-        (total, row) => total + flt(row.weight),
+    const wasteWeight = (
+        frm.doc.waste_items || []
+    ).reduce(
+        (total, row) =>
+            total + flt(row.weight),
         0
     );
 
-    const rawLossWeight =
-        inputWeight - outputWeight - wasteWeight;
-
-    /*
-     * Do not allow negative process loss silently.
-     * A negative value means output + waste exceeds input.
-     */
-    const lossWeight = rawLossWeight;
+    const lossWeight =
+        inputWeight -
+        outputWeight -
+        wasteWeight;
 
     const lossPercent = inputWeight
-        ? (lossWeight / inputWeight) * 100
+        ? (
+            lossWeight /
+            inputWeight
+        ) * 100
         : 0;
 
     const wastePercent = inputWeight
-        ? (wasteWeight / inputWeight) * 100
+        ? (
+            wasteWeight /
+            inputWeight
+        ) * 100
         : 0;
 
-    const ratePerKg = flt(frm.doc.rate_per_kg);
+    const ratePerKg = flt(
+        frm.doc.rate_per_kg
+    );
+
     const standardLossPercent = flt(
         frm.doc.loss_standard_percent
     );
 
-    const basePayout = inputWeight * ratePerKg;
+    const basePayout =
+        inputWeight *
+        ratePerKg;
+
     const variancePercent =
-        lossPercent - standardLossPercent;
+        lossPercent -
+        standardLossPercent;
 
     let bonusAmount = 0;
     let deductionAmount = 0;
 
     if (variancePercent > 0) {
         const excessLossWeight =
-            inputWeight * variancePercent / 100;
+            inputWeight *
+            variancePercent /
+            100;
 
         deductionAmount =
-            excessLossWeight * ratePerKg;
+            excessLossWeight *
+            ratePerKg;
     } else if (variancePercent < 0) {
         const savedWeight =
-            inputWeight * Math.abs(variancePercent) / 100;
+            inputWeight *
+            Math.abs(variancePercent) /
+            100;
 
         bonusAmount =
-            savedWeight * ratePerKg;
+            savedWeight *
+            ratePerKg;
     }
 
     const payoutSuggestion = Math.max(
         0,
-        basePayout + bonusAmount - deductionAmount
+        basePayout +
+        bonusAmount -
+        deductionAmount
     );
 
     const lossStatus = get_loss_status(
         inputWeight,
-        rawLossWeight,
+        lossWeight,
         lossPercent,
         standardLossPercent
     );
@@ -460,8 +542,13 @@ function calculate_pavtha_preview(frm) {
         );
     }
 
-    if (frm.doc.loss_status !== lossStatus) {
-        frm.set_value('loss_status', lossStatus);
+    if (
+        frm.doc.loss_status !== lossStatus
+    ) {
+        frm.set_value(
+            'loss_status',
+            lossStatus
+        );
     }
 
     calculate_payout_variance(frm);
@@ -478,11 +565,18 @@ function get_loss_status(
         return '';
     }
 
+    /*
+     * Weight Mismatch is not a permitted DocType option.
+     * Python rejects negative process loss during save.
+     */
     if (lossWeight < 0) {
-        return 'Weight Mismatch';
+        return 'Excess Loss';
     }
 
-    if (lossPercent > standardLossPercent) {
+    if (
+        lossPercent >
+        standardLossPercent
+    ) {
         return 'Excess Loss';
     }
 
@@ -491,11 +585,12 @@ function get_loss_status(
 
 
 function calculate_payout_variance(frm) {
-    /*
-     * Use these only if the corresponding fields exist in
-     * Pavtha Receive. Otherwise this function safely does nothing.
-     */
-    if (!frappe.meta.has_field('Pavtha Receive', 'payout_variance')) {
+    if (
+        !frappe.meta.has_field(
+            'Pavtha Receive',
+            'payout_variance'
+        )
+    ) {
         return;
     }
 
@@ -511,8 +606,8 @@ function calculate_payout_variance(frm) {
 }
 
 
-function clear_pavtha_issue_details(frm) {
-    frm.set_value({
+async function clear_pavtha_issue_details(frm) {
+    await frm.set_value({
         company: null,
         batch_no: null,
         process_master: null,
@@ -520,7 +615,13 @@ function clear_pavtha_issue_details(frm) {
         outsourcer: null,
         total_input_weight: 0,
         rate_per_kg: 0,
-        loss_standard_percent: 0
+        loss_standard_percent: 0,
+        used_silver: 0,
+        given_silver: 0,
+        balance_silver: 0,
+        remaining_tar: 0,
+        calculated_payout_amount: 0,
+        payout_summary: ''
     });
 
     frm.clear_table('output_items');
@@ -533,15 +634,191 @@ function clear_pavtha_issue_details(frm) {
 }
 
 
-function set_parent_value_if_changed(frm, fieldname, value) {
-    if (!frappe.meta.has_field('Pavtha Receive', fieldname)) {
+function set_parent_value_if_changed(
+    frm,
+    fieldname,
+    value
+) {
+    if (
+        !frappe.meta.has_field(
+            'Pavtha Receive',
+            fieldname
+        )
+    ) {
         return;
     }
 
-    const currentValue = flt(frm.doc[fieldname]);
+    const currentValue = flt(
+        frm.doc[fieldname]
+    );
+
     const nextValue = flt(value);
 
-    if (Math.abs(currentValue - nextValue) > 0.000001) {
-        frm.set_value(fieldname, nextValue);
+    if (
+        Math.abs(
+            currentValue - nextValue
+        ) > 0.000001
+    ) {
+        frm.set_value(
+            fieldname,
+            nextValue
+        );
+    }
+}
+
+
+function schedule_pdf_payout_preview(frm) {
+    /*
+     * Submitted records are updated only through controlled server-side
+     * backfill. Opening a submitted document must not make it dirty.
+     */
+    if (
+        frm.doc.docstatus !== 0 ||
+        !frm.doc.pavtha_issue ||
+        frm.__applying_pdf_payout_preview
+    ) {
+        return;
+    }
+
+    clearTimeout(
+        pdfPayoutPreviewTimer
+    );
+
+    pdfPayoutPreviewTimer = setTimeout(
+        () => {
+            fetch_pdf_payout_preview(frm);
+        },
+        350
+    );
+}
+
+
+function fetch_pdf_payout_preview(frm) {
+    if (
+        frm.__fetching_pdf_payout_preview ||
+        frm.__applying_pdf_payout_preview
+    ) {
+        return;
+    }
+
+    frm.__fetching_pdf_payout_preview = true;
+
+    frappe.call({
+        method:
+            'jari_core.jari_core.doctype.pavtha_receive.pavtha_receive.preview_pdf_payout',
+
+        args: {
+            doc: JSON.stringify(frm.doc)
+        },
+
+        freeze: false,
+
+        callback(r) {
+            const values = r.message || {};
+
+            apply_pdf_payout_preview(
+                frm,
+                values
+            );
+        },
+
+        error(error) {
+            console.error(
+                'Unable to calculate Pavtha reconciliation preview:',
+                error
+            );
+        },
+
+        always() {
+            frm.__fetching_pdf_payout_preview = false;
+        }
+    });
+}
+
+
+async function apply_pdf_payout_preview(
+    frm,
+    values
+) {
+    frm.__applying_pdf_payout_preview = true;
+
+    try {
+        await set_numeric_field_if_changed(
+            frm,
+            'used_silver',
+            values.used_silver
+        );
+
+        await set_numeric_field_if_changed(
+            frm,
+            'given_silver',
+            values.given_silver
+        );
+
+        await set_numeric_field_if_changed(
+            frm,
+            'balance_silver',
+            values.balance_silver
+        );
+
+        await set_numeric_field_if_changed(
+            frm,
+            'remaining_tar',
+            values.remaining_tar
+        );
+
+        await set_numeric_field_if_changed(
+            frm,
+            'calculated_payout_amount',
+            values.calculated_payout_amount
+        );
+
+        const summary =
+            values.payout_summary || '';
+
+        if (
+            (frm.doc.payout_summary || '')
+            !== summary
+        ) {
+            await frm.set_value(
+                'payout_summary',
+                summary
+            );
+        }
+    } finally {
+        frm.__applying_pdf_payout_preview = false;
+    }
+}
+
+
+async function set_numeric_field_if_changed(
+    frm,
+    fieldname,
+    value
+) {
+    if (
+        !frappe.meta.has_field(
+            'Pavtha Receive',
+            fieldname
+        )
+    ) {
+        return;
+    }
+
+    const currentValue = flt(
+        frm.doc[fieldname]
+    );
+
+    const nextValue = flt(value);
+
+    if (
+        Math.abs(
+            currentValue - nextValue
+        ) > 0.000001
+    ) {
+        await frm.set_value(
+            fieldname,
+            nextValue
+        );
     }
 }

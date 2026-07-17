@@ -1,3 +1,5 @@
+import json
+
 import frappe
 from frappe import _
 from frappe.model.document import Document
@@ -20,19 +22,48 @@ class PavthaReceive(Document):
         self.set_child_type_defaults()
         self.validate_items()
         self.validate_issue_receive_types()
+
+        # Existing production calculations.
         self.calculate_totals()
         self.set_approx_silver()
         self.calculate_payout()
+
+        # Authoritative PDF/physical reconciliation.
+        self.calculate_pdf_payout()
 
     def on_submit(self):
         self.validate_issue_is_submitted_for_receive_submit()
         self.validate_duplicate_submitted_receive()
 
+        # Recalculate authoritative values immediately before submission.
+        self.pull_issue_details()
+        self.set_child_type_defaults()
+        self.validate_items()
+        self.validate_issue_receive_types()
+        self.calculate_totals()
         self.set_approx_silver()
+        self.calculate_payout()
+        self.calculate_pdf_payout()
 
         self.db_set(
             "approx_silver_weight",
             flt(self.approx_silver_weight),
+            update_modified=False,
+        )
+
+        frappe.db.set_value(
+            self.doctype,
+            self.name,
+            {
+                "used_silver": flt(self.used_silver),
+                "given_silver": flt(self.given_silver),
+                "balance_silver": flt(self.balance_silver),
+                "remaining_tar": flt(self.remaining_tar),
+                "calculated_payout_amount": flt(
+                    self.calculated_payout_amount
+                ),
+                "payout_summary": self.payout_summary or "",
+            },
             update_modified=False,
         )
 
@@ -115,10 +146,7 @@ class PavthaReceive(Document):
 
     def pull_issue_details(self):
         """
-        Pull parent information from Pavtha Issue.
-
-        issue_receive_type is no longer copied to Pavtha Receive because
-        the field now exists only on child rows.
+        Pull authoritative parent information from the linked Pavtha Issue.
         """
         if not self.pavtha_issue:
             return
@@ -138,8 +166,7 @@ class PavthaReceive(Document):
 
     def get_issue_receive_types(self):
         """
-        Return the distinct transaction types used in the linked
-        Pavtha Issue child rows.
+        Return distinct Issue/Receive Types from linked issue child rows.
         """
         if not self.pavtha_issue:
             return set()
@@ -162,11 +189,10 @@ class PavthaReceive(Document):
 
     def get_default_issue_receive_type(self):
         """
-        A default can be copied automatically only when the issue has
-        exactly one distinct child-row type.
+        Return one unambiguous type from the linked issue.
 
-        For old records without child values, use In-house as the
-        backward-compatible default.
+        Older records with blank child values use In-house as a
+        backward-compatible fallback.
         """
         issue_types = self.get_issue_receive_types()
 
@@ -180,8 +206,8 @@ class PavthaReceive(Document):
 
     def set_child_type_defaults(self):
         """
-        Populate blank receive child-row types only when the linked issue
-        has one unambiguous transaction type.
+        Populate blank output and waste row types when the linked issue
+        has one unambiguous type.
         """
         default_type = self.get_default_issue_receive_type()
 
@@ -198,16 +224,10 @@ class PavthaReceive(Document):
 
     def validate_issue_receive_types(self):
         """
-        Validate output and waste row transaction types.
-
-        The receive row type must:
-        1. Be one of the allowed values.
-        2. Exist among the transaction types in the linked Pavtha Issue.
+        Validate child Issue/Receive Types against the linked issue.
         """
         issue_types = self.get_issue_receive_types()
 
-        # Compatibility for older submitted issue documents where the
-        # child field may have been blank.
         if not issue_types:
             issue_types = {"In-house"}
 
@@ -245,8 +265,7 @@ class PavthaReceive(Document):
                     frappe.throw(
                         _(
                             "{0} row #{1}: Type {2} does not exist in "
-                            "the linked Pavtha Issue {3}. Available issue "
-                            "types are: {4}."
+                            "linked Pavtha Issue {3}. Available types: {4}."
                         ).format(
                             table_label,
                             row.idx,
@@ -361,6 +380,31 @@ class PavthaReceive(Document):
 
         return ""
 
+    def get_product_tag(self, product):
+        """
+        Return the controlled Product Master product_tag.
+
+        Product document names and display labels are not used for
+        business classification.
+        """
+        if not product:
+            return ""
+
+        if not frappe.db.has_column(
+            "Product Master",
+            "product_tag",
+        ):
+            return ""
+
+        return (
+            frappe.db.get_value(
+                "Product Master",
+                product,
+                "product_tag",
+            )
+            or ""
+        ).strip().upper()
+
     def get_standard_percent(self, fieldname):
         if frappe.db.has_column(
             "Loss Standard Master",
@@ -440,7 +484,7 @@ class PavthaReceive(Document):
             "standard_wastage_percent"
         )
 
-        if flt(self.loss_weight) < 0:
+        if flt(self.loss_weight) < -0.000001:
             frappe.throw(
                 _(
                     "Total Output Weight plus Total Waste Weight cannot "
@@ -452,6 +496,9 @@ class PavthaReceive(Document):
                     flt(self.total_waste_weight),
                 )
             )
+
+        if abs(flt(self.loss_weight)) < 0.000001:
+            self.loss_weight = 0
 
         self.loss_status = (
             "Excess Loss"
@@ -468,6 +515,9 @@ class PavthaReceive(Document):
         )
 
     def calculate_payout(self):
+        """
+        Preserve the existing standard jobworker loss-based payout.
+        """
         self.base_payout = (
             flt(self.total_input_weight)
             * flt(self.rate_per_kg)
@@ -518,6 +568,9 @@ class PavthaReceive(Document):
             self.payout_given = self.payout_suggestion
 
     def calculate_approx_silver(self, weight):
+        """
+        Preserve the existing application formula for compatibility.
+        """
         purity = self.get_quality_purity()
 
         return (
@@ -530,6 +583,10 @@ class PavthaReceive(Document):
         )
 
     def set_approx_silver(self):
+        """
+        Preserve existing approximate-silver behaviour so this repair
+        does not silently alter historical inventory valuation.
+        """
         purity = self.get_quality_purity()
 
         output_approx = 0
@@ -569,6 +626,380 @@ class PavthaReceive(Document):
             output_approx + wastage_approx
         )
 
+    def get_issue_tag_weights(self):
+        """
+        Aggregate linked issue weights by Product Master.product_tag.
+        """
+        totals = {}
+
+        if not self.pavtha_issue:
+            return totals
+
+        issue = frappe.get_doc(
+            "Pavtha Issue",
+            self.pavtha_issue,
+        )
+
+        for row in issue.issue_items or []:
+            tag = self.get_product_tag(row.product)
+
+            if not tag:
+                continue
+
+            totals[tag] = (
+                flt(totals.get(tag))
+                + flt(row.weight)
+            )
+
+        return totals
+
+    def get_silver_bearing_input_products(self):
+        """
+        Return Process Master input products marked silver_bearing = 1.
+        """
+        products = set()
+
+        if not self.process_master:
+            return products
+
+        process = frappe.get_doc(
+            "Process Master",
+            self.process_master,
+        )
+
+        for row in process.input_products or []:
+            product = (
+                getattr(row, "product", None)
+                or getattr(row, "product_code", None)
+                or getattr(row, "item", None)
+                or getattr(row, "item_code", None)
+                or getattr(row, "input_product", None)
+            )
+
+            if (
+                product
+                and int(
+                    getattr(
+                        row,
+                        "silver_bearing",
+                        0,
+                    )
+                    or 0
+                )
+            ):
+                products.add(product)
+
+        return products
+
+    def calculate_given_silver(self):
+        """
+        Given Silver is the purity-adjusted silver_weight of issued
+        Process Master inputs marked silver_bearing = 1.
+
+        For your example:
+            PASA issue weight = 4.000
+            purity = 92%
+            Given Silver = 3.680
+        """
+        if not self.pavtha_issue:
+            return 0
+
+        issue = frappe.get_doc(
+            "Pavtha Issue",
+            self.pavtha_issue,
+        )
+
+        silver_bearing_products = (
+            self.get_silver_bearing_input_products()
+        )
+
+        purity = self.get_quality_purity()
+        total = 0
+
+        for row in issue.issue_items or []:
+            if row.product not in silver_bearing_products:
+                continue
+
+            silver_weight = flt(
+                getattr(
+                    row,
+                    "silver_weight",
+                    0,
+                )
+            )
+
+            if not silver_weight:
+                silver_weight = (
+                    flt(row.weight)
+                    * flt(purity)
+                    / 100
+                )
+
+            total += silver_weight
+
+        return total
+
+    def calculate_pdf_payout(self):
+        """
+        Authoritative Pavtha physical reconciliation.
+
+        Total Receive:
+            Sum of Pavtha output-item weights.
+
+        Total Kachi Goti:
+            Issued KACHI GOTI + issued GOTI.
+
+        B.G. Gms:
+            Issued BADLA GOTI
+            × (100 - B.G. Deduction %) / 100.
+
+        Net:
+            Total Receive
+            - Return
+            - Total Kachi Goti
+            - B.G. Gms.
+
+        Used Silver:
+            Net / ((Mel + 1000) / 1000).
+
+        Given Silver:
+            Purity-adjusted silver_weight of issued Process Master
+            inputs marked silver_bearing = 1.
+
+        Balance Silver:
+            Given Silver - Used Silver.
+        """
+        return_weight = flt(self.return_weight)
+        bg_deduction_percent = flt(
+            self.bg_deduction_percent
+        )
+        mel = flt(self.mel)
+
+        if return_weight < 0:
+            frappe.throw(
+                _("Return Weight cannot be negative.")
+            )
+
+        if (
+            bg_deduction_percent < 0
+            or bg_deduction_percent > 100
+        ):
+            frappe.throw(
+                _(
+                    "B.G. Deduction Percentage must be between "
+                    "0 and 100."
+                )
+            )
+
+        mel_factor = (
+            mel + 1000
+        ) / 1000
+
+        if mel_factor <= 0:
+            frappe.throw(
+                _(
+                    "Mel must be greater than -1000 because "
+                    "(Mel + 1000) / 1000 must be positive."
+                )
+            )
+
+        issue_tag_weights = self.get_issue_tag_weights()
+
+        total_receive = sum(
+            flt(row.weight)
+            for row in self.output_items or []
+        )
+
+        goti_weight = flt(
+            issue_tag_weights.get("GOTI")
+        )
+
+        kachi_goti_weight = flt(
+            issue_tag_weights.get("KACHI GOTI")
+        )
+
+        total_kachi_goti = (
+            goti_weight
+            + kachi_goti_weight
+        )
+
+        badla_goti_weight = flt(
+            issue_tag_weights.get("BADLA GOTI")
+        )
+
+        bg_gms = (
+            badla_goti_weight
+            * (
+                100
+                - bg_deduction_percent
+            )
+            / 100
+        )
+
+        net_weight = (
+            total_receive
+            - return_weight
+            - total_kachi_goti
+            - bg_gms
+        )
+
+        if net_weight < -0.000001:
+            frappe.throw(
+                _(
+                    "Pavtha reconciliation Net cannot be negative. "
+                    "Total Receive: {0} KG, Return: {1} KG, "
+                    "Total Kachi Goti: {2} KG, "
+                    "B.G. Gms: {3} KG, Net: {4} KG."
+                ).format(
+                    frappe.format_value(
+                        total_receive,
+                        {"fieldtype": "Float"},
+                    ),
+                    frappe.format_value(
+                        return_weight,
+                        {"fieldtype": "Float"},
+                    ),
+                    frappe.format_value(
+                        total_kachi_goti,
+                        {"fieldtype": "Float"},
+                    ),
+                    frappe.format_value(
+                        bg_gms,
+                        {"fieldtype": "Float"},
+                    ),
+                    frappe.format_value(
+                        net_weight,
+                        {"fieldtype": "Float"},
+                    ),
+                )
+            )
+
+        net_weight = max(
+            0,
+            net_weight,
+        )
+
+        used_silver = (
+            net_weight
+            / mel_factor
+        )
+
+        given_silver = (
+            self.calculate_given_silver()
+        )
+
+        balance_silver = (
+            given_silver
+            - used_silver
+        )
+
+        self.used_silver = used_silver
+        self.given_silver = given_silver
+        self.balance_silver = balance_silver
+
+        # The supplied physical-reconciliation document does not define
+        # a Remaining TAR or commercial payout formula. Do not invent
+        # financially significant values.
+        self.remaining_tar = 0
+        self.calculated_payout_amount = 0
+
+        self.payout_summary = (
+            self.build_pdf_payout_summary(
+                total_receive=total_receive,
+                return_weight=return_weight,
+                goti_weight=goti_weight,
+                kachi_goti_weight=kachi_goti_weight,
+                total_kachi_goti=total_kachi_goti,
+                badla_goti_weight=badla_goti_weight,
+                bg_deduction_percent=bg_deduction_percent,
+                bg_gms=bg_gms,
+                net_weight=net_weight,
+                mel=mel,
+                mel_factor=mel_factor,
+                used_silver=used_silver,
+                given_silver=given_silver,
+                balance_silver=balance_silver,
+            )
+        )
+
+        return {
+            "total_receive": total_receive,
+            "return_weight": return_weight,
+            "goti_weight": goti_weight,
+            "kachi_goti_weight": kachi_goti_weight,
+            "total_kachi_goti": total_kachi_goti,
+            "badla_goti_weight": badla_goti_weight,
+            "bg_deduction_percent": bg_deduction_percent,
+            "bg_gms": bg_gms,
+            "net_weight": net_weight,
+            "mel": mel,
+            "mel_factor": mel_factor,
+            "used_silver": used_silver,
+            "given_silver": given_silver,
+            "balance_silver": balance_silver,
+            "remaining_tar": flt(self.remaining_tar),
+            "calculated_payout_amount": flt(
+                self.calculated_payout_amount
+            ),
+            "payout_summary": self.payout_summary,
+        }
+
+    def build_pdf_payout_summary(
+        self,
+        total_receive,
+        return_weight,
+        goti_weight,
+        kachi_goti_weight,
+        total_kachi_goti,
+        badla_goti_weight,
+        bg_deduction_percent,
+        bg_gms,
+        net_weight,
+        mel,
+        mel_factor,
+        used_silver,
+        given_silver,
+        balance_silver,
+    ):
+        """
+        Build an auditable, human-readable reconciliation.
+        """
+        return "\n".join(
+            [
+                f"Pavtha Issue: {self.pavtha_issue or ''}",
+                f"Batch No: {self.batch_no or ''}",
+                f"Outsourcer: {self.outsourcer or ''}",
+                f"Quality: {self.quality_code or ''}",
+                "",
+                f"Total Receive: {total_receive:.3f} KG",
+                f"Return: {return_weight:.3f} KG",
+                f"Goti: {goti_weight:.3f} KG",
+                f"Kachi Goti: {kachi_goti_weight:.3f} KG",
+                (
+                    "Total Kachi Goti: "
+                    f"{total_kachi_goti:.3f} KG"
+                ),
+                (
+                    "Badla Goti: "
+                    f"{badla_goti_weight:.3f} KG"
+                ),
+                (
+                    "B.G. Deduction: "
+                    f"{bg_deduction_percent:.3f}%"
+                ),
+                f"B.G. Gms: {bg_gms:.3f} KG",
+                f"Net: {net_weight:.3f} KG",
+                f"Mel: {mel:.3f}",
+                f"Mel Factor: {mel_factor:.6f}",
+                f"Used Silver: {used_silver:.3f} KG",
+                f"Given Silver: {given_silver:.3f} KG",
+                (
+                    "Balance Silver: "
+                    f"{balance_silver:.3f} KG"
+                ),
+            ]
+        )
+
     def get_last_balance(
         self,
         company,
@@ -600,8 +1031,8 @@ class PavthaReceive(Document):
 
     def post_outputs_and_waste(self):
         """
-        Post output and waste inventory using the transaction type
-        stored on each individual child row.
+        Post output and waste inventory using each child row's
+        Issue/Receive Type.
         """
         if self.ledger_exists():
             return
@@ -613,7 +1044,8 @@ class PavthaReceive(Document):
                 continue
 
             issue_receive_type = (
-                row.issue_receive_type or "In-house"
+                row.issue_receive_type
+                or "In-house"
             )
 
             balance = self.get_last_balance(
@@ -632,7 +1064,8 @@ class PavthaReceive(Document):
                     "in_weight": flt(row.weight),
                     "out_weight": 0,
                     "current_balance": (
-                        flt(balance) + flt(row.weight)
+                        flt(balance)
+                        + flt(row.weight)
                     ),
                     "approx_silver_weight": flt(
                         row.approx_silver_weight
@@ -656,7 +1089,8 @@ class PavthaReceive(Document):
                 continue
 
             issue_receive_type = (
-                row.issue_receive_type or "In-house"
+                row.issue_receive_type
+                or "In-house"
             )
 
             balance = self.get_last_balance(
@@ -675,7 +1109,8 @@ class PavthaReceive(Document):
                     "in_weight": flt(row.weight),
                     "out_weight": 0,
                     "current_balance": (
-                        flt(balance) + flt(row.weight)
+                        flt(balance)
+                        + flt(row.weight)
                     ),
                     "approx_silver_weight": flt(
                         row.approx_silver_weight
@@ -693,6 +1128,43 @@ class PavthaReceive(Document):
 
 
 @frappe.whitelist()
+def preview_pdf_payout(doc):
+    """
+    Calculate an unsaved Draft preview through the authoritative Python
+    implementation.
+
+    JavaScript does not reproduce the business formula.
+    """
+    if isinstance(doc, str):
+        doc = json.loads(doc)
+
+    preview_doc = frappe.get_doc(doc)
+
+    if preview_doc.doctype != "Pavtha Receive":
+        frappe.throw(
+            _("Only Pavtha Receive can use this preview.")
+        )
+
+    if not preview_doc.pavtha_issue:
+        return {
+            "used_silver": 0,
+            "given_silver": 0,
+            "balance_silver": 0,
+            "remaining_tar": 0,
+            "calculated_payout_amount": 0,
+            "payout_summary": "",
+        }
+
+    preview_doc.pull_issue_details()
+    preview_doc.set_child_type_defaults()
+    preview_doc.calculate_totals()
+    preview_doc.set_approx_silver()
+    preview_doc.calculate_payout()
+
+    return preview_doc.calculate_pdf_payout()
+
+
+@frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def pavtha_issue_query(
     doctype,
@@ -703,10 +1175,7 @@ def pavtha_issue_query(
     filters,
 ):
     """
-    Search available Pavtha Issues.
-
-    The parent issue_receive_type column was removed. The displayed
-    types are now collected from Pavtha Issue Item child rows.
+    Search available Pavtha Issues and show child-row transaction types.
     """
     return frappe.db.sql(
         """
