@@ -425,6 +425,21 @@ class PavthaReceive(Document):
         return 0
 
     def calculate_totals(self):
+        """
+        Calculate gross weight reconciliation.
+
+        Pavtha output may exceed input because copper or another base
+        metal can be added during processing.
+
+        Therefore:
+            Process Loss
+                = max(Input - Output - Waste, 0)
+
+            Material Addition
+                = max(Output + Waste - Input, 0)
+
+        Loss and material addition are mutually exclusive.
+        """
         output_total = 0
         waste_total = 0
         quality_purity = self.get_quality_purity()
@@ -454,25 +469,55 @@ class PavthaReceive(Document):
         self.total_output_weight = output_total
         self.total_waste_weight = waste_total
 
-        self.loss_weight = (
-            flt(self.total_input_weight)
-            - flt(self.total_output_weight)
-            - flt(self.total_waste_weight)
+        total_input = flt(
+            self.total_input_weight
+        )
+
+        total_processed = (
+            flt(self.total_output_weight)
+            + flt(self.total_waste_weight)
+        )
+
+        gross_difference = (
+            total_input
+            - total_processed
+        )
+
+        # Floating-point tolerance prevents tiny residual values.
+        if abs(gross_difference) < 0.000001:
+            gross_difference = 0
+
+        self.loss_weight = max(
+            gross_difference,
+            0,
+        )
+
+        self.material_addition_weight = max(
+            -gross_difference,
+            0,
         )
 
         self.waste_percent = (
             flt(self.total_waste_weight)
-            / flt(self.total_input_weight)
+            / total_input
             * 100
-            if flt(self.total_input_weight)
+            if total_input
             else 0
         )
 
         self.loss_percent = (
             flt(self.loss_weight)
-            / flt(self.total_input_weight)
+            / total_input
             * 100
-            if flt(self.total_input_weight)
+            if total_input
+            else 0
+        )
+
+        self.material_addition_percent = (
+            flt(self.material_addition_weight)
+            / total_input
+            * 100
+            if total_input
             else 0
         )
 
@@ -483,22 +528,6 @@ class PavthaReceive(Document):
         self.wastage_standard_percent = self.get_standard_percent(
             "standard_wastage_percent"
         )
-
-        if flt(self.loss_weight) < -0.000001:
-            frappe.throw(
-                _(
-                    "Total Output Weight plus Total Waste Weight cannot "
-                    "exceed Total Input Weight. Input: {0} KG, "
-                    "Output: {1} KG, Waste: {2} KG."
-                ).format(
-                    flt(self.total_input_weight),
-                    flt(self.total_output_weight),
-                    flt(self.total_waste_weight),
-                )
-            )
-
-        if abs(flt(self.loss_weight)) < 0.000001:
-            self.loss_weight = 0
 
         self.loss_status = (
             "Excess Loss"
@@ -516,7 +545,15 @@ class PavthaReceive(Document):
 
     def calculate_payout(self):
         """
-        Preserve the existing standard jobworker loss-based payout.
+        Calculate the existing jobworker payout without allowing added
+        copper or other material to create an artificial loss-saving
+        bonus.
+
+        A bonus remains possible only when:
+        - there is no material addition; and
+        - actual process loss is below the standard loss.
+
+        Material addition never creates a deduction or bonus by itself.
         """
         self.base_payout = (
             flt(self.total_input_weight)
@@ -543,7 +580,17 @@ class PavthaReceive(Document):
                 * flt(self.rate_per_kg)
             )
 
-        elif excess_loss_percent < 0:
+        elif (
+            excess_loss_percent < 0
+            and flt(
+                getattr(
+                    self,
+                    "material_addition_weight",
+                    0,
+                )
+            )
+            <= 0.000001
+        ):
             saved_weight = (
                 flt(self.total_input_weight)
                 * abs(excess_loss_percent)

@@ -405,14 +405,42 @@ function calculate_pavtha_preview(frm) {
         0
     );
 
-    const lossWeight =
+    /*
+     * Pavtha gross output may exceed input because copper or another
+     * base metal can be added.
+     */
+    let grossDifference =
         inputWeight -
         outputWeight -
         wasteWeight;
 
+    if (
+        Math.abs(grossDifference)
+        < 0.000001
+    ) {
+        grossDifference = 0;
+    }
+
+    const lossWeight = Math.max(
+        grossDifference,
+        0
+    );
+
+    const materialAdditionWeight = Math.max(
+        -grossDifference,
+        0
+    );
+
     const lossPercent = inputWeight
         ? (
             lossWeight /
+            inputWeight
+        ) * 100
+        : 0;
+
+    const materialAdditionPercent = inputWeight
+        ? (
+            materialAdditionWeight /
             inputWeight
         ) * 100
         : 0;
@@ -452,7 +480,14 @@ function calculate_pavtha_preview(frm) {
         deductionAmount =
             excessLossWeight *
             ratePerKg;
-    } else if (variancePercent < 0) {
+    } else if (
+        variancePercent < 0 &&
+        materialAdditionWeight <= 0.000001
+    ) {
+        /*
+         * Added copper or other material must not create an artificial
+         * saved-loss bonus.
+         */
         const savedWeight =
             inputWeight *
             Math.abs(variancePercent) /
@@ -472,7 +507,6 @@ function calculate_pavtha_preview(frm) {
 
     const lossStatus = get_loss_status(
         inputWeight,
-        lossWeight,
         lossPercent,
         standardLossPercent
     );
@@ -499,6 +533,18 @@ function calculate_pavtha_preview(frm) {
         frm,
         'loss_percent',
         lossPercent
+    );
+
+    set_parent_value_if_changed(
+        frm,
+        'material_addition_weight',
+        materialAdditionWeight
+    );
+
+    set_parent_value_if_changed(
+        frm,
+        'material_addition_percent',
+        materialAdditionPercent
     );
 
     set_parent_value_if_changed(
@@ -554,23 +600,13 @@ function calculate_pavtha_preview(frm) {
     calculate_payout_variance(frm);
 }
 
-
 function get_loss_status(
     inputWeight,
-    lossWeight,
     lossPercent,
     standardLossPercent
 ) {
     if (!inputWeight) {
         return '';
-    }
-
-    /*
-     * Weight Mismatch is not a permitted DocType option.
-     * Python rejects negative process loss during save.
-     */
-    if (lossWeight < 0) {
-        return 'Excess Loss';
     }
 
     if (
@@ -582,7 +618,6 @@ function get_loss_status(
 
     return 'OK';
 }
-
 
 function calculate_payout_variance(frm) {
     if (

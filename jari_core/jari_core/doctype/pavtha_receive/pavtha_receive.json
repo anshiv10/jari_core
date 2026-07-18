@@ -28,6 +28,8 @@
   "total_output_weight",
   "col_break_3",
   "total_waste_weight",
+  "material_addition_weight",
+  "material_addition_percent",
   "approx_silver_output",
   "approx_silver_wastage",
   "approx_silver_weight",
@@ -384,6 +386,18 @@
    "fieldname": "remaining_tar",
    "fieldtype": "Float",
    "label": "Remaining TAR",
+   "read_only": 1
+  },
+  {
+   "fieldname": "material_addition_weight",
+   "fieldtype": "Float",
+   "label": "Material Addition Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "material_addition_percent",
+   "fieldtype": "Percent",
+   "label": "Material Addition %",
    "read_only": 1
   }
  ],
