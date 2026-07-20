@@ -808,6 +808,9 @@ class PavthaReceive(Document):
 
         Balance Silver:
             Given Silver - Used Silver.
+
+        Remaining TAR:
+            Balance Silver × ((Mel + 1000) / 1000).
         """
         return_weight = flt(self.return_weight)
         bg_deduction_percent = flt(
@@ -933,14 +936,24 @@ class PavthaReceive(Document):
             - used_silver
         )
 
+        # Client-approved formula:
+        # Remaining TAR =
+        #     Balance Silver × ((Mel + 1000) / 1000)
+        #
+        # Calculate from the unrounded Balance Silver value and round
+        # only the final result to the Remaining TAR field precision.
+        remaining_tar = flt(
+            flt(balance_silver)
+            * flt(mel_factor),
+            self.precision("remaining_tar"),
+        )
+
         self.used_silver = used_silver
         self.given_silver = given_silver
         self.balance_silver = balance_silver
+        self.remaining_tar = remaining_tar
 
-        # The supplied physical-reconciliation document does not define
-        # a Remaining TAR or commercial payout formula. Do not invent
-        # financially significant values.
-        self.remaining_tar = 0
+        # A commercial payout amount formula has not yet been supplied.
         self.calculated_payout_amount = 0
 
         self.payout_summary = (
@@ -959,6 +972,7 @@ class PavthaReceive(Document):
                 used_silver=used_silver,
                 given_silver=given_silver,
                 balance_silver=balance_silver,
+                remaining_tar=remaining_tar,
             )
         )
 
@@ -1000,6 +1014,7 @@ class PavthaReceive(Document):
         used_silver,
         given_silver,
         balance_silver,
+        remaining_tar,
     ):
         """
         Build an auditable, human-readable reconciliation.
@@ -1036,6 +1051,10 @@ class PavthaReceive(Document):
                 (
                     "Balance Silver: "
                     f"{balance_silver:.3f} KG"
+                ),
+                (
+                    "Remaining TAR: "
+                    f"{remaining_tar:.3f} KG"
                 ),
             ]
         )
