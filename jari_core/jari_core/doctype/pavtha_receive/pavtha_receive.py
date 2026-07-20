@@ -740,51 +740,44 @@ class PavthaReceive(Document):
 
     def calculate_given_silver(self):
         """
-        Given Silver is the purity-adjusted silver_weight of issued
-        Process Master inputs marked silver_bearing = 1.
+        Return the total issued weight of products explicitly tagged
+        SILVER in Product Master.
 
-        For your example:
-            PASA issue weight = 4.000
-            purity = 92%
-            Given Silver = 3.680
+        Client-approved formula:
+            Given Silver =
+                Sum of Pavtha Issue Item.weight
+                where Product Master.product_tag = "SILVER"
+
+        Important:
+        - Use issued gross weight directly.
+        - Do not apply Quality Master purity.
+        - Do not depend on Process Master.silver_bearing.
+        - Sum every matching SILVER row in the linked Pavtha Issue.
         """
         if not self.pavtha_issue:
             return 0
 
-        issue = frappe.get_doc(
-            "Pavtha Issue",
-            self.pavtha_issue,
+        given_silver = frappe.db.sql(
+            """
+            SELECT COALESCE(SUM(pii.weight), 0)
+            FROM `tabPavtha Issue Item` AS pii
+            INNER JOIN `tabProduct Master` AS product
+                ON product.name = pii.product
+            WHERE pii.parent = %(pavtha_issue)s
+              AND pii.parenttype = 'Pavtha Issue'
+              AND pii.parentfield = 'issue_items'
+              AND UPPER(TRIM(COALESCE(product.product_tag, '')))
+                    = 'SILVER'
+            """,
+            {
+                "pavtha_issue": self.pavtha_issue,
+            },
+        )[0][0]
+
+        return flt(
+            given_silver,
+            self.precision("given_silver"),
         )
-
-        silver_bearing_products = (
-            self.get_silver_bearing_input_products()
-        )
-
-        purity = self.get_quality_purity()
-        total = 0
-
-        for row in issue.issue_items or []:
-            if row.product not in silver_bearing_products:
-                continue
-
-            silver_weight = flt(
-                getattr(
-                    row,
-                    "silver_weight",
-                    0,
-                )
-            )
-
-            if not silver_weight:
-                silver_weight = (
-                    flt(row.weight)
-                    * flt(purity)
-                    / 100
-                )
-
-            total += silver_weight
-
-        return total
 
     def calculate_pdf_payout(self):
         """
@@ -810,8 +803,8 @@ class PavthaReceive(Document):
             Net / ((Mel + 1000) / 1000).
 
         Given Silver:
-            Purity-adjusted silver_weight of issued Process Master
-            inputs marked silver_bearing = 1.
+            Total issued weight of Pavtha Issue products whose
+            Product Master.product_tag is SILVER.
 
         Balance Silver:
             Given Silver - Used Silver.
