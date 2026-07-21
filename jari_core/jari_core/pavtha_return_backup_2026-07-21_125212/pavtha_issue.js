@@ -37,11 +37,7 @@ frappe.ui.form.on('Pavtha Issue', {
     },
 
     outsourcer(frm) {
-        /*
-         * Issue/Receive Type is intentionally row-controlled.
-         * Selecting an Outsourcer must not overwrite row values.
-         */
-        set_default_type_on_existing_issue_items(frm);
+        synchronize_issue_item_types(frm);
     }
 });
 
@@ -196,31 +192,26 @@ async function fetch_process_items(frm) {
 
 function get_pavtha_transaction_type(frm) {
     /*
-     * Client-approved behaviour:
-     * every new Product Detail row defaults to In-house.
-     *
-     * The user may manually change an individual row to:
-     * - Readymade
-     * - Return
+     * Outsource is not a permitted child value.
+     * Outsourced/jobworker Pavtha rows use Readymade.
      */
-    return 'In-house';
+    return frm.doc.outsourcer
+        ? 'Readymade'
+        : 'In-house';
 }
 
 
 function synchronize_issue_item_types(frm) {
-    /*
-     * Never overwrite a user's selected classification.
-     * Only repair blank legacy/new rows.
-     */
+    const transactionType =
+        get_pavtha_transaction_type(frm);
+
     (frm.doc.issue_items || []).forEach(row => {
-        if (!row.issue_receive_type) {
-            frappe.model.set_value(
-                row.doctype,
-                row.name,
-                'issue_receive_type',
-                'In-house'
-            );
-        }
+        frappe.model.set_value(
+            row.doctype,
+            row.name,
+            'issue_receive_type',
+            transactionType
+        );
     });
 }
 

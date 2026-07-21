@@ -44,8 +44,7 @@
    "in_standard_filter": 1,
    "label": "Issue/Receive Type",
    "options": "In-house\nReadymade\nReturn",
-   "reqd": 1,
-   "read_only": 0
+   "reqd": 1
   },
   {
    "fieldname": "approx_silver_weight",

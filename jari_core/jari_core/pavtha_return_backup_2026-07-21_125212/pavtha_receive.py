@@ -55,7 +55,6 @@ class PavthaReceive(Document):
             self.doctype,
             self.name,
             {
-                "return_weight": flt(self.return_weight),
                 "used_silver": flt(self.used_silver),
                 "given_silver": flt(self.given_silver),
                 "balance_silver": flt(self.balance_silver),
@@ -225,14 +224,13 @@ class PavthaReceive(Document):
 
     def validate_issue_receive_types(self):
         """
-        Validate row classifications independently.
-
-        Client-approved behaviour:
-        - every row defaults to In-house;
-        - every row remains editable;
-        - Return may be entered in Issue or Receive;
-        - Receive rows are not required to match the Issue row types.
+        Validate child Issue/Receive Types against the linked issue.
         """
+        issue_types = self.get_issue_receive_types()
+
+        if not issue_types:
+            issue_types = {"In-house"}
+
         child_tables = (
             ("output_items", _("Output Item")),
             ("waste_items", _("Waste Item")),
@@ -240,10 +238,19 @@ class PavthaReceive(Document):
 
         for table_fieldname, table_label in child_tables:
             for row in self.get(table_fieldname) or []:
-                if not row.issue_receive_type:
-                    row.issue_receive_type = "In-house"
+                issue_receive_type = row.issue_receive_type
 
-                if row.issue_receive_type not in VALID_ISSUE_RECEIVE_TYPES:
+                if not issue_receive_type:
+                    frappe.throw(
+                        _(
+                            "{0} row #{1}: Issue/Receive Type is required."
+                        ).format(
+                            table_label,
+                            row.idx,
+                        )
+                    )
+
+                if issue_receive_type not in VALID_ISSUE_RECEIVE_TYPES:
                     frappe.throw(
                         _(
                             "{0} row #{1}: Issue/Receive Type must be "
@@ -251,6 +258,20 @@ class PavthaReceive(Document):
                         ).format(
                             table_label,
                             row.idx,
+                        )
+                    )
+
+                if issue_receive_type not in issue_types:
+                    frappe.throw(
+                        _(
+                            "{0} row #{1}: Type {2} does not exist in "
+                            "linked Pavtha Issue {3}. Available types: {4}."
+                        ).format(
+                            table_label,
+                            row.idx,
+                            frappe.bold(issue_receive_type),
+                            frappe.bold(self.pavtha_issue),
+                            ", ".join(sorted(issue_types)),
                         )
                     )
 
@@ -758,114 +779,6 @@ class PavthaReceive(Document):
             self.precision("given_silver"),
         )
 
-    def calculate_auto_return_weight(self):
-        """
-        Calculate the client-approved Return balance.
-
-        Readymade Weight:
-            Sum of linked Pavtha Issue Item weights classified
-            as Readymade.
-
-        Returned Product Weight:
-            Sum of Return-classified rows entered in:
-            - Pavtha Issue Product Detail
-            - Pavtha Receive Received Product Detail
-            - Pavtha Receive Waste Product Detail
-
-        Return:
-            Readymade Weight - Returned Product Weight
-
-        The value is authoritative and cannot be entered manually.
-        """
-        readymade_weight = 0
-        returned_issue_weight = 0
-
-        if self.pavtha_issue:
-            issue = frappe.get_doc(
-                "Pavtha Issue",
-                self.pavtha_issue,
-            )
-
-            for row in issue.issue_items or []:
-                row_type = (
-                    row.issue_receive_type
-                    or "In-house"
-                )
-
-                if row_type == "Readymade":
-                    readymade_weight += flt(row.weight)
-
-                elif row_type == "Return":
-                    returned_issue_weight += flt(row.weight)
-
-        returned_output_weight = sum(
-            flt(row.weight)
-            for row in self.output_items or []
-            if (
-                row.issue_receive_type
-                or "In-house"
-            ) == "Return"
-        )
-
-        returned_waste_weight = sum(
-            flt(row.weight)
-            for row in self.waste_items or []
-            if (
-                row.issue_receive_type
-                or "In-house"
-            ) == "Return"
-        )
-
-        returned_product_weight = (
-            returned_issue_weight
-            + returned_output_weight
-            + returned_waste_weight
-        )
-
-        return_balance = (
-            readymade_weight
-            - returned_product_weight
-        )
-
-        if return_balance < -0.000001:
-            frappe.throw(
-                _(
-                    "Returned Product Weight cannot exceed Readymade "
-                    "Weight. Readymade: {0} KG, Returned: {1} KG."
-                ).format(
-                    frappe.format_value(
-                        readymade_weight,
-                        {"fieldtype": "Float"},
-                    ),
-                    frappe.format_value(
-                        returned_product_weight,
-                        {"fieldtype": "Float"},
-                    ),
-                )
-            )
-
-        return {
-            "readymade_weight": flt(
-                readymade_weight
-            ),
-            "returned_issue_weight": flt(
-                returned_issue_weight
-            ),
-            "returned_output_weight": flt(
-                returned_output_weight
-            ),
-            "returned_waste_weight": flt(
-                returned_waste_weight
-            ),
-            "returned_product_weight": flt(
-                returned_product_weight
-            ),
-            "return_weight": max(
-                0,
-                flt(return_balance),
-            ),
-        }
-
     def calculate_pdf_payout(self):
         """
         Authoritative Pavtha physical reconciliation.
@@ -899,14 +812,7 @@ class PavthaReceive(Document):
         Remaining TAR:
             Balance Silver × ((Mel + 1000) / 1000).
         """
-        return_details = self.calculate_auto_return_weight()
-
-        return_weight = flt(
-            return_details["return_weight"]
-        )
-
-        self.return_weight = return_weight
-
+        return_weight = flt(self.return_weight)
         bg_deduction_percent = flt(
             self.bg_deduction_percent
         )
@@ -1072,21 +978,6 @@ class PavthaReceive(Document):
 
         return {
             "total_receive": total_receive,
-            "readymade_weight": flt(
-                return_details["readymade_weight"]
-            ),
-            "returned_product_weight": flt(
-                return_details["returned_product_weight"]
-            ),
-            "returned_issue_weight": flt(
-                return_details["returned_issue_weight"]
-            ),
-            "returned_output_weight": flt(
-                return_details["returned_output_weight"]
-            ),
-            "returned_waste_weight": flt(
-                return_details["returned_waste_weight"]
-            ),
             "return_weight": return_weight,
             "goti_weight": goti_weight,
             "kachi_goti_weight": kachi_goti_weight,
@@ -1136,11 +1027,7 @@ class PavthaReceive(Document):
                 f"Quality: {self.quality_code or ''}",
                 "",
                 f"Total Receive: {total_receive:.3f} KG",
-                (
-                    "Return: "
-                    f"{return_weight:.3f} KG "
-                    "(auto-calculated)"
-                ),
+                f"Return: {return_weight:.3f} KG",
                 f"Goti: {goti_weight:.3f} KG",
                 f"Kachi Goti: {kachi_goti_weight:.3f} KG",
                 (
@@ -1319,9 +1206,6 @@ def preview_pdf_payout(doc):
 
     if not preview_doc.pavtha_issue:
         return {
-            "return_weight": 0,
-            "readymade_weight": 0,
-            "returned_product_weight": 0,
             "used_silver": 0,
             "given_silver": 0,
             "balance_silver": 0,

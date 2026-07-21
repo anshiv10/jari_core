@@ -44,7 +44,8 @@
    "in_standard_filter": 1,
    "label": "Issue/Receive Type",
    "options": "In-house\nReadymade\nReturn",
-   "reqd": 1
+   "reqd": 1,
+   "read_only": 0
   },
   {
    "columns": 2,

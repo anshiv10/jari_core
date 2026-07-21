@@ -52,6 +52,10 @@ frappe.ui.form.on('Pavtha Receive', {
         schedule_pdf_payout_preview(frm);
     },
 
+    return_weight(frm) {
+        schedule_pdf_payout_preview(frm);
+    },
+
     bg_deduction_percent(frm) {
         schedule_pdf_payout_preview(frm);
     }
@@ -70,11 +74,6 @@ frappe.ui.form.on('Pavtha Output Item', {
     },
 
     weight(frm) {
-        calculate_pavtha_preview(frm);
-        schedule_pdf_payout_preview(frm);
-    },
-
-    issue_receive_type(frm) {
         calculate_pavtha_preview(frm);
         schedule_pdf_payout_preview(frm);
     },
@@ -98,11 +97,6 @@ frappe.ui.form.on('Pavtha Waste Item', {
     },
 
     weight(frm) {
-        calculate_pavtha_preview(frm);
-        schedule_pdf_payout_preview(frm);
-    },
-
-    issue_receive_type(frm) {
         calculate_pavtha_preview(frm);
         schedule_pdf_payout_preview(frm);
     },
@@ -182,11 +176,29 @@ async function load_pavtha_issue(frm) {
 
 
 function determine_issue_transaction_type(issue) {
-    /*
-     * Every newly generated Receive row starts as In-house.
-     * Users may independently change rows to Readymade or Return.
-     */
-    return 'In-house';
+    const itemTypes = [
+        ...new Set(
+            (issue.issue_items || [])
+                .map(row => row.issue_receive_type)
+                .filter(Boolean)
+        )
+    ];
+
+    if (itemTypes.length > 1) {
+        frappe.throw(
+            __(
+                'The selected Pavtha Issue contains multiple Issue/Receive Types. A single Pavtha Receive cannot process mixed transaction types.'
+            )
+        );
+    }
+
+    if (itemTypes.length === 1) {
+        return itemTypes[0];
+    }
+
+    return issue.outsourcer
+        ? 'Readymade'
+        : 'In-house';
 }
 
 
@@ -321,10 +333,20 @@ async function load_process_output_and_waste_items(
 
 
 function get_receive_transaction_type(frm) {
-    /*
-     * Client-approved default for every newly added row.
-     */
-    return 'In-house';
+    const existingTypes = [
+        ...(frm.doc.output_items || []),
+        ...(frm.doc.waste_items || [])
+    ]
+        .map(row => row.issue_receive_type)
+        .filter(Boolean);
+
+    if (existingTypes.length) {
+        return existingTypes[0];
+    }
+
+    return frm.doc.outsourcer
+        ? 'Readymade'
+        : 'In-house';
 }
 
 
@@ -632,7 +654,6 @@ async function clear_pavtha_issue_details(frm) {
         used_silver: 0,
         given_silver: 0,
         balance_silver: 0,
-        return_weight: 0,
         remaining_tar: 0,
         calculated_payout_amount: 0,
         payout_summary: ''
@@ -757,12 +778,6 @@ async function apply_pdf_payout_preview(
     frm.__applying_pdf_payout_preview = true;
 
     try {
-        await set_numeric_field_if_changed(
-            frm,
-            'return_weight',
-            values.return_weight
-        );
-
         await set_numeric_field_if_changed(
             frm,
             'used_silver',

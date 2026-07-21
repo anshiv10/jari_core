@@ -356,9 +356,7 @@
   {
    "fieldname": "return_weight",
    "fieldtype": "Float",
-   "label": "Return",
-   "read_only": 1,
-   "description": "Automatically calculated as Readymade Weight minus Returned Product Weight."
+   "label": "Return"
   },
   {
    "fieldname": "bg_deduction_percent",
