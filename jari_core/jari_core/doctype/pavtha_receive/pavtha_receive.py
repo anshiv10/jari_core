@@ -765,12 +765,12 @@ class PavthaReceive(Document):
         Client-approved formula:
 
             Return =
-                Sum of Pavtha Receive Received Product Detail weights
-                where Issue/Receive Type = "Return"
+                Return-labelled Pavtha Issue Product Weight
+                + Return-labelled Pavtha Receive Product Weight
 
         Important:
-        - Only output_items / Received Product Detail contributes.
-        - Return-classified Pavtha Issue rows do not contribute.
+        - Pavtha Issue Product Detail rows labelled Return contribute.
+        - Pavtha Receive Received Product Detail rows labelled Return contribute.
         - Readymade weight is not subtracted.
         - Waste Product Detail rows do not contribute.
         """
@@ -818,8 +818,14 @@ class PavthaReceive(Document):
             ) == "Return"
         )
 
-        returned_product_weight = flt(
-            returned_output_weight
+        # Client-approved Return:
+        # Return-labelled product weight from Issue
+        # + Return-labelled product weight from Receive.
+        #
+        # Waste Product Detail does not contribute.
+        returned_product_weight = (
+            flt(returned_issue_weight)
+            + flt(returned_output_weight)
         )
 
         return {
@@ -839,7 +845,7 @@ class PavthaReceive(Document):
                 returned_product_weight
             ),
             "return_weight": flt(
-                returned_output_weight
+                returned_product_weight
             ),
         }
 
@@ -1116,7 +1122,7 @@ class PavthaReceive(Document):
                 (
                     "Return: "
                     f"{return_weight:.3f} KG "
-                    "(Return-labelled product total)"
+                    "(Issue + Receive Return-labelled product total)"
                 ),
                 f"Goti: {goti_weight:.3f} KG",
                 f"Kachi Goti: {kachi_goti_weight:.3f} KG",

@@ -358,7 +358,7 @@
    "fieldtype": "Float",
    "label": "Return",
    "read_only": 1,
-   "description": "Automatically calculated as the total weight of Received Product Detail rows labelled Return."
+   "description": "Automatically calculated as Return-labelled Product Weight from Pavtha Issue plus Return-labelled Product Weight from Pavtha Receive."
   },
   {
    "fieldname": "bg_deduction_percent",
