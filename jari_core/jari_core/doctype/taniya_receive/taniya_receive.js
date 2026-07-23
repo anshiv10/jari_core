@@ -65,6 +65,12 @@ frappe.ui.form.on('Taniya Receive', {
                         frm.clear_table('output_items');
                         frm.clear_table('waste_items');
 
+                        /*
+                         * Prevent manual-row copy logic from running while
+                         * Process Master rows are being generated.
+                         */
+                        frm.__loading_taniya_process_rows = true;
+
                         (p.output_products || []).forEach(row => {
                             let product = row.product || row.product_code || row.item || row.item_code || row.output_product;
                             let d = frm.add_child('output_items');
@@ -85,6 +91,8 @@ frappe.ui.form.on('Taniya Receive', {
                             d.uom = row.uom || row.unit || 'KG';
                         });
 
+                        frm.__loading_taniya_process_rows = false;
+
                         frm.refresh_field('output_items');
                         frm.refresh_field('waste_items');
                         set_all_product_names(frm);
@@ -97,6 +105,10 @@ frappe.ui.form.on('Taniya Receive', {
 
 frappe.ui.form.on('Taniya Output Item', {
     async output_items_add(frm, cdt, cdn) {
+        if (frm.__loading_taniya_process_rows) {
+            return;
+        }
+
         const previousRow = get_previous_child_row(
             frm,
             'output_items',
@@ -132,6 +144,10 @@ frappe.ui.form.on('Taniya Output Item', {
 
 frappe.ui.form.on('Taniya Waste Item', {
     async waste_items_add(frm, cdt, cdn) {
+        if (frm.__loading_taniya_process_rows) {
+            return;
+        }
+
         const previousRow = get_previous_child_row(
             frm,
             'waste_items',
