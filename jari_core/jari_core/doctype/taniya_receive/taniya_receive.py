@@ -11,8 +11,66 @@ class TaniyaReceive(Document):
         self.validate_items()
         self.calculate_totals()
         self.set_approx_silver()
-        from jari_core.jari_core.payout_utils import calculate_taniya_payout
-        calculate_taniya_payout(self)
+        self.apply_payout_if_outsourced()
+
+    def is_outsourced_process(self):
+        """
+        Return whether the linked Process Master is outsourced.
+
+        Payout calculation is applicable only to outsourced processes.
+        """
+        if not self.process_master:
+            return False
+
+        return bool(
+            frappe.db.get_value(
+                "Process Master",
+                self.process_master,
+                "is_outsourced",
+            )
+        )
+
+    def clear_payout_values(self):
+        """
+        Prevent stale outsourced payout values from remaining on an
+        in-house Taniya Receive.
+        """
+        self.payout_format = None
+        self.majoori_rate = 0
+        self.estimated_goti = 0
+        self.estimated_aur = 0
+        self.majoori_on = 0
+        self.calculated_payout_amount = 0
+        self.payout_summary = ""
+
+    def apply_payout_if_outsourced(self):
+        """
+        Apply Taniya payout only when Process Master is outsourced.
+
+        In-house processing continues through the normal Issue/Receive
+        workflow without any payout dependency.
+        """
+        if not self.is_outsourced_process():
+            self.clear_payout_values()
+            return
+
+        from jari_core.jari_core import payout_utils
+
+        calculator = getattr(
+            payout_utils,
+            "calculate_taniya_payout",
+            None,
+        )
+
+        if not callable(calculator):
+            frappe.throw(
+                "This Taniya process is marked as Outsourced, but the "
+                "Taniya payout calculator is not configured. Please "
+                "restore calculate_taniya_payout in payout_utils.py "
+                "before saving an outsourced Taniya Receive."
+            )
+
+        calculator(self)
 
     def validate_duplicate_submitted_receive(self):
         if not self.taniya_issue:
