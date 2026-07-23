@@ -13,6 +13,19 @@ frappe.ui.form.on('Spindal Issue', {
         refresh_all_stock_summaries(frm);
     },
 
+    after_save(frm) {
+        /*
+         * Saved Draft rows are now stock reservations.
+         * Refresh all stock summaries immediately after Save.
+         */
+        refresh_all_stock_summaries(frm);
+    },
+
+    from_department(frm) {
+        set_product_query_by_department(frm);
+        refresh_all_stock_summaries(frm);
+    },
+
     to_department(frm) {
         set_product_query_by_department(frm);
         clear_process_if_department_changed(frm);
@@ -110,7 +123,7 @@ function fetch_spindal_stock_summary(frm, cdt, cdn, product) {
     if (!product) return;
 
     frappe.call({
-        method: "jari_core.jari_core.doctype.spindal_issue.spindal_issue.get_product_stock_summary",
+        method: "jari_core.jari_core.doctype.spindal_issue.spindal_issue.get_spindal_stock_summary",
         args: { product: product, company: frm.doc.company || null },
         callback(r) {
             frappe.model.set_value(cdt, cdn, "current_stock_summary", r.message || "No stock available");
