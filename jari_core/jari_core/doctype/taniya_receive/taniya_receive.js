@@ -96,9 +96,33 @@ frappe.ui.form.on('Taniya Receive', {
 });
 
 frappe.ui.form.on('Taniya Output Item', {
-    output_items_add(frm, cdt, cdn) {
-        frappe.model.set_value(cdt, cdn, 'receive_date', frm.doc.receive_date || frappe.datetime.get_today());
-        frappe.model.set_value(cdt, cdn, 'operator_name', frm.doc.operator);
+    async output_items_add(frm, cdt, cdn) {
+        const previousRow = get_previous_child_row(
+            frm,
+            'output_items',
+            cdn
+        );
+
+        if (previousRow) {
+            await set_child_values(cdt, cdn, {
+                operator_name: previousRow.operator_name,
+                receive_date: previousRow.receive_date,
+                product: previousRow.product,
+                product_name: previousRow.product_name,
+                uom: previousRow.uom,
+                weight: 0,
+                approx_silver_weight: 0
+            });
+        } else {
+            await set_child_values(cdt, cdn, {
+                receive_date:
+                    frm.doc.receive_date ||
+                    frappe.datetime.get_today(),
+                operator_name: frm.doc.operator,
+                weight: 0,
+                approx_silver_weight: 0
+            });
+        }
     },
 
     product(frm, cdt, cdn) {
@@ -107,15 +131,75 @@ frappe.ui.form.on('Taniya Output Item', {
 });
 
 frappe.ui.form.on('Taniya Waste Item', {
-    waste_items_add(frm, cdt, cdn) {
-        frappe.model.set_value(cdt, cdn, 'receive_date', frm.doc.receive_date || frappe.datetime.get_today());
-        frappe.model.set_value(cdt, cdn, 'operator_name', frm.doc.operator);
+    async waste_items_add(frm, cdt, cdn) {
+        const previousRow = get_previous_child_row(
+            frm,
+            'waste_items',
+            cdn
+        );
+
+        if (previousRow) {
+            await set_child_values(cdt, cdn, {
+                operator_name: previousRow.operator_name,
+                receive_date: previousRow.receive_date,
+                waste_product: previousRow.waste_product,
+                product_name: previousRow.product_name,
+                uom: previousRow.uom,
+                weight: 0,
+                approx_silver_weight: 0
+            });
+        } else {
+            await set_child_values(cdt, cdn, {
+                receive_date:
+                    frm.doc.receive_date ||
+                    frappe.datetime.get_today(),
+                operator_name: frm.doc.operator,
+                weight: 0,
+                approx_silver_weight: 0
+            });
+        }
     },
 
     waste_product(frm, cdt, cdn) {
         set_product_name(cdt, cdn, 'waste_product');
     }
 });
+
+
+function get_previous_child_row(
+    frm,
+    tableFieldname,
+    currentRowName
+) {
+    const rows = frm.doc[tableFieldname] || [];
+
+    const currentIndex = rows.findIndex(
+        row => row.name === currentRowName
+    );
+
+    if (currentIndex <= 0) {
+        return null;
+    }
+
+    return rows[currentIndex - 1];
+}
+
+
+async function set_child_values(
+    cdt,
+    cdn,
+    values
+) {
+    for (const [fieldname, value] of Object.entries(values)) {
+        await frappe.model.set_value(
+            cdt,
+            cdn,
+            fieldname,
+            value ?? null
+        );
+    }
+}
+
 
 function set_all_product_names(frm) {
     (frm.doc.output_items || []).forEach(row => {
