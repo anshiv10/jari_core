@@ -171,7 +171,7 @@ function set_product_query_by_department(frm) {
         return {
             query: 'jari_core.jari_core.stock_utils.product_query_by_department',
             filters: {
-                department: frm.doc.to_department || ''
+                department: frm.doc.from_department || ''
             }
         };
     });
