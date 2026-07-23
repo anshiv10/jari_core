@@ -337,13 +337,16 @@ def calculate_taniya_payout(doc):
         - estimated_goti
     )
 
-    tar_rate = get_payout_format_rate(
-        doc,
+    # Client-approved Taniya payout rule:
+    # TAR and GOTI rates come from the linked Process Master
+    # product rows, matched using Product Master.product_tag.
+    tar_rate = get_payout_rate_from_process(
+        doc.process_master,
         "TAR",
     )
 
-    goti_rate = get_payout_format_rate(
-        doc,
+    goti_rate = get_payout_rate_from_process(
+        doc.process_master,
         "GOTI",
     )
 
