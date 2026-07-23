@@ -23,6 +23,16 @@ frappe.ui.form.on('Purchase Entry Item', {
         calculate_purchase_totals(frm);
     },
 
+    price_per_kg(frm, cdt, cdn) {
+        calculate_purchase_row(cdt, cdn);
+        calculate_purchase_totals(frm);
+    },
+
+    gst_percent(frm, cdt, cdn) {
+        calculate_purchase_row(cdt, cdn);
+        calculate_purchase_totals(frm);
+    },
+
     items_remove(frm) {
         calculate_purchase_totals(frm);
     }
@@ -36,11 +46,43 @@ function calculate_purchase_row(cdt, cdn) {
         ? 100
         : flt(row.purity_percent);
 
+    let pricePerKg = flt(row.price_per_kg);
+    let gstPercent = flt(row.gst_percent);
+
     let deduction = gross * (1 - purity / 100);
     let net = gross - deduction;
 
-    frappe.model.set_value(cdt, cdn, 'deduction_weight', deduction);
-    frappe.model.set_value(cdt, cdn, 'net_weight', net);
+    let untaxedAmount = pricePerKg * gross;
+    let gstAmount = untaxedAmount * gstPercent / 100;
+    let amount = untaxedAmount + gstAmount;
+
+    frappe.model.set_value(
+        cdt,
+        cdn,
+        'deduction_weight',
+        deduction
+    );
+
+    frappe.model.set_value(
+        cdt,
+        cdn,
+        'net_weight',
+        net
+    );
+
+    frappe.model.set_value(
+        cdt,
+        cdn,
+        'untaxed_amount',
+        untaxedAmount
+    );
+
+    frappe.model.set_value(
+        cdt,
+        cdn,
+        'amount',
+        amount
+    );
 }
 
 function calculate_purchase_totals(frm) {

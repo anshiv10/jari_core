@@ -9,6 +9,7 @@ class PurchaseEntry(Document):
         self.set_defaults()
         self.validate_items()
         self.calculate_item_weights()
+        self.calculate_item_amounts()
         self.calculate_totals()
 
     def on_submit(self):
@@ -41,15 +42,59 @@ class PurchaseEntry(Document):
             row.deduction_weight = flt(row.gross_weight) * (1 - purity / 100)
             row.net_weight = flt(row.gross_weight) - flt(row.deduction_weight)
 
+    def calculate_item_amounts(self):
+        """
+        Calculate monetary values for every Purchase Item.
+
+        Untaxed Amount = Price/KG x Gross Weight
+        GST Amount     = Untaxed Amount x GST % / 100
+        Amount         = Untaxed Amount + GST Amount
+        """
+        for row in self.items:
+            price_per_kg = flt(row.price_per_kg)
+            gross_weight = flt(row.gross_weight)
+            gst_percent = flt(row.gst_percent)
+
+            if price_per_kg < 0:
+                frappe.throw(
+                    f"Price/KG cannot be negative for product "
+                    f"{row.product}."
+                )
+
+            if gst_percent < 0 or gst_percent > 100:
+                frappe.throw(
+                    f"GST % for product {row.product} must be "
+                    f"between 0 and 100."
+                )
+
+            untaxed_amount = (
+                price_per_kg
+                * gross_weight
+            )
+
+            gst_amount = (
+                untaxed_amount
+                * gst_percent
+                / 100
+            )
+
+            row.untaxed_amount = untaxed_amount
+            row.amount = (
+                untaxed_amount
+                + gst_amount
+            )
+
     def calculate_totals(self):
         self.total_gross_weight = 0
         self.total_deduction_weight = 0
         self.total_net_weight = 0
+        self.total_amount = 0
 
         for row in self.items:
             self.total_gross_weight += flt(row.gross_weight)
             self.total_deduction_weight += flt(row.deduction_weight)
             self.total_net_weight += flt(row.net_weight)
+            self.total_amount += flt(row.amount)
 
     def get_last_balance(self, product):
         return frappe.db.get_value(

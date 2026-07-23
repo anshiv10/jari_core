@@ -17,6 +17,7 @@
   "total_gross_weight",
   "total_deduction_weight",
   "total_net_weight",
+  "total_amount",
   "status_section",
   "status",
   "remarks",
@@ -89,6 +90,12 @@
    "fieldname": "total_net_weight",
    "fieldtype": "Float",
    "label": "Total Net Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_amount",
+   "fieldtype": "Currency",
+   "label": "Total Amount",
    "read_only": 1
   },
   {
