@@ -170,3 +170,222 @@ Actual YTC Received from KASAB: {received_ytc:.3f}<br>
 """.strip()
 
     return doc
+
+
+def get_payout_format_rate(doc, tag):
+    """
+    Return the configured payout rate for a Product Tag from the
+    selected Payout Format Master.
+    """
+    if not doc.get("payout_format"):
+        return 0
+
+    payout_format = frappe.get_doc(
+        "Payout Format Master",
+        doc.payout_format,
+    )
+
+    wanted_tag = (tag or "").strip().upper()
+
+    for row in payout_format.rate_items or []:
+        row_tag = (
+            row.product_tag
+            or ""
+        ).strip().upper()
+
+        if row_tag == wanted_tag:
+            return flt(row.rate)
+
+    return 0
+
+
+def get_taniya_expected_percent(process_master, tag):
+    """
+    Return expected waste percentage from Process Master using the
+    Product Master product_tag classification.
+    """
+    if not process_master:
+        return 0
+
+    process = frappe.get_doc(
+        "Process Master",
+        process_master,
+    )
+
+    wanted_tag = (tag or "").strip().upper()
+
+    for row in process.custom_waste_product_items or []:
+        if product_tag(row.waste_product) == wanted_tag:
+            return flt(row.expected_percent)
+
+    return 0
+
+
+def sum_taniya_receive_by_tag(doc, tag):
+    """
+    Sum Taniya Receive output and waste rows matching Product Tag.
+    """
+    wanted_tag = (tag or "").strip().upper()
+    total = 0
+
+    for row in doc.get("output_items") or []:
+        if product_tag(
+            getattr(row, "product", None)
+        ) == wanted_tag:
+            total += flt(row.weight)
+
+    for row in doc.get("waste_items") or []:
+        if product_tag(
+            getattr(row, "waste_product", None)
+        ) == wanted_tag:
+            total += flt(row.weight)
+
+    return total
+
+
+def calculate_taniya_payout(doc):
+    """
+    Calculate outsourced Taniya payout.
+
+    Historical business formula restored from the later Taniya
+    implementation, adapted to the current payout_utils architecture.
+
+    This function must be called only when Process Master.is_outsourced
+    is enabled.
+    """
+    if not doc.get("batch_no"):
+        return doc
+
+    if not doc.get("payout_format"):
+        frappe.throw(
+            "Payout Format is required for an outsourced Taniya process."
+        )
+
+    issues = frappe.get_all(
+        "Taniya Issue",
+        filters={
+            "batch_no": doc.batch_no,
+            "docstatus": ["in", [0, 1]],
+        },
+        pluck="name",
+    )
+
+    total_issue = 0
+
+    for issue_name in issues:
+        total_issue += flt(
+            frappe.db.get_value(
+                "Taniya Issue",
+                issue_name,
+                "total_issue_weight",
+            )
+        )
+
+    goti_percent = get_taniya_expected_percent(
+        doc.process_master,
+        "GOTI",
+    )
+
+    estimated_goti = (
+        total_issue
+        * goti_percent
+        / 100
+    )
+
+    estimated_aur = (
+        total_issue
+        - estimated_goti
+    )
+
+    if not flt(doc.majoori_rate):
+        payout_format = frappe.get_doc(
+            "Payout Format Master",
+            doc.payout_format,
+        )
+
+        doc.majoori_rate = flt(
+            payout_format.majoori_rate
+        )
+
+    majoori_on = (
+        estimated_aur
+        * flt(doc.majoori_rate)
+    )
+
+    tar_received = (
+        sum_taniya_receive_by_tag(doc, "TAR")
+        + sum_taniya_receive_by_tag(doc, "TAR (Y)")
+    )
+
+    goti_received = sum_taniya_receive_by_tag(
+        doc,
+        "GOTI",
+    )
+
+    total_receive = (
+        tar_received
+        + goti_received
+    )
+
+    tar_diff = (
+        tar_received
+        - estimated_aur
+    )
+
+    goti_diff = (
+        goti_received
+        - estimated_goti
+    )
+
+    tar_rate = get_payout_format_rate(
+        doc,
+        "TAR",
+    )
+
+    goti_rate = get_payout_format_rate(
+        doc,
+        "GOTI",
+    )
+
+    tar_amount = (
+        tar_diff
+        * tar_rate
+    )
+
+    goti_amount = (
+        goti_diff
+        * goti_rate
+    )
+
+    doc.estimated_goti = estimated_goti
+    doc.estimated_aur = estimated_aur
+    doc.majoori_on = majoori_on
+
+    doc.calculated_payout_amount = (
+        majoori_on
+        + tar_amount
+        + goti_amount
+    )
+
+    doc.payout_summary = (
+        f"Total Issue: {total_issue:.3f}\n"
+        f"Total Receive: {total_receive:.3f}\n"
+        f"Estimated Goti %: {goti_percent:.3f}\n"
+        f"Estimated Goti: {estimated_goti:.3f}\n"
+        f"Estimated AUR: {estimated_aur:.3f}\n"
+        f"Majoori On: {estimated_aur:.3f} x "
+        f"{flt(doc.majoori_rate):.2f} = {majoori_on:.2f}\n\n"
+        f"TAR Received: {tar_received:.3f}, "
+        f"Estimated: {estimated_aur:.3f}, "
+        f"Difference: {tar_diff:.3f}, "
+        f"Rate: {tar_rate:.2f}, "
+        f"Amount: {tar_amount:.2f}\n"
+        f"GOTI Received: {goti_received:.3f}, "
+        f"Estimated: {estimated_goti:.3f}, "
+        f"Difference: {goti_diff:.3f}, "
+        f"Rate: {goti_rate:.2f}, "
+        f"Amount: {goti_amount:.2f}\n"
+        f"Total Payout: {flt(doc.calculated_payout_amount):.2f}"
+    )
+
+    return doc
