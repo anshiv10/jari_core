@@ -86,17 +86,35 @@ function calculate_purchase_row(cdt, cdn) {
 }
 
 function calculate_purchase_totals(frm) {
-    let total_gross = 0;
-    let total_deduction = 0;
-    let total_net = 0;
+    let totalGross = 0;
+    let totalDeduction = 0;
+    let totalNet = 0;
+    let totalAmount = 0;
 
     (frm.doc.items || []).forEach(row => {
-        total_gross += flt(row.gross_weight);
-        total_deduction += flt(row.deduction_weight);
-        total_net += flt(row.net_weight);
+        totalGross += flt(row.gross_weight);
+        totalDeduction += flt(row.deduction_weight);
+        totalNet += flt(row.net_weight);
+        totalAmount += flt(row.amount);
     });
 
-    frm.set_value('total_gross_weight', total_gross);
-    frm.set_value('total_deduction_weight', total_deduction);
-    frm.set_value('total_net_weight', total_net);
+    frm.set_value(
+        'total_gross_weight',
+        totalGross
+    );
+
+    frm.set_value(
+        'total_deduction_weight',
+        totalDeduction
+    );
+
+    frm.set_value(
+        'total_net_weight',
+        totalNet
+    );
+
+    frm.set_value(
+        'total_amount',
+        totalAmount
+    );
 }
