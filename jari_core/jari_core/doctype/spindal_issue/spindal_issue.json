@@ -93,14 +93,16 @@
    "fieldname": "quality_code",
    "fieldtype": "Link",
    "label": "Quality Code",
-   "options": "Quality Master"
+   "options": "Quality Master",
+   "hidden": 1
   },
   {
    "fieldname": "operator",
    "fieldtype": "Link",
    "label": "Operator Name",
    "options": "Worker Master",
-   "in_list_view": 1
+   "in_list_view": 1,
+   "hidden": 1
   },
   {
    "default": "1",
