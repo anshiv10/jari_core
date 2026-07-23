@@ -827,22 +827,10 @@ class PavthaReceive(Document):
             - returned_product_weight
         )
 
-        if return_balance < -0.000001:
-            frappe.throw(
-                _(
-                    "Returned Product Weight cannot exceed Readymade "
-                    "Weight. Readymade: {0} KG, Returned: {1} KG."
-                ).format(
-                    frappe.format_value(
-                        readymade_weight,
-                        {"fieldtype": "Float"},
-                    ),
-                    frappe.format_value(
-                        returned_product_weight,
-                        {"fieldtype": "Float"},
-                    ),
-                )
-            )
+        # Client-approved behaviour:
+        # Returned Product Weight may exceed Readymade Weight.
+        # In that situation, Return Weight is restricted to zero below
+        # instead of blocking Save or Submit.
 
         return {
             "readymade_weight": flt(
