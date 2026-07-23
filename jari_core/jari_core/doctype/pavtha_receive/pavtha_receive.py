@@ -760,26 +760,25 @@ class PavthaReceive(Document):
 
     def calculate_auto_return_weight(self):
         """
-        Calculate the client-approved Return balance.
+        Calculate the client-approved Return weight.
 
-        Readymade Weight:
-            Sum of linked Pavtha Issue Item weights classified
-            as Readymade.
+        Client-approved formula:
 
-        Returned Product Weight:
-            Sum of Return-classified rows entered in:
-            - Pavtha Issue Product Detail
-            - Pavtha Receive Received Product Detail
-            - Pavtha Receive Waste Product Detail
+            Return =
+                Sum of Pavtha Receive Received Product Detail weights
+                where Issue/Receive Type = "Return"
 
-        Return:
-            Readymade Weight - Returned Product Weight
-
-        The value is authoritative and cannot be entered manually.
+        Important:
+        - Only output_items / Received Product Detail contributes.
+        - Return-classified Pavtha Issue rows do not contribute.
+        - Readymade weight is not subtracted.
+        - Waste Product Detail rows do not contribute.
         """
         readymade_weight = 0
         returned_issue_weight = 0
 
+        # Retain these values only as diagnostic information for the
+        # existing preview response. They do not affect Return.
         if self.pavtha_issue:
             issue = frappe.get_doc(
                 "Pavtha Issue",
@@ -798,6 +797,8 @@ class PavthaReceive(Document):
                 elif row_type == "Return":
                     returned_issue_weight += flt(row.weight)
 
+        # AUTHORITATIVE RETURN:
+        # Total weight of Received Product Detail rows labelled Return.
         returned_output_weight = sum(
             flt(row.weight)
             for row in self.output_items or []
@@ -807,6 +808,7 @@ class PavthaReceive(Document):
             ) == "Return"
         )
 
+        # Retained for diagnostic visibility only.
         returned_waste_weight = sum(
             flt(row.weight)
             for row in self.waste_items or []
@@ -816,21 +818,9 @@ class PavthaReceive(Document):
             ) == "Return"
         )
 
-        returned_product_weight = (
-            returned_issue_weight
-            + returned_output_weight
-            + returned_waste_weight
+        returned_product_weight = flt(
+            returned_output_weight
         )
-
-        return_balance = (
-            readymade_weight
-            - returned_product_weight
-        )
-
-        # Client-approved behaviour:
-        # Returned Product Weight may exceed Readymade Weight.
-        # In that situation, Return Weight is restricted to zero below
-        # instead of blocking Save or Submit.
 
         return {
             "readymade_weight": flt(
@@ -848,9 +838,8 @@ class PavthaReceive(Document):
             "returned_product_weight": flt(
                 returned_product_weight
             ),
-            "return_weight": max(
-                0,
-                flt(return_balance),
+            "return_weight": flt(
+                returned_output_weight
             ),
         }
 
@@ -1127,7 +1116,7 @@ class PavthaReceive(Document):
                 (
                     "Return: "
                     f"{return_weight:.3f} KG "
-                    "(auto-calculated)"
+                    "(Return-labelled product total)"
                 ),
                 f"Goti: {goti_weight:.3f} KG",
                 f"Kachi Goti: {kachi_goti_weight:.3f} KG",
