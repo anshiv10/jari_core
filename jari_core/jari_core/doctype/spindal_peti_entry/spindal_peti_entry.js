@@ -1,15 +1,11 @@
 frappe.ui.form.on('Spindal Peti Entry', {
     refresh(frm) {
-        // Preserve existing Spindal Issue selection behaviour.
         frm.set_query('spindal_issue', function() {
             return {
-                filters: {
-                    docstatus: ['!=', 1]
-                }
+                query: 'jari_core.jari_core.doctype.spindal_receive.spindal_receive.spindal_issue_for_peti_query'
             };
         });
 
-        // Keep Net Weight synchronized when the form loads.
         calculate_net_weight(frm);
     },
 
