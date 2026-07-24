@@ -49,7 +49,9 @@ class GilitReceive(Document):
         self.process_master = issue.process_master
         self.quality_code = issue.quality_code
         self.operator = issue.operator
-        self.total_input_weight = flt(issue.total_net_weight) * 1000
+        # Gilit Issue total_net_weight is already the operational
+        # input weight used by Gilit Receive. Do not convert it again.
+        self.total_input_weight = flt(issue.total_net_weight)
 
         if not self.output_items:
             for issue_peti in issue.peti_items or []:

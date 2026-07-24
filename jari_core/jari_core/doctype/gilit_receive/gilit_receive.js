@@ -31,7 +31,12 @@ frappe.ui.form.on('Gilit Receive', {
                 frm.set_value('process_master', issue.process_master);
                 frm.set_value('quality_code', issue.quality_code);
                 frm.set_value('operator', issue.operator);
-                frm.set_value('total_input_weight', flt(issue.total_net_weight) * 1000);
+                // Gilit Issue already provides the operational input weight.
+                // Do not multiply it by 1000 again.
+                frm.set_value(
+                    'total_input_weight',
+                    flt(issue.total_net_weight)
+                );
 
                 frm.clear_table('output_items');
 
