@@ -58,8 +58,14 @@ class SpindalPetiEntry(Document):
             self.peti_id = self.name
 
     def set_default_uom(self):
-        if not self.uom:
-            self.uom = "gm"
+        """
+        Spindal Peti operational weights are maintained in grams.
+
+        Gross Weight, Baad Weight, Net Weight and Remaining N.W must
+        all use the same gram-based convention. Inventory Ledger
+        conversion to KG happens only at the stock-posting boundary.
+        """
+        self.uom = "gram"
 
     def pull_spindal_issue_details(self):
         if not self.spindal_issue:
@@ -94,16 +100,16 @@ class SpindalPetiEntry(Document):
         )
 
     def get_net_weight_in_gm(self):
-        if self.is_gm_uom():
-            return flt(self.net_weight)
-
-        return flt(self.net_weight) * 1000
+        """
+        Spindal Peti Net Weight is stored operationally in grams.
+        """
+        return flt(self.net_weight)
 
     def get_net_weight_in_kg(self):
-        if self.is_gm_uom():
-            return flt(self.net_weight) / 1000
-
-        return flt(self.net_weight)
+        """
+        Convert operational gram weight to KG only for Inventory Ledger.
+        """
+        return flt(self.net_weight) / 1000
 
     def set_bobbin_balance(self):
         total_bobbin = cint(
@@ -118,9 +124,7 @@ class SpindalPetiEntry(Document):
             flt(self.net_weight)
             and not flt(self.remaining_net_weight)
         ):
-            self.remaining_net_weight = (
-                self.get_net_weight_in_gm()
-            )
+            self.remaining_net_weight = flt(self.net_weight)
 
     def validate_weights(self):
         total_bobbin = cint(
