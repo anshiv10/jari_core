@@ -1,6 +1,9 @@
 import frappe
 from frappe.model.document import Document
 from frappe.utils import flt, today
+from jari_core.jari_core.doctype.process_master.process_master import (
+    apply_process_department_defaults,
+)
 
 
 class MeltingIssue(Document):

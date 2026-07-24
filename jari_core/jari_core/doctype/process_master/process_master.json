@@ -9,6 +9,8 @@
   "process_name",
   "process_code",
   "department",
+  "from_department",
+  "to_department",
   "flow_type",
   "is_outsourced",
   "sequence_order",
@@ -34,6 +36,18 @@
    "fieldname": "department",
    "fieldtype": "Link",
    "label": "Department",
+   "options": "Department Master"
+  },
+  {
+   "fieldname": "from_department",
+   "fieldtype": "Link",
+   "label": "From Department",
+   "options": "Department Master"
+  },
+  {
+   "fieldname": "to_department",
+   "fieldtype": "Link",
+   "label": "To Department",
    "options": "Department Master"
   },
   {

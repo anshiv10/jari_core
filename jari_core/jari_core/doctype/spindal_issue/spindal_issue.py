@@ -2,6 +2,9 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import flt
 from jari_core.jari_core.stock_utils import (
+from jari_core.jari_core.doctype.process_master.process_master import (
+    apply_process_department_defaults,
+)
     add_wip_transfer_in,
     consume_issueable_stock,
     get_issueable_sources,

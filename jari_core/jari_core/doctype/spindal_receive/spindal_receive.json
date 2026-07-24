@@ -112,25 +112,25 @@
   {
    "fieldname": "total_input_weight",
    "fieldtype": "Float",
-   "label": "Total Input Weight",
+   "label": "Total Input Weight (KG)",
    "read_only": 1
   },
   {
    "fieldname": "total_received_weight",
    "fieldtype": "Float",
-   "label": "Total Received Weight",
+   "label": "Total Received Weight (GM)",
    "read_only": 1
   },
   {
    "fieldname": "total_waste_weight",
    "fieldtype": "Float",
-   "label": "Total Waste Weight",
+   "label": "Total Waste Weight (GM)",
    "read_only": 1
   },
   {
    "fieldname": "loss_weight",
    "fieldtype": "Float",
-   "label": "Loss Weight",
+   "label": "Loss Weight (GM)",
    "read_only": 1
   },
   {
@@ -168,21 +168,21 @@
   {
    "fieldname": "approx_silver_output",
    "fieldtype": "Float",
-   "label": "Approx Silver in Output",
+   "label": "Approx Silver in Output (GM)",
    "read_only": 1,
    "in_list_view": 1
   },
   {
    "fieldname": "approx_silver_wastage",
    "fieldtype": "Float",
-   "label": "Approx Silver in Wastage",
+   "label": "Approx Silver in Wastage (GM)",
    "read_only": 1,
    "in_list_view": 1
   },
   {
    "fieldname": "approx_silver_weight",
    "fieldtype": "Float",
-   "label": "Total Approx Silver Weight",
+   "label": "Total Approx Silver Weight (GM)",
    "read_only": 1,
    "in_list_view": 1
   },

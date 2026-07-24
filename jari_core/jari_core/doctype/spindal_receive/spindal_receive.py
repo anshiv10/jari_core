@@ -95,23 +95,110 @@ class SpindalReceive(Document):
         for row in self.received_peti_items or []:
             row.product = kasab
 
+    @staticmethod
+    def weight_to_grams(weight, uom):
+        """
+        Convert a production weight to grams.
+
+        Spindal Issue / Inventory quantities are maintained in KG,
+        while Spindal Peti and Spindal Receive production measurements
+        are normally entered in grams.
+
+        All Spindal Receive loss analysis is therefore calculated
+        internally in grams.
+        """
+        weight = flt(weight)
+        uom = (uom or "").strip().lower()
+
+        gram_uoms = {"gm", "gram", "grams", "g"}
+        kg_uoms = {"kg", "kilogram", "kilograms", "kgs"}
+
+        if uom in gram_uoms:
+            return weight
+
+        if uom in kg_uoms:
+            return weight * 1000
+
+        # Existing Spindal Peti/Receive records historically use gram.
+        # Use gram as the safe legacy fallback for receive child rows.
+        return weight
+
     def calculate_totals(self):
-        total_net = sum(flt(row.net_weight) for row in self.received_peti_items or [])
+        """
+        Calculate Spindal production analysis using one canonical unit: GM.
 
-        self.total_received_weight = total_net
-        self.total_waste_weight = sum(flt(row.weight) for row in self.waste_items or [])
-        self.loss_weight = flt(self.total_input_weight) - flt(self.total_received_weight) - flt(self.total_waste_weight)
+        total_input_weight:
+            Stored by Spindal Issue in KG.
 
-        if flt(self.total_input_weight):
-            self.loss_percent = flt(self.loss_weight) / flt(self.total_input_weight) * 100
+        received_peti_items:
+            Peti weights may be GM or KG according to row UOM.
+
+        waste_items:
+            Waste weights may be GM or KG according to row UOM.
+
+        Display convention:
+            total_input_weight     = KG
+            total_received_weight  = GM
+            total_waste_weight     = GM
+            loss_weight            = GM
+            loss_percent           = percentage of normalized input
+        """
+
+        # Spindal Issue quantities are maintained in KG.
+        total_input_kg = flt(self.total_input_weight)
+        total_input_gm = total_input_kg * 1000
+
+        total_received_gm = 0
+
+        for row in self.received_peti_items or []:
+            total_received_gm += self.weight_to_grams(
+                row.net_weight,
+                getattr(row, "uom", None)
+            )
+
+        total_waste_gm = 0
+
+        for row in self.waste_items or []:
+            total_waste_gm += self.weight_to_grams(
+                row.weight,
+                getattr(row, "uom", None)
+            )
+
+        self.total_received_weight = total_received_gm
+        self.total_waste_weight = total_waste_gm
+
+        accounted_weight_gm = (
+            flt(total_received_gm)
+            + flt(total_waste_gm)
+        )
+
+        # Client-approved formula:
+        # Loss = Total Input - (Total Output + Total Wastage)
+        self.loss_weight = (
+            flt(total_input_gm)
+            - flt(accounted_weight_gm)
+        )
+
+        if total_input_gm > 0:
+            self.loss_percent = (
+                flt(self.loss_weight)
+                / flt(total_input_gm)
+                * 100
+            )
         else:
             self.loss_percent = 0
 
         self.loss_standard_percent = frappe.db.get_value(
-            "Loss Standard Master", {"department": "Spindal"}, "standard_loss_percent"
+            "Loss Standard Master",
+            {"department": "Spindal"},
+            "standard_loss_percent"
         ) or 0
 
-        self.loss_status = "Excess Loss" if flt(self.loss_percent) > flt(self.loss_standard_percent) else "OK"
+        self.loss_status = (
+            "Excess Loss"
+            if flt(self.loss_percent) > flt(self.loss_standard_percent)
+            else "OK"
+        )
 
     def get_quality_purity(self):
         if not self.quality_code:
