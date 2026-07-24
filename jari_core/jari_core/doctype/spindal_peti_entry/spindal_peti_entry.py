@@ -20,20 +20,35 @@ class SpindalPetiEntry(Document):
             self.db_set("peti_id", self.name)
 
         if not cint(self.remaining_bobbin):
-            self.db_set("remaining_bobbin", cint(self.bobbin_count or self.nang))
+            self.db_set(
+                "remaining_bobbin",
+                cint(self.bobbin_count or self.nang)
+            )
 
         if not flt(self.remaining_net_weight):
-            self.db_set("remaining_net_weight", self.get_net_weight_in_gm())
+            self.db_set(
+                "remaining_net_weight",
+                self.get_net_weight_in_gm()
+            )
 
         self.post_kasab_stock()
         self.db_set("status", "Received")
 
     def on_cancel(self):
-        consumed_bobbin = cint(self.bobbin_count or self.nang) - cint(self.remaining_bobbin)
-        consumed_weight = self.get_net_weight_in_gm() - flt(self.remaining_net_weight)
+        consumed_bobbin = (
+            cint(self.bobbin_count or self.nang)
+            - cint(self.remaining_bobbin)
+        )
+
+        consumed_weight = (
+            self.get_net_weight_in_gm()
+            - flt(self.remaining_net_weight)
+        )
 
         if consumed_bobbin > 0 or consumed_weight > 0:
-            frappe.throw("Cannot cancel Peti because it is already consumed in Gilit.")
+            frappe.throw(
+                "Cannot cancel Peti because it is already consumed in Gilit."
+            )
 
         self.reverse_kasab_stock()
         self.db_set("status", "Cancelled")
@@ -50,7 +65,10 @@ class SpindalPetiEntry(Document):
         if not self.spindal_issue:
             return
 
-        issue = frappe.get_doc("Spindal Issue", self.spindal_issue)
+        issue = frappe.get_doc(
+            "Spindal Issue",
+            self.spindal_issue
+        )
 
         self.company = issue.company
         self.batch_no = issue.active_batch_no
@@ -64,80 +82,155 @@ class SpindalPetiEntry(Document):
             self.bobbin_count = cint(self.nang)
 
     def calculate_net_weight(self):
-        self.net_weight = flt(self.gross_weight) - flt(self.baad_weight)
+        self.net_weight = (
+            flt(self.gross_weight)
+            - flt(self.baad_weight)
+        )
 
     def is_gm_uom(self):
-        return (self.uom or "").strip().lower() in ["gm", "gram", "grams", "g"]
+        return (
+            (self.uom or "").strip().lower()
+            in ["gm", "gram", "grams", "g"]
+        )
 
     def get_net_weight_in_gm(self):
         if self.is_gm_uom():
             return flt(self.net_weight)
+
         return flt(self.net_weight) * 1000
 
     def get_net_weight_in_kg(self):
         if self.is_gm_uom():
             return flt(self.net_weight) / 1000
+
         return flt(self.net_weight)
 
     def set_bobbin_balance(self):
-        total_bobbin = cint(self.bobbin_count or self.nang)
+        total_bobbin = cint(
+            self.bobbin_count or self.nang
+        )
+
         if total_bobbin and not cint(self.remaining_bobbin):
             self.remaining_bobbin = total_bobbin
 
     def set_remaining_net_weight(self):
-        if flt(self.net_weight) and not flt(self.remaining_net_weight):
-            self.remaining_net_weight = self.get_net_weight_in_gm()
+        if (
+            flt(self.net_weight)
+            and not flt(self.remaining_net_weight)
+        ):
+            self.remaining_net_weight = (
+                self.get_net_weight_in_gm()
+            )
 
     def validate_weights(self):
-        total_bobbin = cint(self.bobbin_count or self.nang)
+        total_bobbin = cint(
+            self.bobbin_count or self.nang
+        )
 
         if flt(self.gross_weight) <= 0:
-            frappe.throw("Gross Weight must be greater than zero.")
+            frappe.throw(
+                "Gross Weight must be greater than zero."
+            )
 
         if flt(self.baad_weight) < 0:
-            frappe.throw("Baad Weight cannot be negative.")
+            frappe.throw(
+                "Baad Weight cannot be negative."
+            )
+
+        if flt(self.baad_weight) > flt(self.gross_weight):
+            frappe.throw(
+                "Baad Weight cannot be greater than Gross Weight."
+            )
 
         if flt(self.net_weight) <= 0:
-            frappe.throw("Net Weight must be greater than zero.")
+            frappe.throw(
+                "Net Weight must be greater than zero."
+            )
 
         if total_bobbin <= 0:
-            frappe.throw("Bobbin Count must be greater than zero.")
+            frappe.throw(
+                "Bobbin Count must be greater than zero."
+            )
 
         if cint(self.remaining_bobbin) < 0:
-            frappe.throw("Remaining Bobbin cannot be negative.")
+            frappe.throw(
+                "Remaining Bobbin cannot be negative."
+            )
 
         if cint(self.remaining_bobbin) > total_bobbin:
-            frappe.throw("Remaining Bobbin cannot be greater than Bobbin Count.")
+            frappe.throw(
+                "Remaining Bobbin cannot be greater than Bobbin Count."
+            )
 
         if flt(self.remaining_net_weight) < 0:
-            frappe.throw("Remaining N.W cannot be negative.")
+            frappe.throw(
+                "Remaining N.W cannot be negative."
+            )
 
-        if flt(self.remaining_net_weight) > flt(self.get_net_weight_in_gm()):
-            frappe.throw("Remaining N.W cannot be greater than Net Weight.")
+        if (
+            flt(self.remaining_net_weight)
+            > flt(self.get_net_weight_in_gm())
+        ):
+            frappe.throw(
+                "Remaining N.W cannot be greater than Net Weight."
+            )
 
     def get_kasab_product(self):
-        product = frappe.db.get_value("Product Master", {"product_tag": "KASAB"}, "name")
+        product = frappe.db.get_value(
+            "Product Master",
+            {"product_tag": "KASAB"},
+            "name"
+        )
+
         if product:
             return product
 
-        if frappe.db.exists("Product Master", "KASAB"):
+        if frappe.db.exists(
+            "Product Master",
+            "KASAB"
+        ):
             return "KASAB"
 
-        product = frappe.db.get_value("Product Master", {"product_name": ["like", "%kasab%"]}, "name")
+        product = frappe.db.get_value(
+            "Product Master",
+            {"product_name": ["like", "%kasab%"]},
+            "name"
+        )
+
         if product:
             return product
 
-        frappe.throw("KASAB product not found in Product Master. Please set Product Tag = KASAB in Product Master.")
+        frappe.throw(
+            "KASAB product not found in Product Master. "
+            "Please set Product Tag = KASAB in Product Master."
+        )
 
     def get_department(self):
         if self.spindal_issue:
-            return frappe.db.get_value("Spindal Issue", self.spindal_issue, "to_department") or "spindal"
+            return (
+                frappe.db.get_value(
+                    "Spindal Issue",
+                    self.spindal_issue,
+                    "to_department"
+                )
+                or "spindal"
+            )
+
         return "spindal"
 
-    def get_last_balance(self, company, department, product):
+    def get_last_balance(
+        self,
+        company,
+        department,
+        product
+    ):
         return frappe.db.get_value(
             "Inventory Ledger",
-            {"company": company, "department": department, "product": product},
+            {
+                "company": company,
+                "department": department,
+                "product": product
+            },
             "current_balance",
             order_by="creation desc"
         ) or 0
@@ -163,7 +256,11 @@ class SpindalPetiEntry(Document):
         if weight <= 0:
             return
 
-        last_balance = self.get_last_balance(self.company, department, product)
+        last_balance = self.get_last_balance(
+            self.company,
+            department,
+            product
+        )
 
         frappe.get_doc({
             "doctype": "Inventory Ledger",
@@ -173,12 +270,18 @@ class SpindalPetiEntry(Document):
             "batch_number": self.batch_no,
             "in_weight": weight,
             "out_weight": 0,
-            "current_balance": flt(last_balance) + weight,
+            "current_balance": (
+                flt(last_balance)
+                + weight
+            ),
             "transaction_type": "Production Output",
             "reference_doctype": self.doctype,
             "reference_name": self.name,
             "date": self.peti_date or today(),
-            "remarks": "Kasab stock added from Spindal Peti Entry"
+            "remarks": (
+                "Kasab stock added from "
+                "Spindal Peti Entry"
+            )
         }).insert(ignore_permissions=True)
 
     def reverse_kasab_stock(self):
@@ -192,10 +295,17 @@ class SpindalPetiEntry(Document):
         if weight <= 0:
             return
 
-        last_balance = self.get_last_balance(self.company, department, product)
+        last_balance = self.get_last_balance(
+            self.company,
+            department,
+            product
+        )
 
         if weight > flt(last_balance):
-            frappe.throw("Cannot cancel Peti because KASAB stock is already consumed.")
+            frappe.throw(
+                "Cannot cancel Peti because "
+                "KASAB stock is already consumed."
+            )
 
         frappe.get_doc({
             "doctype": "Inventory Ledger",
@@ -205,10 +315,16 @@ class SpindalPetiEntry(Document):
             "batch_number": self.batch_no,
             "in_weight": 0,
             "out_weight": weight,
-            "current_balance": flt(last_balance) - weight,
+            "current_balance": (
+                flt(last_balance)
+                - weight
+            ),
             "transaction_type": "Adjustment",
             "reference_doctype": self.doctype,
             "reference_name": self.name,
             "date": today(),
-            "remarks": "Kasab stock reversed due to Spindal Peti cancellation"
+            "remarks": (
+                "Kasab stock reversed due to "
+                "Spindal Peti cancellation"
+            )
         }).insert(ignore_permissions=True)
