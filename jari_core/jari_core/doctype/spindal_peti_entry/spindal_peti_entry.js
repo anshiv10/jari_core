@@ -1,11 +1,39 @@
 frappe.ui.form.on('Spindal Peti Entry', {
     refresh(frm) {
-        frm.set_query('spindal_issue', function() {
-            return {
-                filters: {
-                    docstatus: ['!=', 1]
-                }
-            };
-        });
+        calculate_net_weight(frm);
+    },
+
+    gross_weight(frm) {
+        calculate_net_weight(frm);
+    },
+
+    baad_weight(frm) {
+        calculate_net_weight(frm);
     }
 });
+
+
+function calculate_net_weight(frm) {
+    const gross_weight = flt(frm.doc.gross_weight);
+    const baad_weight = flt(frm.doc.baad_weight);
+
+    if (!gross_weight && !baad_weight) {
+        frm.set_value('net_weight', 0);
+        return;
+    }
+
+    const net_weight = gross_weight - baad_weight;
+
+    if (net_weight < 0) {
+        frm.set_value('net_weight', 0);
+
+        frappe.show_alert({
+            message: __('Baad Weight cannot be greater than Gross Weight.'),
+            indicator: 'red'
+        });
+
+        return;
+    }
+
+    frm.set_value('net_weight', net_weight);
+}
