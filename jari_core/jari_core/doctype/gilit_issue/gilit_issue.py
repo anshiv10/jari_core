@@ -154,6 +154,7 @@ class GilitIssue(Document):
             frappe.throw("At least one Spindal Peti row is required.")
 
         seen = set()
+        qualities = set()
 
         for row in self.peti_items:
             if not row.spindal_peti_entry:
@@ -164,7 +165,28 @@ class GilitIssue(Document):
 
             seen.add(row.spindal_peti_entry)
 
-            peti = frappe.get_doc("Spindal Peti Entry", row.spindal_peti_entry)
+            peti = frappe.get_doc(
+                "Spindal Peti Entry",
+                row.spindal_peti_entry
+            )
+
+            peti_quality = (
+                peti.quality_code
+                or getattr(peti, "quality", None)
+            )
+
+            if not peti_quality:
+                frappe.throw(
+                    f"Quality is missing in Spindal Peti {peti.name}."
+                )
+
+            qualities.add(peti_quality)
+
+            if len(qualities) > 1:
+                frappe.throw(
+                    "All Spindal Peti Entries in one Gilit Issue "
+                    "must have the same Quality."
+                )
 
             if peti.docstatus != 1:
                 frappe.throw(f"Peti {peti.name} is not submitted.")
@@ -188,7 +210,7 @@ class GilitIssue(Document):
                 )
 
             row.peti_no = peti.peti_no or peti.name
-            row.quality_code = peti.quality_code
+            row.quality_code = peti_quality
             row.khata_no = peti.khata_no
             row.product = self.get_kasab_product()
             row.uom = peti.uom or row.uom or "gram"
@@ -199,6 +221,12 @@ class GilitIssue(Document):
             row.available_bobbin = available
             row.balance_bobbin_after_issue = available - cint(row.issued_bobbin)
             row.operator_name = peti.operator
+
+        self.quality_code = (
+            next(iter(qualities))
+            if qualities
+            else None
+        )
 
     def validate_metal_water_inputs(self):
         for row in self.metal_water_inputs or []:

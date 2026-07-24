@@ -49,7 +49,11 @@ frappe.ui.form.on('Gilit Issue Peti Item', {
     spindal_peti_entry(frm, cdt, cdn) {
         let row = locals[cdt][cdn];
 
-        if (!row.spindal_peti_entry) return;
+        if (!row.spindal_peti_entry) {
+            row.quality_code = '';
+            sync_gilit_quality(frm);
+            return;
+        }
 
         frappe.db.get_doc('Spindal Peti Entry', row.spindal_peti_entry).then(peti => {
             let total_bobbin = flt(peti.bobbin_count || peti.nang);
@@ -61,13 +65,64 @@ frappe.ui.form.on('Gilit Issue Peti Item', {
                 return;
             }
 
+            const peti_quality = peti.quality_code || peti.quality || '';
+
+            if (!peti_quality) {
+                frappe.msgprint(
+                    `Quality is missing in Spindal Peti ${peti.name}.`
+                );
+                frappe.model.set_value(
+                    cdt,
+                    cdn,
+                    'spindal_peti_entry',
+                    ''
+                );
+                return;
+            }
+
+            if (
+                frm.doc.quality_code &&
+                frm.doc.quality_code !== peti_quality
+            ) {
+                frappe.msgprint({
+                    title: __('Quality Mismatch'),
+                    indicator: 'red',
+                    message: __(
+                        `Selected Peti ${peti.name} has Quality ` +
+                        `${peti_quality}, while this Gilit Issue is ` +
+                        `already using Quality ${frm.doc.quality_code}.`
+                    )
+                });
+
+                frappe.model.set_value(
+                    cdt,
+                    cdn,
+                    'spindal_peti_entry',
+                    ''
+                );
+
+                return;
+            }
+
+            if (!frm.doc.quality_code) {
+                frm.set_value(
+                    'quality_code',
+                    peti_quality
+                );
+            }
+
             frappe.call({
                 method: 'jari_core.jari_core.doctype.gilit_issue.gilit_issue.get_kasab_product_name',
                 callback(r) {
                     let kasab = r.message || 'KASAB';
 
                     frappe.model.set_value(cdt, cdn, 'peti_no', peti.peti_no || peti.name);
-                    frappe.model.set_value(cdt, cdn, 'quality_code', peti.quality_code);
+                    frappe.model.set_value(
+                        cdt,
+                        cdn,
+                        'quality_code',
+                        peti_quality
+                    );
                     frappe.model.set_value(cdt, cdn, 'khata_no', peti.khata_no);
                     frappe.model.set_value(cdt, cdn, 'product', kasab);
                     frappe.model.set_value(cdt, cdn, 'uom', peti.uom || 'gram');
@@ -107,6 +162,7 @@ frappe.ui.form.on('Gilit Issue Peti Item', {
     },
 
     peti_items_remove(frm) {
+        sync_gilit_quality(frm);
         calculate_gilit_totals(frm);
     }
 });
@@ -169,6 +225,26 @@ function refresh_all_metal_water_stock(frm) {
         }
     });
 }
+
+function sync_gilit_quality(frm) {
+    const qualities = [
+        ...new Set(
+            (frm.doc.peti_items || [])
+                .filter(row => row.spindal_peti_entry && row.quality_code)
+                .map(row => row.quality_code)
+        )
+    ];
+
+    if (qualities.length === 0) {
+        frm.set_value('quality_code', '');
+        return;
+    }
+
+    if (qualities.length === 1) {
+        frm.set_value('quality_code', qualities[0]);
+    }
+}
+
 
 function calculate_gilit_totals(frm) {
     let total_peti = 0;
