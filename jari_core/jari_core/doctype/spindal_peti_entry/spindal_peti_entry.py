@@ -10,6 +10,7 @@ class SpindalPetiEntry(Document):
         self.pull_spindal_issue_details()
         self.sync_bobbin_count_with_nang()
         self.set_default_uom()
+        self.normalize_weights_to_kg()
         self.calculate_net_weight()
         self.set_bobbin_balance()
         self.set_remaining_net_weight()
@@ -28,7 +29,7 @@ class SpindalPetiEntry(Document):
         if not flt(self.remaining_net_weight):
             self.db_set(
                 "remaining_net_weight",
-                self.get_net_weight_in_gm()
+                self.get_net_weight_in_kg()
             )
 
         self.post_kasab_stock()
@@ -41,7 +42,7 @@ class SpindalPetiEntry(Document):
         )
 
         consumed_weight = (
-            self.get_net_weight_in_gm()
+            self.get_net_weight_in_kg()
             - flt(self.remaining_net_weight)
         )
 
@@ -59,13 +60,65 @@ class SpindalPetiEntry(Document):
 
     def set_default_uom(self):
         """
-        Spindal Peti operational weights are maintained in grams.
+        New Spindal Peti entries may initially be entered in grams.
 
-        Gross Weight, Baad Weight, Net Weight and Remaining N.W must
-        all use the same gram-based convention. Inventory Ledger
-        conversion to KG happens only at the stock-posting boundary.
+        During validation, all gram-based values are converted to KG
+        and the stored UOM is changed permanently to KG.
         """
-        self.uom = "gram"
+        if not self.uom:
+            self.uom = "gram"
+
+    def normalize_weights_to_kg(self):
+        """
+        Permanently normalize Spindal Peti weights to KG.
+
+        Gram aliases are converted only when the current UOM is
+        gram-based. After conversion, UOM becomes KG, preventing the
+        same values from being converted again on later saves.
+        """
+        normalized_uom = (self.uom or "").strip().lower()
+
+        gram_uoms = {
+            "g",
+            "gm",
+            "gram",
+            "grams",
+            "gramme",
+            "grammes",
+        }
+
+        kg_uoms = {
+            "kg",
+            "kgs",
+            "kilogram",
+            "kilograms",
+        }
+
+        if normalized_uom in gram_uoms:
+            self.gross_weight = flt(self.gross_weight) / 1000
+            self.baad_weight = flt(self.baad_weight) / 1000
+
+            if flt(self.net_weight):
+                self.net_weight = flt(self.net_weight) / 1000
+
+            if flt(self.remaining_net_weight):
+                self.remaining_net_weight = (
+                    flt(self.remaining_net_weight) / 1000
+                )
+
+            self.uom = "KG"
+            return
+
+        if normalized_uom in kg_uoms:
+            self.uom = "KG"
+            return
+
+        frappe.throw(
+            "Unsupported UOM: {0}. Only gram or KG is allowed "
+            "for Spindal Peti Entry.".format(
+                self.uom or "Blank"
+            )
+        )
 
     def pull_spindal_issue_details(self):
         if not self.spindal_issue:
@@ -93,23 +146,11 @@ class SpindalPetiEntry(Document):
             - flt(self.baad_weight)
         )
 
-    def is_gm_uom(self):
-        return (
-            (self.uom or "").strip().lower()
-            in ["gm", "gram", "grams", "g"]
-        )
-
-    def get_net_weight_in_gm(self):
-        """
-        Spindal Peti Net Weight is stored operationally in grams.
-        """
-        return flt(self.net_weight)
-
     def get_net_weight_in_kg(self):
         """
-        Convert operational gram weight to KG only for Inventory Ledger.
+        Spindal Peti weight is permanently stored in KG.
         """
-        return flt(self.net_weight) / 1000
+        return flt(self.net_weight)
 
     def set_bobbin_balance(self):
         total_bobbin = cint(
@@ -173,7 +214,7 @@ class SpindalPetiEntry(Document):
 
         if (
             flt(self.remaining_net_weight)
-            > flt(self.get_net_weight_in_gm())
+            > flt(self.get_net_weight_in_kg())
         ):
             frappe.throw(
                 "Remaining N.W cannot be greater than Net Weight."
