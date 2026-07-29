@@ -79,6 +79,9 @@ frappe.ui.form.on('Taniya Receive', {
                             d.product = product;
                             d.product_name = row.product_name || product;
                             d.uom = row.uom || row.unit || 'KG';
+                            d.quantity = 0;
+                            d.baad_weight = 0;
+                            d.net_weight = 0;
                         });
 
                         (p.custom_waste_product_items || []).forEach(row => {
@@ -122,7 +125,10 @@ frappe.ui.form.on('Taniya Output Item', {
                 product: previousRow.product,
                 product_name: previousRow.product_name,
                 uom: previousRow.uom,
+                quantity: 0,
                 weight: 0,
+                baad_weight: 0,
+                net_weight: 0,
                 approx_silver_weight: 0
             });
         } else {
@@ -131,7 +137,10 @@ frappe.ui.form.on('Taniya Output Item', {
                     frm.doc.receive_date ||
                     frappe.datetime.get_today(),
                 operator_name: frm.doc.operator,
+                quantity: 0,
                 weight: 0,
+                baad_weight: 0,
+                net_weight: 0,
                 approx_silver_weight: 0
             });
         }
@@ -161,7 +170,10 @@ frappe.ui.form.on('Taniya Waste Item', {
                 waste_product: previousRow.waste_product,
                 product_name: previousRow.product_name,
                 uom: previousRow.uom,
+                quantity: 0,
                 weight: 0,
+                baad_weight: 0,
+                net_weight: 0,
                 approx_silver_weight: 0
             });
         } else {
@@ -170,7 +182,10 @@ frappe.ui.form.on('Taniya Waste Item', {
                     frm.doc.receive_date ||
                     frappe.datetime.get_today(),
                 operator_name: frm.doc.operator,
+                quantity: 0,
                 weight: 0,
+                baad_weight: 0,
+                net_weight: 0,
                 approx_silver_weight: 0
             });
         }
@@ -239,4 +254,325 @@ function set_product_name(cdt, cdn, product_field) {
     frappe.db.get_value('Product Master', product, 'product_name').then(r => {
         frappe.model.set_value(cdt, cdn, 'product_name', (r.message && r.message.product_name) || product);
     });
+}
+
+/*
+ * ============================================================
+ * TANIYA OUTPUT PIECE-WISE BAAD WEIGHT
+ * ============================================================
+ */
+
+frappe.ui.form.on('Taniya Output Item', {
+    quantity(frm, cdt, cdn) {
+        const row = locals[cdt][cdn];
+        const quantity = cint(row.quantity);
+
+        if (quantity < 0) {
+            frappe.model.set_value(
+                cdt,
+                cdn,
+                'quantity',
+                0
+            );
+
+            frappe.msgprint(
+                __('Quantity cannot be negative.')
+            );
+
+            return;
+        }
+
+        if (quantity > 0) {
+            show_taniya_baad_weight_dialog(
+                frm,
+                cdt,
+                cdn
+            );
+        }
+    },
+
+    weight(frm, cdt, cdn) {
+        calculate_taniya_output_net_weight(
+            frm,
+            cdt,
+            cdn
+        );
+    },
+
+    baad_weight(frm, cdt, cdn) {
+        calculate_taniya_output_net_weight(
+            frm,
+            cdt,
+            cdn
+        );
+    },
+
+    output_items_remove(frm) {
+        calculate_taniya_output_totals(frm);
+    }
+});
+
+
+function show_taniya_baad_weight_dialog(
+    frm,
+    cdt,
+    cdn
+) {
+    const row = locals[cdt][cdn];
+    const quantity = cint(row.quantity);
+
+    if (quantity <= 0) {
+        frappe.msgprint(
+            __('Please enter Quantity greater than zero.')
+        );
+
+        return;
+    }
+
+    const fields = [];
+
+    fields.push({
+        fieldname: 'information',
+        fieldtype: 'HTML',
+        options: `
+            <div class="alert alert-info">
+                <strong>${__('Quantity')}:</strong>
+                ${quantity}
+                &nbsp; | &nbsp;
+                <strong>${__('Received Weight')}:</strong>
+                ${format_number(
+                    flt(row.weight),
+                    null,
+                    3
+                )}
+                ${frappe.utils.escape_html(row.uom || '')}
+            </div>
+        `
+    });
+
+    for (
+        let pieceNumber = 1;
+        pieceNumber <= quantity;
+        pieceNumber += 1
+    ) {
+        fields.push({
+            fieldname: `piece_weight_${pieceNumber}`,
+            fieldtype: 'Float',
+            label: __(
+                'Piece {0} Baad Weight',
+                [pieceNumber]
+            ),
+            reqd: 1,
+            default: 0,
+            precision: 3
+        });
+    }
+
+    const dialog = new frappe.ui.Dialog({
+        title: __('Add Baad Weight'),
+        size: quantity > 8 ? 'large' : 'small',
+        fields,
+        primary_action_label:
+            __('Apply Baad Weight'),
+
+        async primary_action(values) {
+            let totalBaadWeight = 0;
+
+            for (
+                let pieceNumber = 1;
+                pieceNumber <= quantity;
+                pieceNumber += 1
+            ) {
+                const value = flt(
+                    values[
+                        `piece_weight_${pieceNumber}`
+                    ]
+                );
+
+                if (value < 0) {
+                    frappe.msgprint(
+                        __(
+                            'Baad Weight cannot be negative ' +
+                            'for Piece {0}.',
+                            [pieceNumber]
+                        )
+                    );
+
+                    return;
+                }
+
+                totalBaadWeight += value;
+            }
+
+            const receivedWeight =
+                flt(row.weight);
+
+            if (receivedWeight <= 0) {
+                frappe.msgprint(
+                    __(
+                        'Enter Received Weight before ' +
+                        'applying Baad Weight.'
+                    )
+                );
+
+                return;
+            }
+
+            if (totalBaadWeight > receivedWeight) {
+                frappe.msgprint(
+                    __(
+                        'Total Baad Weight {0} cannot exceed ' +
+                        'Received Weight {1}.',
+                        [
+                            format_number(
+                                totalBaadWeight,
+                                null,
+                                3
+                            ),
+                            format_number(
+                                receivedWeight,
+                                null,
+                                3
+                            )
+                        ]
+                    )
+                );
+
+                return;
+            }
+
+            const netWeight =
+                receivedWeight - totalBaadWeight;
+
+            await frappe.model.set_value(
+                cdt,
+                cdn,
+                'baad_weight',
+                flt(totalBaadWeight, 3)
+            );
+
+            await frappe.model.set_value(
+                cdt,
+                cdn,
+                'net_weight',
+                flt(netWeight, 3)
+            );
+
+            frm.refresh_field('output_items');
+
+            calculate_taniya_output_totals(frm);
+
+            dialog.hide();
+
+            frappe.show_alert({
+                message: __(
+                    'Baad Weight and N.W (DATA) calculated.'
+                ),
+                indicator: 'green'
+            });
+        }
+    });
+
+    dialog.show();
+}
+
+
+async function calculate_taniya_output_net_weight(
+    frm,
+    cdt,
+    cdn
+) {
+    const row = locals[cdt][cdn];
+
+    const receivedWeight =
+        flt(row.weight);
+
+    const baadWeight =
+        flt(row.baad_weight);
+
+    if (baadWeight > receivedWeight) {
+        await frappe.model.set_value(
+            cdt,
+            cdn,
+            'net_weight',
+            0
+        );
+
+        frappe.show_alert({
+            message: __(
+                'Baad Weight cannot exceed Received Weight.'
+            ),
+            indicator: 'red'
+        });
+
+        return;
+    }
+
+    await frappe.model.set_value(
+        cdt,
+        cdn,
+        'net_weight',
+        flt(
+            receivedWeight - baadWeight,
+            3
+        )
+    );
+
+    calculate_taniya_output_totals(frm);
+}
+
+
+function calculate_taniya_output_totals(frm) {
+    const outputTotal = (
+        frm.doc.output_items || []
+    ).reduce(
+        (total, row) =>
+            total + flt(row.net_weight),
+        0
+    );
+
+    const wasteTotal = (
+        frm.doc.waste_items || []
+    ).reduce(
+        (total, row) =>
+            total + flt(row.weight),
+        0
+    );
+
+    const inputWeight =
+        flt(frm.doc.total_input_weight);
+
+    frm.set_value(
+        'total_output_weight',
+        flt(outputTotal, 3)
+    );
+
+    frm.set_value(
+        'total_waste_weight',
+        flt(wasteTotal, 3)
+    );
+
+    frm.set_value(
+        'current_wastage_percent',
+        inputWeight
+            ? wasteTotal / inputWeight * 100
+            : 0
+    );
+
+    const lossWeight =
+        inputWeight
+        - outputTotal
+        - wasteTotal;
+
+    frm.set_value(
+        'loss_weight',
+        flt(lossWeight, 3)
+    );
+
+    frm.set_value(
+        'loss_percent',
+        inputWeight
+            ? lossWeight / inputWeight * 100
+            : 0
+    );
 }

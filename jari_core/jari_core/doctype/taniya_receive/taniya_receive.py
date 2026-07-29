@@ -9,6 +9,7 @@ class TaniyaReceive(Document):
         self.validate_duplicate_submitted_receive()
         self.pull_issue_details()
         self.validate_items()
+        self.calculate_output_net_weights()
         self.calculate_totals()
         self.set_approx_silver()
         self.apply_payout_if_outsourced()
@@ -120,14 +121,76 @@ class TaniyaReceive(Document):
         if not self.output_items and not self.waste_items:
             frappe.throw("At least one output or waste item is required.")
 
+    def calculate_output_net_weights(self):
+        """
+        Validate Quantity and calculate final DATA weight.
+
+        N.W (DATA) = Received Weight - Baad Weight
+        """
+        for row_number, row in enumerate(
+            self.output_items or [],
+            start=1
+        ):
+            quantity = int(row.quantity or 0)
+            received_weight = flt(row.weight)
+            baad_weight = flt(row.baad_weight)
+
+            if not row.product and not received_weight:
+                row.baad_weight = 0
+                row.net_weight = 0
+                continue
+
+            if quantity <= 0:
+                frappe.throw(
+                    f"Quantity must be greater than zero in "
+                    f"Out Product Detail Row #{row_number}."
+                )
+
+            if received_weight <= 0:
+                frappe.throw(
+                    f"Received Weight must be greater than zero in "
+                    f"Out Product Detail Row #{row_number}."
+                )
+
+            if baad_weight < 0:
+                frappe.throw(
+                    f"Baad Weight cannot be negative in "
+                    f"Out Product Detail Row #{row_number}."
+                )
+
+            if baad_weight > received_weight:
+                frappe.throw(
+                    f"Baad Weight {baad_weight:.3f} cannot exceed "
+                    f"Received Weight {received_weight:.3f} in "
+                    f"Out Product Detail Row #{row_number}."
+                )
+
+            row.net_weight = flt(
+                received_weight - baad_weight,
+                3
+            )
+
+            if row.net_weight <= 0:
+                frappe.throw(
+                    f"N.W (DATA) must be greater than zero in "
+                    f"Out Product Detail Row #{row_number}."
+                )
+
     def get_quality_purity(self):
         if not self.quality_code:
             return 0
         return flt(frappe.db.get_value("Quality Master", self.quality_code, "silver_purity_percent") or 0)
 
     def calculate_totals(self):
-        output_total = sum(flt(row.weight) for row in self.output_items)
-        waste_total = sum(flt(row.weight) for row in self.waste_items)
+        output_total = sum(
+            flt(row.net_weight)
+            for row in self.output_items or []
+        )
+
+        waste_total = sum(
+            flt(row.weight)
+            for row in self.waste_items or []
+        )
 
         self.total_output_weight = output_total
         self.total_waste_weight = waste_total
@@ -152,8 +215,20 @@ class TaniyaReceive(Document):
         wastage_approx = 0
 
         for row in self.output_items or []:
-            row.approx_silver_weight = flt(row.weight) - (flt(row.weight) * flt(purity) / 100)
-            output_approx += flt(row.approx_silver_weight)
+            output_weight = flt(row.net_weight)
+
+            row.approx_silver_weight = (
+                output_weight
+                - (
+                    output_weight
+                    * flt(purity)
+                    / 100
+                )
+            )
+
+            output_approx += flt(
+                row.approx_silver_weight
+            )
 
         for row in self.waste_items or []:
             row.approx_silver_weight = flt(row.weight) - (flt(row.weight) * flt(purity) / 100)
@@ -181,11 +256,17 @@ class TaniyaReceive(Document):
         if self.ledger_exists():
             return
 
-        for row in self.output_items:
-            if not row.product or not flt(row.weight):
+        for row in self.output_items or []:
+            output_weight = flt(row.net_weight)
+
+            if not row.product or output_weight <= 0:
                 continue
 
-            balance = self.get_last_balance(self.company, "Taniya", row.product)
+            balance = self.get_last_balance(
+                self.company,
+                "Taniya",
+                row.product
+            )
 
             frappe.get_doc({
                 "doctype": "Inventory Ledger",
@@ -193,15 +274,20 @@ class TaniyaReceive(Document):
                 "department": "Taniya",
                 "product": row.product,
                 "batch_number": self.batch_no,
-                "in_weight": flt(row.weight),
+                "in_weight": output_weight,
                 "out_weight": 0,
-                "current_balance": flt(balance) + flt(row.weight),
+                "current_balance": (
+                    flt(balance) + output_weight
+                ),
                 "approx_silver_weight": flt(row.approx_silver_weight),
                 "transaction_type": "Production Output",
                 "reference_doctype": self.doctype,
                 "reference_name": self.name,
                 "date": self.receive_date or today(),
-                "remarks": "Taniya output received"
+                "remarks": (
+                    "Taniya DATA output received after "
+                    "Baad Weight deduction"
+                )
             }).insert(ignore_permissions=True)
 
         for row in self.waste_items:
