@@ -196,11 +196,39 @@ class AsarvaIssue(Document):
         )
 
     def on_submit(self):
+        total_received = flt(
+            frappe.db.get_value(
+                self.doctype,
+                self.name,
+                "total_received_weight",
+            )
+            or self.total_received_weight
+        )
+
+        expected_received = flt(
+            frappe.db.get_value(
+                self.doctype,
+                self.name,
+                "expected_received_weight",
+            )
+            or self.expected_received_weight
+        )
+
+        if (
+            expected_received > 0
+            and total_received >= expected_received
+        ):
+            status = "Received"
+        elif total_received > 0:
+            status = "Partially Received"
+        else:
+            status = "Issued"
+
         frappe.db.set_value(
             self.doctype,
             self.name,
             "status",
-            "Issued",
+            status,
             update_modified=False,
         )
 
