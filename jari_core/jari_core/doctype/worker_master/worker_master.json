@@ -12,6 +12,8 @@
   "rate",
   "department",
   "process_master",
+  "salary_formats_section",
+  "salary_formats",
   "active"
  ],
  "fields": [
@@ -61,6 +63,17 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "reqd": 0
+  },
+  {
+   "fieldname": "salary_formats_section",
+   "fieldtype": "Section Break",
+   "label": "Salary Formats"
+  },
+  {
+   "fieldname": "salary_formats",
+   "fieldtype": "Table",
+   "label": "Applicable Salary Formats",
+   "options": "Worker Salary Format Mapping"
   }
  ],
  "grid_page_length": 50,

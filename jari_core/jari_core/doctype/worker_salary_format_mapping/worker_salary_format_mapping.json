@@ -1,0 +1,50 @@
+{
+ "actions": [],
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "salary_format",
+  "default_rate",
+  "active",
+  "effective_from",
+  "effective_to"
+ ],
+ "fields": [
+  {
+   "fieldname": "salary_format",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Salary Format",
+   "options": "Worker Salary Format",
+   "reqd": 1
+  },
+  {
+   "fieldname": "default_rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Worker-specific Default Rate"
+  },
+  {
+   "default": "1",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Active"
+  },
+  {
+   "fieldname": "effective_from",
+   "fieldtype": "Date",
+   "label": "Effective From"
+  },
+  {
+   "fieldname": "effective_to",
+   "fieldtype": "Date",
+   "label": "Effective To"
+  }
+ ],
+ "istable": 1,
+ "module": "JARI Core",
+ "name": "Worker Salary Format Mapping",
+ "permissions": []
+}
