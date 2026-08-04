@@ -15,6 +15,7 @@
   "process_master",
   "quality_code",
   "operator",
+  "gilit_karigar",
   "peti_items",
   "metal_water_inputs",
   "total_peti",
@@ -122,6 +123,15 @@
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "gilit_karigar",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Gilit Karigar",
+   "options": "Worker Master",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
