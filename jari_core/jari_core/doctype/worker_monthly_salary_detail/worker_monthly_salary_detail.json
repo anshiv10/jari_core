@@ -1,0 +1,118 @@
+{
+ "actions": [],
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "salary_format",
+  "salary_group",
+  "calculation_basis",
+  "data_source",
+  "requires_quality",
+  "source_quantity",
+  "rate",
+  "base_amount",
+  "extra_amount",
+  "final_amount",
+  "quality_details",
+  "source_reference",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "salary_format",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Salary Format",
+   "options": "Worker Salary Format",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "salary_group",
+   "fieldtype": "Data",
+   "label": "Salary Group",
+   "read_only": 1
+  },
+  {
+   "fieldname": "calculation_basis",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Calculation Basis",
+   "read_only": 1
+  },
+  {
+   "fieldname": "data_source",
+   "fieldtype": "Data",
+   "label": "Data Source",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "requires_quality",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Requires Quality",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "source_quantity",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Source Quantity",
+   "precision": "4"
+  },
+  {
+   "default": "0",
+   "fieldname": "rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Rate"
+  },
+  {
+   "default": "0",
+   "fieldname": "base_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Base Amount",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "extra_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Extra Amount"
+  },
+  {
+   "default": "0",
+   "fieldname": "final_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Final Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "quality_details",
+   "fieldtype": "Table",
+   "label": "Quality-wise Calculation",
+   "options": "Worker Salary Quality Detail"
+  },
+  {
+   "fieldname": "source_reference",
+   "fieldtype": "Small Text",
+   "label": "Source Reference",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "istable": 1,
+ "module": "JARI Core",
+ "name": "Worker Monthly Salary Detail",
+ "permissions": []
+}
