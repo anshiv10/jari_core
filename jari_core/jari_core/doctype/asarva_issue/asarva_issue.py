@@ -186,11 +186,20 @@ class AsarvaIssue(Document):
             3,
         )
 
+        current_received_weight = flt(
+            self.total_received_weight
+        )
+
+        self.total_received_weight = flt(
+            current_received_weight,
+            3,
+        )
+
         self.balance_expected_weight = max(
             0,
             flt(
-                self.expected_received_weight
-                - self.total_received_weight,
+                flt(self.expected_received_weight)
+                - current_received_weight,
                 3,
             ),
         )
