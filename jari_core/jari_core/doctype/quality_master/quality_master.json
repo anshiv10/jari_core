@@ -10,7 +10,8 @@
   "quality_code",
   "description",
   "silver_purity_percent",
-  "flow_type"
+  "flow_type",
+  "department"
  ],
  "fields": [
   {
@@ -39,6 +40,15 @@
    "in_list_view": 1,
    "label": "Flow Type",
    "options": "Real\nImitation"
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Department",
+   "options": "Department Master",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
