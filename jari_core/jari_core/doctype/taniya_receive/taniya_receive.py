@@ -1,3 +1,5 @@
+import json
+
 import frappe
 from frappe.model.document import Document
 from frappe.utils import flt, today
@@ -158,6 +160,36 @@ class TaniyaReceive(Document):
                     f"Out Product Detail Row #{row_number}."
                 )
 
+            piece_weights = self.get_piece_baad_weights(
+                row,
+                row_number,
+            )
+
+            if piece_weights is not None:
+                if len(piece_weights) != quantity:
+                    frappe.throw(
+                        f"Baad Weight entry count must match "
+                        f"Quantity in Out Product Detail "
+                        f"Row #{row_number}. Expected {quantity}, "
+                        f"found {len(piece_weights)}."
+                    )
+
+                calculated_baad_weight = flt(
+                    sum(piece_weights),
+                    3,
+                )
+
+                if abs(
+                    calculated_baad_weight - baad_weight
+                ) > 0.001:
+                    frappe.throw(
+                        f"Baad Weight total does not match the "
+                        f"piece-wise entries in Out Product Detail "
+                        f"Row #{row_number}. Expected "
+                        f"{calculated_baad_weight:.3f}, found "
+                        f"{baad_weight:.3f}."
+                    )
+
             if baad_weight > received_weight:
                 frappe.throw(
                     f"Baad Weight {baad_weight:.3f} cannot exceed "
@@ -175,6 +207,61 @@ class TaniyaReceive(Document):
                     f"N.W (DATA) must be greater than zero in "
                     f"Out Product Detail Row #{row_number}."
                 )
+
+    def get_piece_baad_weights(
+        self,
+        row,
+        row_number,
+    ):
+        """
+        Return saved piece-wise Baad Weight values.
+
+        None means this is a legacy row created before piece details
+        were persisted. Such historical rows remain compatible.
+        """
+        raw_details = row.get(
+            "baad_weight_details"
+        )
+
+        if not raw_details:
+            return None
+
+        try:
+            values = (
+                json.loads(raw_details)
+                if isinstance(raw_details, str)
+                else raw_details
+            )
+        except (TypeError, ValueError):
+            frappe.throw(
+                f"Invalid Baad Weight Details in "
+                f"Out Product Detail Row #{row_number}."
+            )
+
+        if not isinstance(values, list):
+            frappe.throw(
+                f"Baad Weight Details must be a list in "
+                f"Out Product Detail Row #{row_number}."
+            )
+
+        normalized = []
+
+        for piece_number, value in enumerate(
+            values,
+            start=1,
+        ):
+            weight = flt(value)
+
+            if weight < 0:
+                frappe.throw(
+                    f"Piece {piece_number} Baad Weight cannot "
+                    f"be negative in Out Product Detail "
+                    f"Row #{row_number}."
+                )
+
+            normalized.append(weight)
+
+        return normalized
 
     def get_quality_purity(self):
         if not self.quality_code:

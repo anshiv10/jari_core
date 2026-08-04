@@ -129,6 +129,7 @@ frappe.ui.form.on('Taniya Output Item', {
                 weight: 0,
                 baad_weight: 0,
                 net_weight: 0,
+                baad_weight_details: '[]',
                 approx_silver_weight: 0
             });
         } else {
@@ -141,6 +142,7 @@ frappe.ui.form.on('Taniya Output Item', {
                 weight: 0,
                 baad_weight: 0,
                 net_weight: 0,
+                baad_weight_details: '[]',
                 approx_silver_weight: 0
             });
         }
@@ -174,6 +176,7 @@ frappe.ui.form.on('Taniya Waste Item', {
                 weight: 0,
                 baad_weight: 0,
                 net_weight: 0,
+                baad_weight_details: '[]',
                 approx_silver_weight: 0
             });
         } else {
@@ -186,6 +189,7 @@ frappe.ui.form.on('Taniya Waste Item', {
                 weight: 0,
                 baad_weight: 0,
                 net_weight: 0,
+                baad_weight_details: '[]',
                 approx_silver_weight: 0
             });
         }
@@ -307,6 +311,14 @@ frappe.ui.form.on('Taniya Output Item', {
         );
     },
 
+    edit_baad_weight(frm, cdt, cdn) {
+        show_taniya_baad_weight_dialog(
+            frm,
+            cdt,
+            cdn
+        );
+    },
+
     output_items_remove(frm) {
         calculate_taniya_output_totals(frm);
     }
@@ -328,6 +340,15 @@ function show_taniya_baad_weight_dialog(
 
         return;
     }
+
+    const existingWeights =
+        get_taniya_baad_weight_entries(row);
+
+    const normalizedWeights =
+        normalize_taniya_baad_weight_entries(
+            existingWeights,
+            quantity
+        );
 
     const fields = [];
 
@@ -363,7 +384,11 @@ function show_taniya_baad_weight_dialog(
                 [pieceNumber]
             ),
             reqd: 1,
-            default: 0,
+            default: flt(
+                normalizedWeights[
+                    pieceNumber - 1
+                ]
+            ),
             precision: 3
         });
     }
@@ -377,6 +402,7 @@ function show_taniya_baad_weight_dialog(
 
         async primary_action(values) {
             let totalBaadWeight = 0;
+            const pieceWeights = [];
 
             for (
                 let pieceNumber = 1;
@@ -400,6 +426,10 @@ function show_taniya_baad_weight_dialog(
 
                     return;
                 }
+
+                pieceWeights.push(
+                    flt(value, 3)
+                );
 
                 totalBaadWeight += value;
             }
@@ -447,6 +477,13 @@ function show_taniya_baad_weight_dialog(
             await frappe.model.set_value(
                 cdt,
                 cdn,
+                'baad_weight_details',
+                JSON.stringify(pieceWeights)
+            );
+
+            await frappe.model.set_value(
+                cdt,
+                cdn,
                 'baad_weight',
                 flt(totalBaadWeight, 3)
             );
@@ -474,6 +511,56 @@ function show_taniya_baad_weight_dialog(
     });
 
     dialog.show();
+}
+
+
+
+function get_taniya_baad_weight_entries(row) {
+    const rawValue =
+        row.baad_weight_details;
+
+    if (!rawValue) {
+        return [];
+    }
+
+    try {
+        const parsed =
+            typeof rawValue === 'string'
+                ? JSON.parse(rawValue)
+                : rawValue;
+
+        if (!Array.isArray(parsed)) {
+            return [];
+        }
+
+        return parsed.map(
+            value => flt(value)
+        );
+    } catch (error) {
+        console.error(
+            'Invalid Baad Weight Details JSON:',
+            error
+        );
+
+        return [];
+    }
+}
+
+
+function normalize_taniya_baad_weight_entries(
+    existingWeights,
+    quantity
+) {
+    const normalized =
+        Array.isArray(existingWeights)
+            ? existingWeights.slice(0, quantity)
+            : [];
+
+    while (normalized.length < quantity) {
+        normalized.push(0);
+    }
+
+    return normalized;
 }
 
 

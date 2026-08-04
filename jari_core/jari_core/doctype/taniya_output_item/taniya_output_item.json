@@ -12,9 +12,11 @@
   "product_name",
   "uom",
   "quantity",
+  "edit_baad_weight",
   "weight",
   "baad_weight",
   "net_weight",
+  "baad_weight_details",
   "approx_silver_weight"
  ],
  "fields": [
@@ -88,6 +90,20 @@
    "in_list_view": 1,
    "read_only": 1,
    "precision": "3"
+  },
+  {
+   "fieldname": "edit_baad_weight",
+   "fieldtype": "Button",
+   "label": "View / Edit Baad Weight",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "baad_weight_details",
+   "fieldtype": "Long Text",
+   "label": "Baad Weight Details",
+   "hidden": 1,
+   "read_only": 1,
+   "default": "[]"
   }
  ],
  "grid_page_length": 50,
