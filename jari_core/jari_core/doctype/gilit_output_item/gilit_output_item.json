@@ -9,11 +9,20 @@
   "spindal_peti_entry",
   "peti_no",
   "total_bobbin",
-  "issued_bobbin",
+  "remaining_bobbin",
+  "gilit_baad_weight",
   "used_net_weight",
+  "issued_bobbin",
   "product",
   "uom",
-  "weight"
+  "weight",
+  "original_bobbin_count",
+  "original_remaining_bobbin",
+  "original_gross_weight",
+  "original_baad_weight",
+  "original_net_weight",
+  "original_remaining_net_weight",
+  "original_status"
  ],
  "fields": [
   {
@@ -43,13 +52,14 @@
    "fieldtype": "Int",
    "label": "Issued Bobbin",
    "read_only": 1,
-   "in_list_view": 1
+   "in_list_view": 0,
+   "hidden": 1
   },
   {
    "fieldname": "used_net_weight",
    "fieldtype": "Float",
    "label": "Consumed Net Weight",
-   "read_only": 0,
+   "read_only": 1,
    "in_list_view": 1
   },
   {
@@ -71,6 +81,71 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remaining_bobbin",
+   "fieldtype": "Int",
+   "label": "Remaining Bobbin",
+   "default": "0",
+   "in_list_view": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "gilit_baad_weight",
+   "fieldtype": "Float",
+   "label": "Gilit Baad Weight",
+   "default": "0",
+   "in_list_view": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "original_bobbin_count",
+   "fieldtype": "Int",
+   "label": "Original Bobbin Count",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "original_remaining_bobbin",
+   "fieldtype": "Int",
+   "label": "Original Remaining Bobbin",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "original_gross_weight",
+   "fieldtype": "Float",
+   "label": "Original Gross Weight",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "original_baad_weight",
+   "fieldtype": "Float",
+   "label": "Original Baad Weight",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "original_net_weight",
+   "fieldtype": "Float",
+   "label": "Original Net Weight",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "original_remaining_net_weight",
+   "fieldtype": "Float",
+   "label": "Original Remaining Net Weight",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "original_status",
+   "fieldtype": "Data",
+   "label": "Original Status",
+   "hidden": 1,
    "read_only": 1
   }
  ],

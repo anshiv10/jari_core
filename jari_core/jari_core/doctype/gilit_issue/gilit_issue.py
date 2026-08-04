@@ -135,12 +135,15 @@ class GilitIssue(Document):
         )
 
     def on_submit(self):
-        self.update_peti_balances()
+        # Peti consumption is now measured and applied in Gilit Receive.
+        # Gilit Issue only reserves/assigns the selected Peti.
         self.post_inventory_transfer()
-        frappe.db.set_value(self.doctype, self.name, "status", "Issued")
-
-    def on_cancel(self):
-        self.restore_peti_balances()
+        frappe.db.set_value(
+            self.doctype,
+            self.name,
+            "status",
+            "Issued",
+        )
 
     def set_defaults(self):
         if not self.from_department:
@@ -211,15 +214,6 @@ class GilitIssue(Document):
             if available <= 0 or peti.status == "Fully Consumed":
                 frappe.throw(f"Peti {peti.name} is already fully consumed.")
 
-            if cint(row.issued_bobbin) <= 0:
-                frappe.throw(f"Issued Bobbin must be greater than zero for Peti {peti.name}.")
-
-            if cint(row.issued_bobbin) > available:
-                frappe.throw(
-                    f"Cannot issue {row.issued_bobbin} bobbin from Peti {peti.name}. "
-                    f"Available Bobbin: {available}"
-                )
-
             row.peti_no = peti.peti_no or peti.name
             row.quality_code = peti_quality
             row.khata_no = peti.khata_no
@@ -228,9 +222,13 @@ class GilitIssue(Document):
             row.gross_weight = flt(peti.gross_weight)
             row.baad_weight = flt(peti.baad_weight)
             row.net_weight = flt(peti.net_weight)
-            row.total_bobbin = total_bobbin
+            # For a partial Peti, current available bobbins become
+            # the Total Bobbin shown in the next Gilit Issue.
+            row.total_bobbin = available
             row.available_bobbin = available
-            row.balance_bobbin_after_issue = available - cint(row.issued_bobbin)
+            row.issued_bobbin = 0
+            row.balance_bobbin_after_issue = 0
+            row.peti_status = peti.status
             row.operator_name = peti.operator
 
         self.quality_code = (
@@ -281,13 +279,10 @@ class GilitIssue(Document):
 
             self.total_peti += 1
 
-            total_bobbin = cint(row.total_bobbin)
-            issued_bobbin = cint(row.issued_bobbin)
-
-            if total_bobbin and issued_bobbin:
-                net_weight_gm = gm_value(row.net_weight, row.uom)
-                issued_weight_in_grams = (net_weight_gm / total_bobbin) * issued_bobbin
-                self.total_net_weight += issued_weight_in_grams / 1000
+            # Spindal Peti weights are normalized to KG.
+            # The whole currently available Peti is assigned to Gilit;
+            # actual consumption is measured in Gilit Receive.
+            self.total_net_weight += flt(row.net_weight)
 
     def update_peti_balances(self):
         for row in self.peti_items:

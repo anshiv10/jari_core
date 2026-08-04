@@ -7,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "spindal_peti_entry",
+  "peti_status",
   "peti_no",
   "quality_code",
   "khata_no",
@@ -104,15 +105,18 @@
    "fieldname": "issued_bobbin",
    "fieldtype": "Int",
    "label": "Issued Bobbin",
-   "reqd": 1,
-   "in_list_view": 1
+   "reqd": 0,
+   "in_list_view": 0,
+   "hidden": 1
   },
   {
    "fieldname": "balance_bobbin_after_issue",
    "fieldtype": "Int",
    "label": "Balance Bobbin After Issue",
    "read_only": 1,
-   "in_list_view": 1
+   "in_list_view": 0,
+   "hidden": 1,
+   "reqd": 0
   },
   {
    "fieldname": "operator_name",
@@ -120,6 +124,13 @@
    "in_list_view": 1,
    "label": "Operator Name",
    "options": "Worker Master"
+  },
+  {
+   "fieldname": "peti_status",
+   "fieldtype": "Data",
+   "label": "Peti Status",
+   "read_only": 1,
+   "in_list_view": 1
   }
  ],
  "grid_page_length": 50,
