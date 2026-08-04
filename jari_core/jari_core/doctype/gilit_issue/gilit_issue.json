@@ -14,7 +14,6 @@
   "to_department",
   "process_master",
   "quality_code",
-  "operator",
   "gilit_karigar",
   "peti_items",
   "metal_water_inputs",
@@ -74,13 +73,6 @@
    "label": "Quality",
    "options": "Quality Master",
    "in_list_view": 1
-  },
-  {
-   "fieldname": "operator",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Gilit Karigar",
-   "options": "Worker Master"
   },
   {
    "fieldname": "peti_items",
