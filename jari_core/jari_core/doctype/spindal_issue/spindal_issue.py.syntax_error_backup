@@ -2,12 +2,12 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import flt
 from jari_core.jari_core.stock_utils import (
+from jari_core.jari_core.doctype.process_master.process_master import (
+    apply_process_department_defaults,
+)
     add_wip_transfer_in,
     consume_issueable_stock,
     get_issueable_sources,
-)
-from jari_core.jari_core.doctype.process_master.process_master import (
-    apply_process_department_defaults,
 )
 
 
@@ -25,15 +25,12 @@ class SpindalIssue(Document):
         self.set_issue_status()
 
     def set_defaults(self):
-        apply_process_department_defaults(
-            self,
-            fallback_from="Taniya",
-            fallback_to="Spindal",
-        )
-
+        if not self.from_department:
+            self.from_department = "Taniya"
+        if not self.to_department:
+            self.to_department = "Spindal"
         if not self.issue_type:
             self.issue_type = "New Batch"
-
         if self.is_active_batch is None:
             self.is_active_batch = 1
 
