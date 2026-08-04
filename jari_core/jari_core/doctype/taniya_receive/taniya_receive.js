@@ -176,7 +176,6 @@ frappe.ui.form.on('Taniya Waste Item', {
                 weight: 0,
                 baad_weight: 0,
                 net_weight: 0,
-                baad_weight_details: '[]',
                 approx_silver_weight: 0
             });
         } else {
@@ -189,7 +188,6 @@ frappe.ui.form.on('Taniya Waste Item', {
                 weight: 0,
                 baad_weight: 0,
                 net_weight: 0,
-                baad_weight_details: '[]',
                 approx_silver_weight: 0
             });
         }
