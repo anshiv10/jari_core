@@ -10,6 +10,7 @@
   "jobworker_name",
   "contact",
   "department_type",
+  "process_master",
   "standard_loss_percent",
   "rate_per_kg"
  ],
@@ -47,6 +48,15 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Rate Per KG"
+  },
+  {
+   "fieldname": "process_master",
+   "fieldtype": "Link",
+   "label": "Process",
+   "options": "Process Master",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "reqd": 0
   }
  ],
  "grid_page_length": 50,

@@ -11,6 +11,7 @@
   "payroll_type",
   "rate",
   "department",
+  "process_master",
   "active"
  ],
  "fields": [
@@ -51,6 +52,15 @@
    "fieldtype": "Check",
    "in_list_view": 1,
    "label": "Active"
+  },
+  {
+   "fieldname": "process_master",
+   "fieldtype": "Link",
+   "label": "Process",
+   "options": "Process Master",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "reqd": 0
   }
  ],
  "grid_page_length": 50,
