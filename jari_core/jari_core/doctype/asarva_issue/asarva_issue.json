@@ -1,0 +1,208 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "Prompt",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "issue_details_section",
+  "issue_date",
+  "company",
+  "asarva_outsourcer",
+  "issued_by",
+  "routing_section",
+  "from_department",
+  "to_department",
+  "batch_no",
+  "process_master",
+  "quality_code",
+  "items_section",
+  "issue_items",
+  "summary_section",
+  "total_issued_weight",
+  "expected_receive_percent",
+  "expected_received_weight",
+  "total_received_weight",
+  "balance_expected_weight",
+  "status",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "issue_details_section",
+   "fieldtype": "Section Break",
+   "label": "Issue Details"
+  },
+  {
+   "fieldname": "issue_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Issue Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Company",
+   "options": "Company Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "asarva_outsourcer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Asarva Outsourcer",
+   "options": "Jobworker Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "issued_by",
+   "fieldtype": "Link",
+   "label": "Issued By",
+   "options": "User"
+  },
+  {
+   "fieldname": "routing_section",
+   "fieldtype": "Section Break",
+   "label": "Department and Batch"
+  },
+  {
+   "fieldname": "from_department",
+   "fieldtype": "Link",
+   "label": "From Department",
+   "options": "Department Master",
+   "reqd": 1
+  },
+  {
+   "default": "Rangrej/Asarva",
+   "fieldname": "to_department",
+   "fieldtype": "Link",
+   "label": "To Department",
+   "options": "Department Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "batch_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Batch No",
+   "reqd": 1
+  },
+  {
+   "fieldname": "process_master",
+   "fieldtype": "Link",
+   "label": "Process",
+   "options": "Process Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "quality_code",
+   "fieldtype": "Link",
+   "label": "Quality",
+   "options": "Quality Master"
+  },
+  {
+   "fieldname": "items_section",
+   "fieldtype": "Section Break",
+   "label": "Product Issue Detail"
+  },
+  {
+   "fieldname": "issue_items",
+   "fieldtype": "Table",
+   "label": "Product Issue Detail",
+   "options": "Asarva Issue Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "summary_section",
+   "fieldtype": "Section Break",
+   "label": "Weight Summary"
+  },
+  {
+   "bold": 1,
+   "fieldname": "total_issued_weight",
+   "fieldtype": "Float",
+   "label": "Total Issued Weight",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "default": "75",
+   "fieldname": "expected_receive_percent",
+   "fieldtype": "Percent",
+   "label": "Expected Receive %",
+   "reqd": 1
+  },
+  {
+   "bold": 1,
+   "fieldname": "expected_received_weight",
+   "fieldtype": "Float",
+   "label": "Expected Received Weight",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "bold": 1,
+   "fieldname": "total_received_weight",
+   "fieldtype": "Float",
+   "label": "Total Received Weight",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "balance_expected_weight",
+   "fieldtype": "Float",
+   "label": "Balance Expected Weight",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "bold": 1,
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nIssued\nPartially Received\nReceived\nCancelled",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Asarva Issue",
+   "print_hide": 1,
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "is_submittable": 1,
+ "module": "JARI Core",
+ "name": "Asarva Issue",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 0,
+ "sort_field": "issue_date",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
