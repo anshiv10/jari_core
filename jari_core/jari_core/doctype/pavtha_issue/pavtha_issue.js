@@ -389,3 +389,135 @@ function set_parent_value_if_changed(
         );
     }
 }
+
+
+// BEGIN PROCESS-WISE WORKER FILTER: Pavtha Issue
+frappe.ui.form.on('Pavtha Issue', {
+    setup(frm) {
+        apply_process_party_queries(frm);
+    },
+
+    refresh(frm) {
+        apply_process_party_queries(frm);
+    },
+
+    process_master(frm) {
+        apply_process_party_queries(frm);
+        
+        validate_selected_process_party(
+            frm,
+            'outsourcer',
+            'Jobworker Master'
+        );
+        validate_selected_process_party(
+            frm,
+            'operator',
+            'Worker Master'
+        );
+    }
+});
+
+
+function apply_process_party_queries(frm) {
+    
+        frm.set_query('outsourcer', function () {
+            if (!frm.doc.process_master) {
+                return {
+                    filters: {
+                        name: '__NO_PROCESS_SELECTED__'
+                    }
+                };
+            }
+
+            return {
+                filters: {
+                    process_master: frm.doc.process_master
+                }
+            };
+        });
+        frm.set_query('operator', function () {
+            if (!frm.doc.process_master) {
+                return {
+                    filters: {
+                        name: '__NO_PROCESS_SELECTED__'
+                    }
+                };
+            }
+
+            return {
+                filters: {
+                    process_master: frm.doc.process_master,
+                    active: 1
+                }
+            };
+        });
+}
+
+
+async function validate_selected_process_party(
+    frm,
+    fieldname,
+    master_doctype
+) {
+    const selectedName =
+        frm.doc[fieldname];
+
+    if (!selectedName) {
+        return;
+    }
+
+    if (!frm.doc.process_master) {
+        await frm.set_value(
+            fieldname,
+            ''
+        );
+
+        return;
+    }
+
+    try {
+        const result =
+            await frappe.db.get_value(
+                master_doctype,
+                selectedName,
+                [
+                    'process_master',
+                    'active'
+                ]
+            );
+
+        const record =
+            result.message || {};
+
+        const processMismatch =
+            record.process_master !==
+            frm.doc.process_master;
+
+        const inactiveWorker =
+            master_doctype === 'Worker Master' &&
+            cint(record.active) !== 1;
+
+        if (
+            processMismatch ||
+            inactiveWorker
+        ) {
+            await frm.set_value(
+                fieldname,
+                ''
+            );
+
+            frappe.show_alert({
+                message: __(
+                    'Selection cleared because it does not belong to the selected Process or is inactive.'
+                ),
+                indicator: 'orange'
+            });
+        }
+    } catch (error) {
+        console.error(
+            `Unable to validate ${fieldname}:`,
+            error
+        );
+    }
+}
+// END PROCESS-WISE WORKER FILTER: Pavtha Issue
