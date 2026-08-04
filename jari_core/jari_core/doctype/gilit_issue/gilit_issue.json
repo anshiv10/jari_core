@@ -79,7 +79,7 @@
    "fieldname": "operator",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Operator",
+   "label": "Gilit Karigar",
    "options": "Worker Master"
   },
   {
