@@ -8,17 +8,28 @@ from jari_core.jari_core.stock_utils import (
 )
 from jari_core.jari_core.doctype.process_master.process_master import (
     apply_process_department_defaults,
+    validate_process_party,
 )
 
 
 class SpindalIssue(Document):
 
     def validate(self):
+        self.validate_process_assignments()
         self.set_defaults()
         self.set_active_batch_no()
         self.validate_issue_items()
         self.validate_draft_stock_availability()
         self.calculate_totals()
+
+    def validate_process_assignments(self):
+        validate_process_party(
+            self,
+            fieldname="operator",
+            master_doctype="Worker Master",
+            label="Operator",
+            require_active=True,
+        )
 
     def on_submit(self):
         self.post_inventory_transfer()

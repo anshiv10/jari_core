@@ -4,6 +4,7 @@ from frappe.model.document import Document
 from frappe.utils import flt, today
 from jari_core.jari_core.doctype.process_master.process_master import (
     apply_process_department_defaults,
+    validate_process_party,
 )
 
 
@@ -17,9 +18,25 @@ VALID_ISSUE_RECEIVE_TYPES = {
 class PavthaIssue(Document):
 
     def validate(self):
+        self.validate_process_assignments()
         self.set_defaults()
         self.validate_items()
         self.calculate_totals()
+
+    def validate_process_assignments(self):
+        validate_process_party(
+            self,
+            fieldname="outsourcer",
+            master_doctype="Jobworker Master",
+            label="Outsourcer",
+        )
+        validate_process_party(
+            self,
+            fieldname="operator",
+            master_doctype="Worker Master",
+            label="Operator",
+            require_active=True,
+        )
 
     def on_submit(self):
         self.post_inventory_transfer()

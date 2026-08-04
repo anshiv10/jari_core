@@ -3,16 +3,27 @@ from frappe.model.document import Document
 from frappe.utils import flt, today
 from jari_core.jari_core.doctype.process_master.process_master import (
     apply_process_department_defaults,
+    validate_process_party,
 )
 
 
 class MeltingIssue(Document):
 
     def validate(self):
+        self.validate_process_assignments()
         self.set_defaults()
         self.sync_active_batch_no()
         self.set_silver_purity()
         self.calculate_totals()
+
+    def validate_process_assignments(self):
+        validate_process_party(
+            self,
+            fieldname="operator",
+            master_doctype="Worker Master",
+            label="Operator",
+            require_active=True,
+        )
 
     def on_submit(self):
         self.sync_active_batch_no()

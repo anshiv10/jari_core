@@ -4,16 +4,27 @@ from frappe.utils import flt
 from jari_core.jari_core.stock_utils import consume_issueable_stock, add_wip_transfer_in, get_product_stock_summary
 from jari_core.jari_core.doctype.process_master.process_master import (
     apply_process_department_defaults,
+    validate_process_party,
 )
 
 
 class TaniyaIssue(Document):
 
     def validate(self):
+        self.validate_process_assignments()
         self.set_defaults()
         self.set_batch_no()
         self.validate_items()
         self.calculate_totals()
+
+    def validate_process_assignments(self):
+        validate_process_party(
+            self,
+            fieldname="operator",
+            master_doctype="Worker Master",
+            label="Operator",
+            require_active=True,
+        )
 
     def on_submit(self):
         self.post_inventory_transfer()

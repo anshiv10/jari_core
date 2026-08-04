@@ -3,6 +3,7 @@ from frappe.model.document import Document
 from frappe.utils import flt, cint, today
 from jari_core.jari_core.doctype.process_master.process_master import (
     apply_process_department_defaults,
+    validate_process_party,
 )
 
 
@@ -118,10 +119,20 @@ def get_product_stock_for_gilit(company, product, department=None):
 class GilitIssue(Document):
 
     def validate(self):
+        self.validate_process_assignments()
         self.set_defaults()
         self.validate_peti_items()
         self.validate_metal_water_inputs()
         self.calculate_totals()
+
+    def validate_process_assignments(self):
+        validate_process_party(
+            self,
+            fieldname="gilit_karigar",
+            master_doctype="Worker Master",
+            label="Gilit Karigar",
+            require_active=True,
+        )
 
     def on_submit(self):
         self.update_peti_balances()
