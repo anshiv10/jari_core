@@ -8,9 +8,10 @@
  "field_order": [
   "process_name",
   "process_code",
-  "department",
+  "jari_issue_type",
   "from_department",
   "to_department",
+  "department",
   "flow_type",
   "is_outsourced",
   "sequence_order",
@@ -33,10 +34,19 @@
    "label": "Process Code"
   },
   {
+   "fieldname": "jari_issue_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Jari Issue Type",
+   "options": "\nMelting Issue\nPavtha Issue\nTaniya Issue\nSpindal Issue\nGilit Issue\nAsarva Issue"
+  },
+  {
    "fieldname": "department",
    "fieldtype": "Link",
-   "label": "Department",
-   "options": "Department Master"
+   "label": "Legacy Department",
+   "options": "Department Master",
+   "hidden": 1,
+   "read_only": 1
   },
   {
    "fieldname": "from_department",

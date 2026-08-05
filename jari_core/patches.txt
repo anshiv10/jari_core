@@ -16,3 +16,5 @@ jari_core.patches.v1_0.create_worker_payroll_foundation
 jari_core.patches.v1_0.add_multi_process_master_assignments
 
 jari_core.patches.v1_0.configure_issue_process_routes
+
+jari_core.patches.v1_0.configure_process_jari_issue_types

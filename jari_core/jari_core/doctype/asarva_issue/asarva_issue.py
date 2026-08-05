@@ -10,6 +10,7 @@ from frappe.utils import flt, getdate, today
 from jari_core.jari_core.doctype.process_master.process_master import (
     apply_process_department_defaults,
     validate_process_departments,
+    validate_process_issue_type,
     validate_party_process_assignment,
     validate_process_party,
 )
@@ -56,6 +57,10 @@ class AsarvaIssue(Document):
     def validate(self):
         self.set_defaults()
         validate_process_departments(self)
+        validate_process_issue_type(
+            self,
+            "Asarva Issue",
+        )
         self.validate_parties()
         self.validate_items()
         self.calculate_totals()

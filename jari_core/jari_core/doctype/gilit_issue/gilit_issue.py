@@ -4,6 +4,7 @@ from frappe.utils import flt, cint, today
 from jari_core.jari_core.doctype.process_master.process_master import (
     apply_process_department_defaults,
     validate_process_departments,
+    validate_process_issue_type,
     validate_process_party,
 )
 
@@ -123,6 +124,10 @@ class GilitIssue(Document):
         self.validate_process_assignments()
         self.set_defaults()
         validate_process_departments(self)
+        validate_process_issue_type(
+            self,
+            "Gilit Issue",
+        )
         self.validate_peti_items()
         self.validate_metal_water_inputs()
         self.calculate_totals()

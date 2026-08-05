@@ -4,6 +4,7 @@ from frappe.utils import flt, today
 from jari_core.jari_core.doctype.process_master.process_master import (
     apply_process_department_defaults,
     validate_process_departments,
+    validate_process_issue_type,
     validate_process_party,
 )
 
@@ -14,6 +15,10 @@ class MeltingIssue(Document):
         self.validate_process_assignments()
         self.set_defaults()
         validate_process_departments(self)
+        validate_process_issue_type(
+            self,
+            "Melting Issue",
+        )
         self.sync_active_batch_no()
         self.set_silver_purity()
         self.calculate_totals()

@@ -9,6 +9,7 @@ from jari_core.jari_core.stock_utils import (
 from jari_core.jari_core.doctype.process_master.process_master import (
     apply_process_department_defaults,
     validate_process_departments,
+    validate_process_issue_type,
     validate_process_party,
 )
 
@@ -19,6 +20,10 @@ class SpindalIssue(Document):
         self.validate_process_assignments()
         self.set_defaults()
         validate_process_departments(self)
+        validate_process_issue_type(
+            self,
+            "Spindal Issue",
+        )
         self.set_active_batch_no()
         self.validate_issue_items()
         self.validate_draft_stock_availability()

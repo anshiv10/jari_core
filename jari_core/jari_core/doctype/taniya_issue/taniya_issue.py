@@ -5,6 +5,7 @@ from jari_core.jari_core.stock_utils import consume_issueable_stock, add_wip_tra
 from jari_core.jari_core.doctype.process_master.process_master import (
     apply_process_department_defaults,
     validate_process_departments,
+    validate_process_issue_type,
     validate_process_party,
 )
 
@@ -15,6 +16,10 @@ class TaniyaIssue(Document):
         self.validate_process_assignments()
         self.set_defaults()
         validate_process_departments(self)
+        validate_process_issue_type(
+            self,
+            "Taniya Issue",
+        )
         self.set_batch_no()
         self.validate_items()
         self.calculate_totals()

@@ -630,3 +630,39 @@ frappe.ui.form.on('Pavtha Issue', {
     }
 });
 // END PROCESS-FIRST DEPARTMENT ROUTING
+
+// BEGIN JARI ISSUE TYPE PROCESS FILTER
+frappe.ui.form.on('Pavtha Issue', {
+    setup(frm) {
+        set_jari_issue_type_process_query(
+            frm,
+            'Pavtha Issue'
+        );
+    },
+
+    refresh(frm) {
+        set_jari_issue_type_process_query(
+            frm,
+            'Pavtha Issue'
+        );
+    }
+});
+
+function set_jari_issue_type_process_query(
+    frm,
+    issueType
+) {
+    frm.set_query(
+        'process_master',
+        function () {
+            return {
+                query:
+                    'jari_core.jari_core.doctype.process_master.process_master.process_by_jari_issue_type_query',
+                filters: {
+                    jari_issue_type: issueType
+                }
+            };
+        }
+    );
+}
+// END JARI ISSUE TYPE PROCESS FILTER

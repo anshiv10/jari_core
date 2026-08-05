@@ -118,6 +118,129 @@ def validate_process_departments(doc):
         )
 
 
+JARI_ISSUE_TYPES = (
+    "Melting Issue",
+    "Pavtha Issue",
+    "Taniya Issue",
+    "Spindal Issue",
+    "Gilit Issue",
+    "Asarva Issue",
+)
+
+
+def validate_process_issue_type(
+    doc,
+    expected_issue_type,
+):
+    """
+    Ensure a Process can be used only from its configured
+    Jari Issue Type.
+
+    Existing documents that already contain the same Process are
+    preserved for historical compatibility. New documents and
+    Process changes are validated strictly.
+    """
+    process_master = doc.get("process_master")
+
+    if not process_master:
+        return
+
+    configured_issue_type = frappe.db.get_value(
+        "Process Master",
+        process_master,
+        "jari_issue_type",
+    )
+
+    if configured_issue_type == expected_issue_type:
+        return
+
+    if not doc.is_new() and doc.name:
+        stored_process = frappe.db.get_value(
+            doc.doctype,
+            doc.name,
+            "process_master",
+        )
+
+        if stored_process == process_master:
+            return
+
+    process_title = (
+        frappe.db.get_value(
+            "Process Master",
+            process_master,
+            "process_name",
+        )
+        or process_master
+    )
+
+    if not configured_issue_type:
+        frappe.throw(
+            f"Jari Issue Type is not configured for "
+            f"Process {process_title}."
+        )
+
+    frappe.throw(
+        f"Process {process_title} belongs to "
+        f"{configured_issue_type} and cannot be used in "
+        f"{expected_issue_type}."
+    )
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def process_by_jari_issue_type_query(
+    doctype,
+    txt,
+    searchfield,
+    start,
+    page_len,
+    filters,
+):
+    filters = frappe._dict(filters or {})
+
+    issue_type = filters.get("jari_issue_type")
+
+    if not issue_type:
+        return []
+
+    if issue_type not in JARI_ISSUE_TYPES:
+        frappe.throw(
+            f"Unsupported Jari Issue Type: {issue_type}"
+        )
+
+    return frappe.db.sql(
+        """
+        SELECT
+            process.name,
+            process.process_name
+        FROM `tabProcess Master` process
+        WHERE process.jari_issue_type = %(issue_type)s
+          AND (
+              process.name LIKE %(txt)s
+              OR COALESCE(
+                  process.process_name,
+                  ''
+              ) LIKE %(txt)s
+              OR COALESCE(
+                  process.process_code,
+                  ''
+              ) LIKE %(txt)s
+          )
+        ORDER BY
+            COALESCE(process.sequence_order, 0),
+            process.process_name,
+            process.name
+        LIMIT %(start)s, %(page_len)s
+        """,
+        {
+            "issue_type": issue_type,
+            "txt": f"%{txt}%",
+            "start": start,
+            "page_len": page_len,
+        },
+    )
+
+
 MASTER_PROCESS_PARENTFIELD = "processes"
 
 SUPPORTED_PROCESS_MASTERS = {
