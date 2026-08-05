@@ -8,13 +8,13 @@
   "issue_details_section",
   "issue_date",
   "company",
+  "process_master",
+  "from_department",
+  "to_department",
   "asarva_outsourcer",
   "issued_by",
   "routing_section",
-  "from_department",
-  "to_department",
   "batch_no",
-  "process_master",
   "quality_code",
   "items_section",
   "issue_items",
@@ -74,15 +74,16 @@
    "fieldtype": "Link",
    "label": "From Department",
    "options": "Department Master",
-   "reqd": 1
+   "reqd": 1,
+   "read_only": 1
   },
   {
-   "default": "Rangrej/Asarva",
    "fieldname": "to_department",
    "fieldtype": "Link",
    "label": "To Department",
    "options": "Department Master",
-   "reqd": 1
+   "reqd": 1,
+   "read_only": 1
   },
   {
    "fieldname": "batch_no",

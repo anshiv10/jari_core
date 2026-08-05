@@ -11,13 +11,13 @@
   "issue_date",
   "col_break_1",
   "company",
-  "dept_batch_section",
+  "process_master",
   "from_department",
   "to_department",
+  "dept_batch_section",
   "col_break_2",
   "batch_no",
   "active_batch_no",
-  "process_master",
   "quality_code",
   "items_section",
   "operator",
@@ -66,14 +66,16 @@
    "fieldtype": "Link",
    "label": "From Department",
    "options": "Department Master",
-   "reqd": 1
+   "reqd": 1,
+   "read_only": 1
   },
   {
    "fieldname": "to_department",
    "fieldtype": "Link",
    "label": "To Department",
    "options": "Department Master",
-   "reqd": 1
+   "reqd": 1,
+   "read_only": 1
   },
   {
    "fieldname": "col_break_2",

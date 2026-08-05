@@ -4,6 +4,7 @@ from frappe.utils import flt
 from jari_core.jari_core.stock_utils import consume_issueable_stock, add_wip_transfer_in, get_product_stock_summary
 from jari_core.jari_core.doctype.process_master.process_master import (
     apply_process_department_defaults,
+    validate_process_departments,
     validate_process_party,
 )
 
@@ -13,6 +14,7 @@ class TaniyaIssue(Document):
     def validate(self):
         self.validate_process_assignments()
         self.set_defaults()
+        validate_process_departments(self)
         self.set_batch_no()
         self.validate_items()
         self.calculate_totals()
@@ -37,10 +39,8 @@ class TaniyaIssue(Document):
         self.set_issue_status()
 
     def set_defaults(self):
-        if not self.from_department:
-            self.from_department = "Pavtha"
-        if not self.to_department:
-            self.to_department = "Taniya"
+        apply_process_department_defaults(self)
+
         if not self.issue_type:
             self.issue_type = "New Batch"
 

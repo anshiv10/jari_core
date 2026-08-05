@@ -9,6 +9,7 @@ from frappe.utils import flt, getdate, today
 
 from jari_core.jari_core.doctype.process_master.process_master import (
     apply_process_department_defaults,
+    validate_process_departments,
     validate_party_process_assignment,
     validate_process_party,
 )
@@ -54,18 +55,13 @@ class AsarvaIssue(Document):
 
     def validate(self):
         self.set_defaults()
+        validate_process_departments(self)
         self.validate_parties()
         self.validate_items()
         self.calculate_totals()
 
     def set_defaults(self):
-        apply_process_department_defaults(
-            self,
-            fallback_to="Rangrej/Asarva",
-        )
-
-        if not self.to_department:
-            self.to_department = "Rangrej/Asarva"
+        apply_process_department_defaults(self)
 
         if not self.issued_by:
             self.issued_by = frappe.session.user
@@ -76,9 +72,6 @@ class AsarvaIssue(Document):
 
             if not row.product_quality:
                 row.product_quality = self.quality_code
-
-            if not row.uom:
-                row.uom = "KG"
 
     def validate_parties(self):
         validate_process_party(

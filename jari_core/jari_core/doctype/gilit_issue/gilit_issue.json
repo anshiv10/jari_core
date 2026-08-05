@@ -9,10 +9,10 @@
  "field_order": [
   "issue_date",
   "company",
-  "gilit_batch_no",
+  "process_master",
   "from_department",
   "to_department",
-  "process_master",
+  "gilit_batch_no",
   "quality_code",
   "gilit_karigar",
   "peti_items",
@@ -50,7 +50,7 @@
    "label": "From Department",
    "options": "Department Master",
    "reqd": 1,
-   "default": "SPINDAL"
+   "read_only": 1
   },
   {
    "fieldname": "to_department",
@@ -58,7 +58,7 @@
    "label": "To Department",
    "options": "Department Master",
    "reqd": 1,
-   "default": "Gilit"
+   "read_only": 1
   },
   {
    "fieldname": "process_master",

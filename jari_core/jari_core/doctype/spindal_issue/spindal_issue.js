@@ -3,10 +3,8 @@ console.log("Spindal Issue JS Loaded Successfully");
 frappe.ui.form.on('Spindal Issue', {
     refresh(frm) {
         set_product_query_by_department(frm);
-        set_process_query_by_department(frm);
         if (!frm.doc.issue_date) frm.set_value('issue_date', frappe.datetime.get_today());
 
-        set_process_query_by_department(frm);
 
         frm.trigger('set_active_batch_no');
         calculate_spindal_issue_totals(frm);
@@ -28,8 +26,6 @@ frappe.ui.form.on('Spindal Issue', {
 
     to_department(frm) {
         set_product_query_by_department(frm);
-        clear_process_if_department_changed(frm);
-        set_process_query_by_department(frm);
     },
 
     company(frm) {
@@ -148,23 +144,6 @@ function calculate_spindal_issue_totals(frm) {
     (frm.doc.issue_items || []).forEach(row => total_weight += flt(row.weight));
     frm.set_value('total_issue_weight', total_weight);
 }
-
-function set_process_query_by_department(frm) {
-    frm.set_query('process_master', function() {
-        return {
-            filters: {
-                department: frm.doc.to_department || ''
-            }
-        };
-    });
-}
-
-function clear_process_if_department_changed(frm) {
-    if (frm.doc.process_master) {
-        frm.set_value('process_master', '');
-    }
-}
-
 
 function set_product_query_by_department(frm) {
     frm.set_query('product', 'issue_items', function() {
@@ -323,3 +302,79 @@ async function validate_selected_process_party(
     }
 }
 // END PROCESS-WISE WORKER FILTER: Spindal Issue
+
+
+async function apply_issue_process_departments(frm) {
+    if (!frm.doc.process_master) {
+        await frm.set_value(
+            'from_department',
+            ''
+        );
+
+        await frm.set_value(
+            'to_department',
+            ''
+        );
+
+        return;
+    }
+
+    const response = await frappe.db.get_value(
+        'Process Master',
+        frm.doc.process_master,
+        [
+            'process_name',
+            'from_department',
+            'to_department'
+        ]
+    );
+
+    const route = response.message || {};
+
+    if (
+        !route.from_department ||
+        !route.to_department
+    ) {
+        await frm.set_value(
+            'from_department',
+            ''
+        );
+
+        await frm.set_value(
+            'to_department',
+            ''
+        );
+
+        frappe.msgprint({
+            title: __('Process Routing Missing'),
+            indicator: 'red',
+            message: __(
+                'Please configure From Department and To Department in Process Master {0}.',
+                [
+                    route.process_name ||
+                    frm.doc.process_master
+                ]
+            )
+        });
+
+        return;
+    }
+
+    await frm.set_value(
+        'from_department',
+        route.from_department
+    );
+
+    await frm.set_value(
+        'to_department',
+        route.to_department
+    );
+}
+
+// BEGIN PROCESS-FIRST DEPARTMENT ROUTING
+frappe.ui.form.on('Spindal Issue', {
+    process_master(frm) {
+        apply_issue_process_departments(frm);
+    }
+});
+// END PROCESS-FIRST DEPARTMENT ROUTING

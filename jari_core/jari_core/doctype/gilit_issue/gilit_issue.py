@@ -3,6 +3,7 @@ from frappe.model.document import Document
 from frappe.utils import flt, cint, today
 from jari_core.jari_core.doctype.process_master.process_master import (
     apply_process_department_defaults,
+    validate_process_departments,
     validate_process_party,
 )
 
@@ -121,6 +122,7 @@ class GilitIssue(Document):
     def validate(self):
         self.validate_process_assignments()
         self.set_defaults()
+        validate_process_departments(self)
         self.validate_peti_items()
         self.validate_metal_water_inputs()
         self.calculate_totals()
@@ -152,10 +154,7 @@ class GilitIssue(Document):
         )
 
     def set_defaults(self):
-        if not self.from_department:
-            self.from_department = "SPINDAL"
-        if not self.to_department:
-            self.to_department = "Gilit"
+        apply_process_department_defaults(self)
 
     def get_kasab_product(self):
         product = get_kasab_product_name()
@@ -259,7 +258,7 @@ class GilitIssue(Document):
             stock_info = get_product_stock_for_gilit(
                 self.company,
                 row.product,
-                self.to_department or "Gilit"
+                self.to_department
             )
 
             row.current_stock = flt(stock_info.get("current_stock"))
@@ -342,7 +341,7 @@ class GilitIssue(Document):
         stock_info = get_product_stock_for_gilit(
             self.company,
             product,
-            self.to_department or "Gilit"
+            self.to_department
         )
 
         if flt(stock_info.get("current_stock")) < required_qty:
@@ -363,7 +362,7 @@ class GilitIssue(Document):
         """, (self.company, product), as_dict=True)
 
         preferred = []
-        for dept in [self.to_department or "Gilit", "Gilit", "gilit", "GILIT"]:
+        for dept in [self.to_department, "Gilit", "gilit", "GILIT"]:
             if dept and dept not in preferred:
                 preferred.append(dept)
 

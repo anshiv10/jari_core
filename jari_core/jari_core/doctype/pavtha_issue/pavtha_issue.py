@@ -4,6 +4,7 @@ from frappe.model.document import Document
 from frappe.utils import flt, today
 from jari_core.jari_core.doctype.process_master.process_master import (
     apply_process_department_defaults,
+    validate_process_departments,
     validate_process_party,
 )
 
@@ -20,6 +21,7 @@ class PavthaIssue(Document):
     def validate(self):
         self.validate_process_assignments()
         self.set_defaults()
+        validate_process_departments(self)
         self.validate_items()
         self.calculate_totals()
 
@@ -56,16 +58,9 @@ class PavthaIssue(Document):
 
     def set_defaults(self):
         """
-        Set parent defaults and child-row defaults.
-
-        issue_receive_type no longer exists on the Pavtha Issue parent.
-        It is stored separately on every Pavtha Issue Item row.
+        Set Process-driven routing and child-row defaults.
         """
-        if not self.from_department:
-            self.from_department = "Melting"
-
-        if not self.to_department:
-            self.to_department = "Pavtha"
+        apply_process_department_defaults(self)
 
         for row in self.issue_items or []:
             if not row.issue_receive_type:

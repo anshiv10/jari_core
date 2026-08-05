@@ -11,14 +11,14 @@
   "issue_date",
   "col_break_1",
   "company",
+  "process_master",
+  "from_department",
+  "to_department",
   "outsourcing_section",
   "outsourcer",
   "dept_batch_section",
-  "from_department",
-  "to_department",
   "col_break_3",
   "batch_no",
-  "process_master",
   "quality_code",
   "items_section",
   "operator",
@@ -80,14 +80,16 @@
    "fieldtype": "Link",
    "label": "From Department",
    "options": "Department Master",
-   "reqd": 1
+   "reqd": 1,
+   "read_only": 1
   },
   {
    "fieldname": "to_department",
    "fieldtype": "Link",
    "label": "To Department",
    "options": "Department Master",
-   "reqd": 1
+   "reqd": 1,
+   "read_only": 1
   },
   {
    "fieldname": "col_break_3",

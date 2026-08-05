@@ -3,6 +3,7 @@ from frappe.model.document import Document
 from frappe.utils import flt, today
 from jari_core.jari_core.doctype.process_master.process_master import (
     apply_process_department_defaults,
+    validate_process_departments,
     validate_process_party,
 )
 
@@ -12,6 +13,7 @@ class MeltingIssue(Document):
     def validate(self):
         self.validate_process_assignments()
         self.set_defaults()
+        validate_process_departments(self)
         self.sync_active_batch_no()
         self.set_silver_purity()
         self.calculate_totals()
@@ -37,12 +39,7 @@ class MeltingIssue(Document):
         frappe.db.set_value(self.doctype, self.name, "status", "Issued")
 
     def set_defaults(self):
-        if not self.process_master:
-            self.process_master = frappe.db.get_value("Process Master", {"process_code": "MELT"}, "name")
-        if not self.from_department:
-            self.from_department = "Raw Material Store"
-        if not self.to_department:
-            self.to_department = "Melting"
+        apply_process_department_defaults(self)
 
     def sync_active_batch_no(self):
         if getattr(self, "batch_no", None):

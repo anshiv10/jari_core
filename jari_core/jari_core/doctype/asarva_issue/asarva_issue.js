@@ -66,11 +66,13 @@ frappe.ui.form.on('Asarva Issue', {
                 );
             }
 
-            if (!frm.doc.to_department) {
+            if (
+                !frm.doc.to_department &&
+                values.to_department
+            ) {
                 frm.set_value(
                     'to_department',
-                    values.to_department ||
-                    'Rangrej/Asarva'
+                    values.to_department
                 );
             }
         });
@@ -349,3 +351,79 @@ async function validate_asarva_child_worker(
         );
     }
 }
+
+
+async function apply_issue_process_departments(frm) {
+    if (!frm.doc.process_master) {
+        await frm.set_value(
+            'from_department',
+            ''
+        );
+
+        await frm.set_value(
+            'to_department',
+            ''
+        );
+
+        return;
+    }
+
+    const response = await frappe.db.get_value(
+        'Process Master',
+        frm.doc.process_master,
+        [
+            'process_name',
+            'from_department',
+            'to_department'
+        ]
+    );
+
+    const route = response.message || {};
+
+    if (
+        !route.from_department ||
+        !route.to_department
+    ) {
+        await frm.set_value(
+            'from_department',
+            ''
+        );
+
+        await frm.set_value(
+            'to_department',
+            ''
+        );
+
+        frappe.msgprint({
+            title: __('Process Routing Missing'),
+            indicator: 'red',
+            message: __(
+                'Please configure From Department and To Department in Process Master {0}.',
+                [
+                    route.process_name ||
+                    frm.doc.process_master
+                ]
+            )
+        });
+
+        return;
+    }
+
+    await frm.set_value(
+        'from_department',
+        route.from_department
+    );
+
+    await frm.set_value(
+        'to_department',
+        route.to_department
+    );
+}
+
+// BEGIN PROCESS-FIRST DEPARTMENT ROUTING
+frappe.ui.form.on('Asarva Issue', {
+    process_master(frm) {
+        apply_issue_process_departments(frm);
+    }
+});
+// END PROCESS-FIRST DEPARTMENT ROUTING

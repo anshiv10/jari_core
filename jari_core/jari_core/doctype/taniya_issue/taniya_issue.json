@@ -9,13 +9,13 @@
  "field_order": [
   "issue_date",
   "company",
-  "operator",
-  "issued_by",
+  "process_master",
   "from_department",
   "to_department",
+  "operator",
+  "issued_by",
   "new_batch_no",
   "batch_no",
-  "process_master",
   "quality_code",
   "issue_items",
   "total_issue_weight",
@@ -54,14 +54,16 @@
    "fieldtype": "Link",
    "label": "From Department",
    "options": "Department Master",
-   "reqd": 1
+   "reqd": 1,
+   "read_only": 1
   },
   {
    "fieldname": "to_department",
    "fieldtype": "Link",
    "label": "To Department",
    "options": "Department Master",
-   "reqd": 1
+   "reqd": 1,
+   "read_only": 1
   },
   {
    "fieldname": "issue_type",

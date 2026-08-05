@@ -23,41 +23,101 @@ class ProcessMaster(Document):
             self.department = self.to_department
 
 
+def get_process_departments(process_master):
+    if not process_master:
+        return None
+
+    values = frappe.db.get_value(
+        "Process Master",
+        process_master,
+        [
+            "process_name",
+            "from_department",
+            "to_department",
+        ],
+        as_dict=True,
+    )
+
+    if not values:
+        frappe.throw(
+            f"Process Master does not exist: "
+            f"{process_master}"
+        )
+
+    if not values.from_department:
+        frappe.throw(
+            f"From Department is not configured in "
+            f"Process {values.process_name or process_master}."
+        )
+
+    if not values.to_department:
+        frappe.throw(
+            f"To Department is not configured in "
+            f"Process {values.process_name or process_master}."
+        )
+
+    return values
+
+
 def apply_process_department_defaults(
     doc,
     fallback_from=None,
     fallback_to=None,
 ):
     """
-    Populate missing Issue departments from the linked Process Master.
+    Populate Issue routing exclusively from Process Master.
 
-    Existing values are never overwritten. This is essential because
-    users are explicitly allowed to override the Process Master defaults.
+    fallback_from and fallback_to remain in the function signature
+    only for compatibility with older callers. They are deliberately
+    ignored by the new Process-first workflow.
     """
-    if doc.get("process_master"):
-        values = frappe.db.get_value(
-            "Process Master",
-            doc.process_master,
-            [
-                "from_department",
-                "to_department",
-            ],
-            as_dict=True,
+    if not doc.get("process_master"):
+        doc.from_department = None
+        doc.to_department = None
+        return
+
+    values = get_process_departments(
+        doc.process_master
+    )
+
+    doc.from_department = (
+        values.from_department
+    )
+
+    doc.to_department = (
+        values.to_department
+    )
+
+
+def validate_process_departments(doc):
+    if not doc.get("process_master"):
+        frappe.throw("Process is required.")
+
+    values = get_process_departments(
+        doc.process_master
+    )
+
+    if (
+        doc.get("from_department")
+        != values.from_department
+    ):
+        frappe.throw(
+            "From Department must be "
+            f"{values.from_department} for Process "
+            f"{values.process_name or doc.process_master}."
         )
 
-        if values:
-            if not doc.get("from_department"):
-                doc.from_department = values.from_department
+    if (
+        doc.get("to_department")
+        != values.to_department
+    ):
+        frappe.throw(
+            "To Department must be "
+            f"{values.to_department} for Process "
+            f"{values.process_name or doc.process_master}."
+        )
 
-            if not doc.get("to_department"):
-                doc.to_department = values.to_department
 
-    # Backward-compatible fallback for Process Masters not configured yet.
-    if not doc.get("from_department") and fallback_from:
-        doc.from_department = fallback_from
-
-    if not doc.get("to_department") and fallback_to:
-        doc.to_department = fallback_to
 MASTER_PROCESS_PARENTFIELD = "processes"
 
 SUPPORTED_PROCESS_MASTERS = {

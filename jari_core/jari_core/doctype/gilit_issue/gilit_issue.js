@@ -6,14 +6,6 @@ frappe.ui.form.on('Gilit Issue', {
             frm.set_value('issue_date', frappe.datetime.get_today());
         }
 
-        if (!frm.doc.from_department) {
-            frm.set_value('from_department', 'SPINDAL');
-        }
-
-        if (!frm.doc.to_department) {
-            frm.set_value('to_department', 'Gilit');
-        }
-
         frm.set_query('spindal_peti_entry', 'peti_items', function() {
             return {
                 filters: {
@@ -179,7 +171,7 @@ function set_metal_water_stock(frm, cdt, cdn) {
         args: {
             company: frm.doc.company,
             product: row.product,
-            department: frm.doc.to_department || 'Gilit'
+            department: frm.doc.to_department
         },
         callback(r) {
             if (!r.message) return;
@@ -388,3 +380,79 @@ async function validate_selected_process_party(
     }
 }
 // END PROCESS-WISE WORKER FILTER: Gilit Issue
+
+
+async function apply_issue_process_departments(frm) {
+    if (!frm.doc.process_master) {
+        await frm.set_value(
+            'from_department',
+            ''
+        );
+
+        await frm.set_value(
+            'to_department',
+            ''
+        );
+
+        return;
+    }
+
+    const response = await frappe.db.get_value(
+        'Process Master',
+        frm.doc.process_master,
+        [
+            'process_name',
+            'from_department',
+            'to_department'
+        ]
+    );
+
+    const route = response.message || {};
+
+    if (
+        !route.from_department ||
+        !route.to_department
+    ) {
+        await frm.set_value(
+            'from_department',
+            ''
+        );
+
+        await frm.set_value(
+            'to_department',
+            ''
+        );
+
+        frappe.msgprint({
+            title: __('Process Routing Missing'),
+            indicator: 'red',
+            message: __(
+                'Please configure From Department and To Department in Process Master {0}.',
+                [
+                    route.process_name ||
+                    frm.doc.process_master
+                ]
+            )
+        });
+
+        return;
+    }
+
+    await frm.set_value(
+        'from_department',
+        route.from_department
+    );
+
+    await frm.set_value(
+        'to_department',
+        route.to_department
+    );
+}
+
+// BEGIN PROCESS-FIRST DEPARTMENT ROUTING
+frappe.ui.form.on('Gilit Issue', {
+    process_master(frm) {
+        apply_issue_process_departments(frm);
+    }
+});
+// END PROCESS-FIRST DEPARTMENT ROUTING

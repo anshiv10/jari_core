@@ -9,11 +9,11 @@
  "field_order": [
   "issue_date",
   "company",
-  "new_batch_no",
-  "active_batch_no",
+  "process_master",
   "from_department",
   "to_department",
-  "process_master",
+  "new_batch_no",
+  "active_batch_no",
   "quality_code",
   "operator",
   "is_active_batch",
@@ -73,14 +73,16 @@
    "fieldtype": "Link",
    "label": "From Department",
    "options": "Department Master",
-   "reqd": 1
+   "reqd": 1,
+   "read_only": 1
   },
   {
    "fieldname": "to_department",
    "fieldtype": "Link",
    "label": "To Department",
    "options": "Department Master",
-   "reqd": 1
+   "reqd": 1,
+   "read_only": 1
   },
   {
    "fieldname": "process_master",
