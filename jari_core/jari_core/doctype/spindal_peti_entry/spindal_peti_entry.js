@@ -23,7 +23,7 @@ function calculate_net_weight(frm) {
     const gross_weight = flt(frm.doc.gross_weight);
     const baad_weight = flt(frm.doc.baad_weight);
 
-    if (!gross_weight && !baad_weight) {
+    if (gross_weight <= 0) {
         frm.set_value('net_weight', 0);
         return;
     }

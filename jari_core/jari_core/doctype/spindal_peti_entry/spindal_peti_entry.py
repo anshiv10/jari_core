@@ -16,6 +16,19 @@ class SpindalPetiEntry(Document):
         self.set_remaining_net_weight()
         self.validate_weights()
 
+    def before_submit(self):
+        if flt(self.gross_weight) <= 0:
+            frappe.throw(
+                "Gross Weight must be greater than zero "
+                "before submission."
+            )
+
+        if flt(self.net_weight) <= 0:
+            frappe.throw(
+                "Net Weight must be greater than zero "
+                "before submission."
+            )
+
     def on_submit(self):
         if not self.peti_id:
             self.db_set("peti_id", self.name)
@@ -141,9 +154,16 @@ class SpindalPetiEntry(Document):
             self.bobbin_count = cint(self.nang)
 
     def calculate_net_weight(self):
+        gross_weight = flt(self.gross_weight)
+        baad_weight = flt(self.baad_weight)
+
+        if gross_weight <= 0:
+            self.net_weight = 0
+            return
+
         self.net_weight = (
-            flt(self.gross_weight)
-            - flt(self.baad_weight)
+            gross_weight
+            - baad_weight
         )
 
     def get_net_weight_in_kg(self):
@@ -172,22 +192,32 @@ class SpindalPetiEntry(Document):
             self.bobbin_count or self.nang
         )
 
-        if flt(self.gross_weight) <= 0:
+        gross_weight = flt(self.gross_weight)
+        baad_weight = flt(self.baad_weight)
+        net_weight = flt(self.net_weight)
+
+        if gross_weight < 0:
             frappe.throw(
-                "Gross Weight must be greater than zero."
+                "Gross Weight cannot be negative."
             )
 
-        if flt(self.baad_weight) < 0:
+        if baad_weight < 0:
             frappe.throw(
                 "Baad Weight cannot be negative."
             )
 
-        if flt(self.baad_weight) > flt(self.gross_weight):
+        if (
+            gross_weight > 0
+            and baad_weight > gross_weight
+        ):
             frappe.throw(
                 "Baad Weight cannot be greater than Gross Weight."
             )
 
-        if flt(self.net_weight) <= 0:
+        if (
+            gross_weight > 0
+            and net_weight <= 0
+        ):
             frappe.throw(
                 "Net Weight must be greater than zero."
             )
