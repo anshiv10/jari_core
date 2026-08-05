@@ -1,0 +1,76 @@
+{
+ "actions": [],
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "salary_detail_key",
+  "salary_format",
+  "quality_code",
+  "source_quantity",
+  "rate",
+  "amount",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "quality_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Quality",
+   "options": "Quality Master",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "source_quantity",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Quantity / Hours",
+   "precision": "4",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Rate",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "salary_detail_key",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Salary Detail Key",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "salary_format",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Salary Format",
+   "options": "Worker Salary Format",
+   "read_only": 1,
+   "reqd": 1
+  }
+ ],
+ "istable": 1,
+ "module": "JARI Core",
+ "name": "Worker Salary Quality Detail",
+ "permissions": []
+}

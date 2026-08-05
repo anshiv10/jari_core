@@ -1,0 +1,47 @@
+{
+ "actions": [],
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "quality_code",
+  "rate",
+  "rate_uom",
+  "active"
+ ],
+ "fields": [
+  {
+   "fieldname": "quality_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Quality",
+   "options": "Quality Master"
+  },
+  {
+   "fieldname": "rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Rate",
+   "reqd": 1
+  },
+  {
+   "fieldname": "rate_uom",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Rate Basis",
+   "options": "Per Hour\nPer KG\nPer Piece\nPer AUR",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Active"
+  }
+ ],
+ "istable": 1,
+ "module": "JARI Core",
+ "name": "Worker Salary Rate",
+ "permissions": []
+}

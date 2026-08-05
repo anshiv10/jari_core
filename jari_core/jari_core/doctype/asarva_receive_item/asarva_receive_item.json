@@ -1,0 +1,112 @@
+{
+ "actions": [],
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "source_issue_item",
+  "product",
+  "product_quality",
+  "colour",
+  "issued_weight",
+  "lot_no",
+  "quantity_firka",
+  "gross_weight",
+  "baad_weight",
+  "received_weight",
+  "uom"
+ ],
+ "fields": [
+  {
+   "fieldname": "source_issue_item",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Source Issue Item",
+   "read_only": 1
+  },
+  {
+   "fieldname": "product",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Product",
+   "options": "Product Master",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "product_quality",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Product Quality",
+   "options": "Quality Master",
+   "read_only": 1
+  },
+  {
+   "fieldname": "colour",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Colour",
+   "read_only": 1
+  },
+  {
+   "fieldname": "issued_weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Issued Weight",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "lot_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Lot No"
+  },
+  {
+   "default": "0",
+   "fieldname": "quantity_firka",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Quantity Firka",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "gross_weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "G.W",
+   "precision": "3",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "baad_weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Baad",
+   "precision": "3",
+   "reqd": 1
+  },
+  {
+   "fieldname": "received_weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Received Weight",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "default": "KG",
+   "fieldname": "uom",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "UOM",
+   "read_only": 1
+  }
+ ],
+ "istable": 1,
+ "module": "JARI Core",
+ "name": "Asarva Receive Item",
+ "permissions": []
+}

@@ -12,6 +12,12 @@
   "rate",
   "department",
   "process_master",
+  "salary_formats_section",
+  "salary_formats",
+  "attendance_section",
+  "attendance_user",
+  "attendance_location",
+  "geo_attendance_enabled",
   "active"
  ],
  "fields": [
@@ -61,6 +67,41 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "reqd": 0
+  },
+  {
+   "fieldname": "salary_formats_section",
+   "fieldtype": "Section Break",
+   "label": "Salary Formats"
+  },
+  {
+   "fieldname": "salary_formats",
+   "fieldtype": "Table",
+   "label": "Applicable Salary Formats",
+   "options": "Worker Salary Format Mapping"
+  },
+  {
+   "fieldname": "attendance_section",
+   "fieldtype": "Section Break",
+   "label": "Geo Attendance"
+  },
+  {
+   "fieldname": "attendance_user",
+   "fieldtype": "Link",
+   "label": "Attendance User",
+   "options": "User",
+   "unique": 1
+  },
+  {
+   "fieldname": "attendance_location",
+   "fieldtype": "Link",
+   "label": "Default Attendance Location",
+   "options": "Attendance Location Master"
+  },
+  {
+   "default": "0",
+   "fieldname": "geo_attendance_enabled",
+   "fieldtype": "Check",
+   "label": "Enable Geo Attendance"
   }
  ],
  "grid_page_length": 50,

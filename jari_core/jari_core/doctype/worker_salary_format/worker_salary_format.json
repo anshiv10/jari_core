@@ -1,0 +1,117 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:salary_format_name",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "salary_format_name",
+  "salary_group",
+  "worker_category",
+  "calculation_basis",
+  "data_source",
+  "requires_quality",
+  "allow_extra_amount",
+  "allow_manual_quantity",
+  "rate_items",
+  "active",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "salary_format_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Salary Format Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "salary_group",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Salary Group",
+   "options": "BHATHI\nUMIYA JARI",
+   "reqd": 1
+  },
+  {
+   "fieldname": "worker_category",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Worker Category",
+   "reqd": 1
+  },
+  {
+   "fieldname": "calculation_basis",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Calculation Basis",
+   "options": "Hours\nWeight\nPiece\nAUR\nIssued Minus Received",
+   "reqd": 1
+  },
+  {
+   "fieldname": "data_source",
+   "fieldtype": "Select",
+   "label": "Data Source",
+   "options": "Geo Attendance\nManual Hours\nManual Weight\nIssue Transactions\nReceive Transactions\nIssue and Receive Transactions\nManual Piece\nTransaction Piece",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "requires_quality",
+   "fieldtype": "Check",
+   "label": "Requires Quality"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_extra_amount",
+   "fieldtype": "Check",
+   "label": "Allow Extra Amount"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_manual_quantity",
+   "fieldtype": "Check",
+   "label": "Allow Manual Quantity"
+  },
+  {
+   "fieldname": "rate_items",
+   "fieldtype": "Table",
+   "label": "Rates",
+   "options": "Worker Salary Rate"
+  },
+  {
+   "default": "1",
+   "fieldname": "active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Active"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  }
+ ],
+ "grid_page_length": 50,
+ "module": "JARI Core",
+ "name": "Worker Salary Format",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

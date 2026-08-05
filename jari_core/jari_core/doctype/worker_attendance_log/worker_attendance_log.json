@@ -1,0 +1,146 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "WAL-.YYYY.-.MM.-.#####",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "worker",
+  "attendance_user",
+  "attendance_type",
+  "timestamp",
+  "attendance_date",
+  "location",
+  "latitude",
+  "longitude",
+  "accuracy_meters",
+  "distance_meters",
+  "within_geofence",
+  "device_information",
+  "ip_address",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "worker",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Worker",
+   "options": "Worker Master",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "attendance_user",
+   "fieldtype": "Link",
+   "label": "Attendance User",
+   "options": "User",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "attendance_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Attendance Type",
+   "options": "IN\nOUT",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "timestamp",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Timestamp",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "attendance_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Attendance Date",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Attendance Location",
+   "options": "Attendance Location Master",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "latitude",
+   "fieldtype": "Float",
+   "label": "Captured Latitude",
+   "precision": "8",
+   "read_only": 1
+  },
+  {
+   "fieldname": "longitude",
+   "fieldtype": "Float",
+   "label": "Captured Longitude",
+   "precision": "8",
+   "read_only": 1
+  },
+  {
+   "fieldname": "accuracy_meters",
+   "fieldtype": "Float",
+   "label": "GPS Accuracy (Metres)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "distance_meters",
+   "fieldtype": "Float",
+   "label": "Distance from Location (Metres)",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "within_geofence",
+   "fieldtype": "Check",
+   "label": "Within Geofence",
+   "read_only": 1
+  },
+  {
+   "fieldname": "device_information",
+   "fieldtype": "Small Text",
+   "label": "Device Information",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ip_address",
+   "fieldtype": "Data",
+   "label": "IP Address",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "module": "JARI Core",
+ "name": "Worker Attendance Log",
+ "permissions": [
+  {
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1
+  }
+ ],
+ "sort_field": "timestamp",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

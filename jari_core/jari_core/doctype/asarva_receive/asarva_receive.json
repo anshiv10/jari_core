@@ -1,0 +1,160 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "AR-.YYYY.-.MM.-.####",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "issue_section",
+  "asarva_issue",
+  "receive_date",
+  "company",
+  "asarva_outsourcer",
+  "batch_no",
+  "process_master",
+  "quality_code",
+  "items_section",
+  "receive_items",
+  "summary_section",
+  "total_gross_weight",
+  "total_baad_weight",
+  "total_received_weight",
+  "remarks",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "issue_section",
+   "fieldtype": "Section Break",
+   "label": "Issue Reference"
+  },
+  {
+   "fieldname": "asarva_issue",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Asarva Issue",
+   "options": "Asarva Issue",
+   "reqd": 1
+  },
+  {
+   "fieldname": "receive_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Receive Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company Master",
+   "read_only": 1
+  },
+  {
+   "fieldname": "asarva_outsourcer",
+   "fieldtype": "Link",
+   "label": "Asarva Outsourcer",
+   "options": "Jobworker Master",
+   "read_only": 1
+  },
+  {
+   "fieldname": "batch_no",
+   "fieldtype": "Data",
+   "label": "Batch No",
+   "read_only": 1
+  },
+  {
+   "fieldname": "process_master",
+   "fieldtype": "Link",
+   "label": "Process",
+   "options": "Process Master",
+   "read_only": 1
+  },
+  {
+   "fieldname": "quality_code",
+   "fieldtype": "Link",
+   "label": "Quality",
+   "options": "Quality Master",
+   "read_only": 1
+  },
+  {
+   "fieldname": "items_section",
+   "fieldtype": "Section Break",
+   "label": "Received Product Detail"
+  },
+  {
+   "fieldname": "receive_items",
+   "fieldtype": "Table",
+   "label": "Received Product Detail",
+   "options": "Asarva Receive Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "summary_section",
+   "fieldtype": "Section Break",
+   "label": "Weight Summary"
+  },
+  {
+   "fieldname": "total_gross_weight",
+   "fieldtype": "Float",
+   "label": "Total G.W",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_baad_weight",
+   "fieldtype": "Float",
+   "label": "Total Baad",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "bold": 1,
+   "fieldname": "total_received_weight",
+   "fieldtype": "Float",
+   "label": "Total Received Weight",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Asarva Receive",
+   "print_hide": 1,
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "is_submittable": 1,
+ "module": "JARI Core",
+ "name": "Asarva Receive",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 0,
+ "sort_field": "receive_date",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
