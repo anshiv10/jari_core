@@ -25,6 +25,12 @@ class TaniyaIssue(Document):
             label="Operator",
             require_active=True,
         )
+        validate_process_party(
+            self,
+            fieldname="quality_code",
+            master_doctype="Quality Master",
+            label="Quality",
+        )
 
     def on_submit(self):
         self.post_inventory_transfer()

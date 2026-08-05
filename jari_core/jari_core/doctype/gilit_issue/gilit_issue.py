@@ -133,6 +133,12 @@ class GilitIssue(Document):
             label="Gilit Karigar",
             require_active=True,
         )
+        validate_process_party(
+            self,
+            fieldname="quality_code",
+            master_doctype="Quality Master",
+            label="Quality",
+        )
 
     def on_submit(self):
         # Peti consumption is now measured and applied in Gilit Receive.
