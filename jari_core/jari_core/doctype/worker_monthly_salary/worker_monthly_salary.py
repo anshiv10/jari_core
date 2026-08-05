@@ -18,6 +18,7 @@ class WorkerMonthlySalary(Document):
         self.validate_duplicate_salary()
         self.load_worker_salary_formats()
         self.fetch_approved_attendance_hours()
+        self.fetch_transaction_sources()
         self.calculate_salary_details()
         self.calculate_totals()
 
@@ -273,6 +274,81 @@ class WorkerMonthlySalary(Document):
             approved_hours,
             4,
         )
+
+    def fetch_transaction_sources(self):
+        from jari_core.salary_source_utils import (
+            get_salary_source_data,
+        )
+
+        for detail in self.salary_details or []:
+            source = get_salary_source_data(
+                self.worker,
+                detail.salary_format,
+                self.period_start,
+                self.period_end,
+            )
+
+            if source is None:
+                continue
+
+            detail.source_quantity = flt(
+                source.get("source_quantity"),
+                4,
+            )
+
+            detail.source_reference = (
+                source.get("source_reference")
+                or ""
+            )
+
+            if not detail.requires_quality:
+                continue
+
+            source_by_quality = {
+                row.get("quality_code"):
+                    flt(
+                        row.get("source_quantity"),
+                        4,
+                    )
+                for row in (
+                    source.get("quality_rows")
+                    or []
+                )
+                if row.get("quality_code")
+            }
+
+            for quality_row in (
+                detail.quality_details or []
+            ):
+                quality_row.source_quantity = (
+                    source_by_quality.get(
+                        quality_row.quality_code,
+                        0,
+                    )
+                )
+
+            configured_qualities = {
+                row.quality_code
+                for row in (
+                    detail.quality_details or []
+                )
+                if row.quality_code
+            }
+
+            missing_qualities = (
+                set(source_by_quality)
+                - configured_qualities
+            )
+
+            if missing_qualities:
+                frappe.throw(
+                    "Salary rates are not configured for "
+                    "these production Qualities in Salary "
+                    f"Format {detail.salary_format}: "
+                    + ", ".join(
+                        sorted(missing_qualities)
+                    )
+                )
 
     def calculate_salary_details(self):
         for row in self.salary_details or []:
