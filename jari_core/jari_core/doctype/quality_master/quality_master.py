@@ -6,10 +6,15 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import cint
 
+from jari_core.jari_core.doctype.process_master.process_master import (
+    validate_master_process_assignments,
+)
+
 
 class QualityMaster(Document):
 
     def validate(self):
+        validate_master_process_assignments(self)
         self.validate_department()
 
     def validate_department(self):

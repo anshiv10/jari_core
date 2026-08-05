@@ -11,7 +11,9 @@
   "description",
   "silver_purity_percent",
   "flow_type",
-  "department"
+  "department",
+  "processes_section",
+  "processes"
  ],
  "fields": [
   {
@@ -49,6 +51,17 @@
    "label": "Department",
    "options": "Department Master",
    "reqd": 1
+  },
+  {
+   "fieldname": "processes_section",
+   "fieldtype": "Section Break",
+   "label": "Process Assignments"
+  },
+  {
+   "fieldname": "processes",
+   "fieldtype": "Table",
+   "label": "Processes",
+   "options": "Master Process Assignment"
   }
  ],
  "grid_page_length": 50,

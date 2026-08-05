@@ -1,9 +1,13 @@
-# Copyright (c) 2026, anSHIV and contributors
-# For license information, please see license.txt
-
-# import frappe
 from frappe.model.document import Document
+
+from jari_core.jari_core.doctype.process_master.process_master import (
+    sync_legacy_process_assignment,
+    validate_master_process_assignments,
+)
 
 
 class JobworkerMaster(Document):
-	pass
+
+    def validate(self):
+        validate_master_process_assignments(self)
+        sync_legacy_process_assignment(self)

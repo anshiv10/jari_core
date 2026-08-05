@@ -2,10 +2,17 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import getdate
 
+from jari_core.jari_core.doctype.process_master.process_master import (
+    sync_legacy_process_assignment,
+    validate_master_process_assignments,
+)
+
 
 class WorkerMaster(Document):
 
     def validate(self):
+        validate_master_process_assignments(self)
+        sync_legacy_process_assignment(self)
         self.validate_salary_formats()
         self.validate_geo_attendance()
 

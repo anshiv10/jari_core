@@ -255,41 +255,83 @@ frappe.ui.form.on('Gilit Issue', {
 
     process_master(frm) {
         apply_process_party_queries(frm);
-        
+
         validate_selected_process_party(
             frm,
             'gilit_karigar',
-            'Worker Master'
+            'Worker Master',
+            1
         );
+
+        validate_selected_process_party(
+            frm,
+            'quality_code',
+            'Quality Master',
+            0
+        );
+
     }
 });
 
 
-function apply_process_party_queries(frm) {
-    
-        frm.set_query('gilit_karigar', function () {
-            if (!frm.doc.process_master) {
-                return {
-                    filters: {
-                        name: '__NO_PROCESS_SELECTED__'
-                    }
-                };
+function get_process_assigned_query(
+    frm,
+    masterDoctype,
+    requireActive
+) {
+    if (!frm.doc.process_master) {
+        return {
+            filters: {
+                name: '__NO_PROCESS_SELECTED__'
             }
+        };
+    }
 
-            return {
-                filters: {
-                    process_master: frm.doc.process_master,
-                    active: 1
-                }
-            };
-        });
+    return {
+        query: 'jari_core.jari_core.doctype.process_master.process_master.process_assigned_master_query',
+        filters: {
+            master_doctype: masterDoctype,
+            process_master:
+                frm.doc.process_master,
+            require_active:
+                requireActive ? 1 : 0
+        }
+    };
+}
+
+
+function apply_process_party_queries(frm) {
+
+    frm.set_query(
+        'gilit_karigar',
+        function () {
+            return get_process_assigned_query(
+                frm,
+                'Worker Master',
+                1
+            );
+        }
+    );
+
+    frm.set_query(
+        'quality_code',
+        function () {
+            return get_process_assigned_query(
+                frm,
+                'Quality Master',
+                0
+            );
+        }
+    );
+
 }
 
 
 async function validate_selected_process_party(
     frm,
     fieldname,
-    master_doctype
+    masterDoctype,
+    requireActive
 ) {
     const selectedName =
         frm.doc[fieldname];
@@ -308,31 +350,24 @@ async function validate_selected_process_party(
     }
 
     try {
-        const result =
-            await frappe.db.get_value(
-                master_doctype,
-                selectedName,
-                [
-                    'process_master',
-                    'active'
-                ]
-            );
+        const response = await frappe.call({
+            method: 'jari_core.jari_core.doctype.process_master.process_master.get_master_process_assignment_status',
+            args: {
+                master_doctype:
+                    masterDoctype,
+                master_name:
+                    selectedName,
+                process_master:
+                    frm.doc.process_master,
+                require_active:
+                    requireActive ? 1 : 0
+            }
+        });
 
-        const record =
-            result.message || {};
+        const status =
+            response.message || {};
 
-        const processMismatch =
-            record.process_master !==
-            frm.doc.process_master;
-
-        const inactiveWorker =
-            master_doctype === 'Worker Master' &&
-            cint(record.active) !== 1;
-
-        if (
-            processMismatch ||
-            inactiveWorker
-        ) {
+        if (!status.valid) {
             await frm.set_value(
                 fieldname,
                 ''
@@ -340,7 +375,7 @@ async function validate_selected_process_party(
 
             frappe.show_alert({
                 message: __(
-                    'Selection cleared because it does not belong to the selected Process or is inactive.'
+                    'Selection cleared because it is not actively assigned to the selected Process.'
                 ),
                 indicator: 'orange'
             });

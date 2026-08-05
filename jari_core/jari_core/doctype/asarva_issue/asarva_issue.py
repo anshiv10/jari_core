@@ -9,6 +9,7 @@ from frappe.utils import flt, getdate, today
 
 from jari_core.jari_core.doctype.process_master.process_master import (
     apply_process_department_defaults,
+    validate_party_process_assignment,
     validate_process_party,
 )
 
@@ -82,6 +83,13 @@ class AsarvaIssue(Document):
     def validate_parties(self):
         validate_process_party(
             self,
+            fieldname="quality_code",
+            master_doctype="Quality Master",
+            label="Quality",
+        )
+
+        validate_process_party(
+            self,
             fieldname="asarva_outsourcer",
             master_doctype="Jobworker Master",
             label="Asarva Outsourcer",
@@ -101,28 +109,15 @@ class AsarvaIssue(Document):
                 row.rangrej_operator
             )
 
-            worker_process = frappe.db.get_value(
-                "Worker Master",
-                row.rangrej_operator,
-                "process_master",
+            validate_party_process_assignment(
+                selected_party=row.rangrej_operator,
+                process_master=self.process_master,
+                master_doctype="Worker Master",
+                label=(
+                    f"Rangrej Operator in row #{row.idx}"
+                ),
+                require_active=True,
             )
-
-            if (
-                worker_process
-                and worker_process
-                != self.process_master
-            ):
-                frappe.throw(
-                    _(
-                        "Rangrej Operator {0} in row #{1} "
-                        "belongs to another Process."
-                    ).format(
-                        frappe.bold(
-                            row.rangrej_operator
-                        ),
-                        row.idx,
-                    )
-                )
 
     def validate_items(self):
         if not self.issue_items:

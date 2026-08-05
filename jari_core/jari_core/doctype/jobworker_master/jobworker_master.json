@@ -10,9 +10,11 @@
   "jobworker_name",
   "contact",
   "department_type",
-  "process_master",
+  "processes_section",
+  "processes",
   "standard_loss_percent",
-  "rate_per_kg"
+  "rate_per_kg",
+  "process_master"
  ],
  "fields": [
   {
@@ -52,11 +54,24 @@
   {
    "fieldname": "process_master",
    "fieldtype": "Link",
-   "label": "Process",
+   "label": "Legacy Primary Process",
    "options": "Process Master",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "reqd": 0
+   "in_list_view": 0,
+   "in_standard_filter": 0,
+   "reqd": 0,
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "processes_section",
+   "fieldtype": "Section Break",
+   "label": "Process Assignments"
+  },
+  {
+   "fieldname": "processes",
+   "fieldtype": "Table",
+   "label": "Processes",
+   "options": "Master Process Assignment"
   }
  ],
  "grid_page_length": 50,

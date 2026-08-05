@@ -12,3 +12,5 @@ jari_core.patches.v1_0.backfill_pavtha_issue_receive_type
 
 jari_core.patches.v1_0.set_pavtha_product_tags
 jari_core.patches.v1_0.create_worker_payroll_foundation
+
+jari_core.patches.v1_0.add_multi_process_master_assignments

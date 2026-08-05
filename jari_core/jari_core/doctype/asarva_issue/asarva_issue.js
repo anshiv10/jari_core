@@ -1,5 +1,9 @@
 
 frappe.ui.form.on('Asarva Issue', {
+    setup(frm) {
+        apply_asarva_multi_process_queries(frm);
+    },
+
     refresh(frm) {
         if (!frm.doc.issue_date) {
             frm.set_value(
@@ -8,26 +12,36 @@ frappe.ui.form.on('Asarva Issue', {
             );
         }
 
-        frm.set_query(
-            'asarva_outsourcer',
-            function () {
-                if (!frm.doc.process_master) {
-                    return {};
-                }
-
-                return {
-                    filters: {
-                        process_master:
-                            frm.doc.process_master
-                    }
-                };
-            }
-        );
-
+        apply_asarva_multi_process_queries(frm);
         calculate_asarva_issue_totals(frm);
     },
 
     process_master(frm) {
+        apply_asarva_multi_process_queries(frm);
+
+        validate_asarva_process_selection(
+            frm,
+            'asarva_outsourcer',
+            'Jobworker Master',
+            0
+        );
+
+        validate_asarva_process_selection(
+            frm,
+            'quality_code',
+            'Quality Master',
+            0
+        );
+
+        (frm.doc.issue_items || []).forEach(
+            row => {
+                validate_asarva_child_worker(
+                    frm,
+                    row
+                );
+            }
+        );
+
         if (!frm.doc.process_master) {
             return;
         }
@@ -138,4 +152,200 @@ function calculate_asarva_issue_totals(frm) {
             )
         )
     );
+}
+
+
+/*
+ * ============================================================
+ * MULTI-PROCESS MASTER FILTERS
+ * ============================================================
+ */
+
+
+/*
+ * ============================================================
+ * MULTI-PROCESS MASTER FILTER HELPERS
+ * ============================================================
+ */
+
+function get_asarva_process_query(
+    frm,
+    masterDoctype,
+    requireActive
+) {
+    if (!frm.doc.process_master) {
+        return {
+            filters: {
+                name: '__NO_PROCESS_SELECTED__'
+            }
+        };
+    }
+
+    return {
+        query:
+            'jari_core.jari_core.doctype.process_master.process_master.process_assigned_master_query',
+        filters: {
+            master_doctype: masterDoctype,
+            process_master:
+                frm.doc.process_master,
+            require_active:
+                requireActive ? 1 : 0
+        }
+    };
+}
+
+
+function apply_asarva_multi_process_queries(frm) {
+    frm.set_query(
+        'asarva_outsourcer',
+        function () {
+            return get_asarva_process_query(
+                frm,
+                'Jobworker Master',
+                0
+            );
+        }
+    );
+
+    frm.set_query(
+        'quality_code',
+        function () {
+            return get_asarva_process_query(
+                frm,
+                'Quality Master',
+                0
+            );
+        }
+    );
+
+    frm.set_query(
+        'rangrej_operator',
+        'issue_items',
+        function () {
+            return get_asarva_process_query(
+                frm,
+                'Worker Master',
+                1
+            );
+        }
+    );
+}
+
+
+async function get_asarva_assignment_status(
+    frm,
+    masterDoctype,
+    masterName,
+    requireActive
+) {
+    if (
+        !masterName ||
+        !frm.doc.process_master
+    ) {
+        return {
+            valid: false
+        };
+    }
+
+    const response = await frappe.call({
+        method:
+            'jari_core.jari_core.doctype.process_master.process_master.get_master_process_assignment_status',
+        args: {
+            master_doctype:
+                masterDoctype,
+            master_name:
+                masterName,
+            process_master:
+                frm.doc.process_master,
+            require_active:
+                requireActive ? 1 : 0
+        }
+    });
+
+    return response.message || {};
+}
+
+
+async function validate_asarva_process_selection(
+    frm,
+    fieldname,
+    masterDoctype,
+    requireActive
+) {
+    const selectedName =
+        frm.doc[fieldname];
+
+    if (!selectedName) {
+        return;
+    }
+
+    try {
+        const status =
+            await get_asarva_assignment_status(
+                frm,
+                masterDoctype,
+                selectedName,
+                requireActive
+            );
+
+        if (!status.valid) {
+            await frm.set_value(
+                fieldname,
+                ''
+            );
+
+            frappe.show_alert({
+                message: __(
+                    'Selection cleared because it is not actively assigned to the selected Process.'
+                ),
+                indicator: 'orange'
+            });
+        }
+    } catch (error) {
+        console.error(
+            `Unable to validate ${fieldname}:`,
+            error
+        );
+    }
+}
+
+
+async function validate_asarva_child_worker(
+    frm,
+    row
+) {
+    if (!row.rangrej_operator) {
+        return;
+    }
+
+    try {
+        const status =
+            await get_asarva_assignment_status(
+                frm,
+                'Worker Master',
+                row.rangrej_operator,
+                1
+            );
+
+        if (!status.valid) {
+            await frappe.model.set_value(
+                row.doctype,
+                row.name,
+                'rangrej_operator',
+                ''
+            );
+
+            frappe.show_alert({
+                message: __(
+                    'Rangrej Operator was cleared because it is not actively assigned to the selected Process.'
+                ),
+                indicator: 'orange'
+            });
+        }
+    } catch (error) {
+        console.error(
+            'Unable to validate Rangrej Operator:',
+            error
+        );
+    }
 }
