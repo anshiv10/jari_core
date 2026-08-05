@@ -5,6 +5,7 @@
  "engine": "InnoDB",
  "field_order": [
   "salary_format",
+  "salary_detail_key",
   "salary_group",
   "calculation_basis",
   "data_source",
@@ -14,7 +15,6 @@
   "base_amount",
   "extra_amount",
   "final_amount",
-  "quality_details",
   "source_reference",
   "remarks"
  ],
@@ -94,12 +94,6 @@
    "read_only": 1
   },
   {
-   "fieldname": "quality_details",
-   "fieldtype": "Table",
-   "label": "Quality-wise Calculation",
-   "options": "Worker Salary Quality Detail"
-  },
-  {
    "fieldname": "source_reference",
    "fieldtype": "Small Text",
    "label": "Source Reference",
@@ -109,6 +103,13 @@
    "fieldname": "remarks",
    "fieldtype": "Small Text",
    "label": "Remarks"
+  },
+  {
+   "fieldname": "salary_detail_key",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Salary Detail Key",
+   "read_only": 1
   }
  ],
  "istable": 1,

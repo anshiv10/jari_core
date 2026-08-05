@@ -1,4 +1,4 @@
-import calendar
+import uuid
 
 import frappe
 from frappe import _
@@ -128,6 +128,19 @@ class WorkerMonthlySalary(Document):
 
         return mappings
 
+    def make_detail_key(self):
+        return uuid.uuid4().hex
+
+    def get_quality_rows(self, detail):
+        return [
+            row
+            for row in self.salary_quality_details or []
+            if (
+                row.salary_detail_key
+                == detail.salary_detail_key
+            )
+        ]
+
     def load_worker_salary_formats(self):
         if not self.worker:
             return
@@ -151,6 +164,7 @@ class WorkerMonthlySalary(Document):
         }
 
         ordered_rows = []
+        active_detail_keys = set()
 
         for mapping in mappings:
             salary_format = frappe.get_doc(
@@ -158,50 +172,73 @@ class WorkerMonthlySalary(Document):
                 mapping.salary_format,
             )
 
-            row = existing_rows.get(
+            detail = existing_rows.get(
                 mapping.salary_format
             )
 
-            if not row:
-                row = self.append(
+            if not detail:
+                detail = self.append(
                     "salary_details",
                     {},
                 )
 
-            row.salary_format = salary_format.name
-            row.salary_group = (
+            if not detail.salary_detail_key:
+                detail.salary_detail_key = (
+                    self.make_detail_key()
+                )
+
+            detail.salary_format = salary_format.name
+            detail.salary_group = (
                 salary_format.salary_group
             )
-            row.calculation_basis = (
+            detail.calculation_basis = (
                 salary_format.calculation_basis
             )
-            row.data_source = (
+            detail.data_source = (
                 salary_format.data_source
             )
-            row.requires_quality = (
+            detail.requires_quality = (
                 salary_format.requires_quality
             )
 
-            if not flt(row.rate):
-                row.rate = flt(
+            if not flt(detail.rate):
+                detail.rate = flt(
                     mapping.default_rate
                 )
 
+            active_detail_keys.add(
+                detail.salary_detail_key
+            )
+
             self.populate_quality_rates(
-                row,
+                detail,
                 salary_format,
             )
 
-            ordered_rows.append(row)
+            ordered_rows.append(detail)
 
         self.set(
             "salary_details",
             ordered_rows,
         )
 
+        self.set(
+            "salary_quality_details",
+            [
+                row
+                for row in (
+                    self.salary_quality_details or []
+                )
+                if (
+                    row.salary_detail_key
+                    in active_detail_keys
+                )
+            ],
+        )
+
     def populate_quality_rates(
         self,
-        detail_row,
+        detail,
         salary_format,
     ):
         if not salary_format.requires_quality:
@@ -209,11 +246,13 @@ class WorkerMonthlySalary(Document):
 
         existing = {
             row.quality_code: row
-            for row in detail_row.quality_details or []
+            for row in self.get_quality_rows(
+                detail
+            )
             if row.quality_code
         }
 
-        rows = []
+        active_qualities = set()
 
         for rate_row in salary_format.rate_items or []:
             if not rate_row.active:
@@ -222,28 +261,49 @@ class WorkerMonthlySalary(Document):
             if not rate_row.quality_code:
                 continue
 
-            row = existing.get(
+            quality_row = existing.get(
                 rate_row.quality_code
             )
 
-            if not row:
-                row = detail_row.append(
-                    "quality_details",
+            if not quality_row:
+                quality_row = self.append(
+                    "salary_quality_details",
                     {},
                 )
 
-            row.quality_code = (
+            quality_row.salary_detail_key = (
+                detail.salary_detail_key
+            )
+            quality_row.salary_format = (
+                detail.salary_format
+            )
+            quality_row.quality_code = (
                 rate_row.quality_code
             )
 
-            if not flt(row.rate):
-                row.rate = flt(rate_row.rate)
+            if not flt(quality_row.rate):
+                quality_row.rate = flt(
+                    rate_row.rate
+                )
 
-            rows.append(row)
+            active_qualities.add(
+                rate_row.quality_code
+            )
 
-        detail_row.set(
-            "quality_details",
-            rows,
+        self.set(
+            "salary_quality_details",
+            [
+                row
+                for row in (
+                    self.salary_quality_details or []
+                )
+                if not (
+                    row.salary_detail_key
+                    == detail.salary_detail_key
+                    and row.quality_code
+                    not in active_qualities
+                )
+            ],
         )
 
     def fetch_approved_attendance_hours(self):
@@ -317,21 +377,13 @@ class WorkerMonthlySalary(Document):
                 if row.get("quality_code")
             }
 
-            for quality_row in (
-                detail.quality_details or []
-            ):
-                quality_row.source_quantity = (
-                    source_by_quality.get(
-                        quality_row.quality_code,
-                        0,
-                    )
-                )
+            configured_rows = self.get_quality_rows(
+                detail
+            )
 
             configured_qualities = {
                 row.quality_code
-                for row in (
-                    detail.quality_details or []
-                )
+                for row in configured_rows
                 if row.quality_code
             }
 
@@ -350,29 +402,39 @@ class WorkerMonthlySalary(Document):
                     )
                 )
 
+            for quality_row in configured_rows:
+                quality_row.source_quantity = (
+                    source_by_quality.get(
+                        quality_row.quality_code,
+                        0,
+                    )
+                )
+
     def calculate_salary_details(self):
-        for row in self.salary_details or []:
-            if row.requires_quality:
-                self.calculate_quality_detail(row)
+        for detail in self.salary_details or []:
+            if detail.requires_quality:
+                self.calculate_quality_detail(
+                    detail
+                )
                 continue
 
-            if row.data_source == "Geo Attendance":
-                row.source_quantity = flt(
+            if detail.data_source == "Geo Attendance":
+                detail.source_quantity = flt(
                     self.approved_attendance_hours,
                     4,
                 )
 
-                row.source_reference = (
+                detail.source_reference = (
                     f"Approved Geo Attendance: "
                     f"{self.period_start} to "
                     f"{self.period_end}"
                 )
 
             quantity = flt(
-                row.source_quantity
+                detail.source_quantity
             )
 
-            rate = flt(row.rate)
+            rate = flt(detail.rate)
 
             if quantity < 0:
                 frappe.throw(
@@ -381,7 +443,7 @@ class WorkerMonthlySalary(Document):
                         "for Salary Format {0}."
                     ).format(
                         frappe.bold(
-                            row.salary_format
+                            detail.salary_format
                         )
                     )
                 )
@@ -393,51 +455,48 @@ class WorkerMonthlySalary(Document):
                         "Salary Format {0}."
                     ).format(
                         frappe.bold(
-                            row.salary_format
+                            detail.salary_format
                         )
                     )
                 )
 
-            row.base_amount = flt(
+            detail.base_amount = flt(
                 quantity * rate,
                 2,
             )
 
-            row.final_amount = flt(
-                row.base_amount
-                + flt(row.extra_amount),
+            detail.final_amount = flt(
+                detail.base_amount
+                + flt(detail.extra_amount),
                 2,
             )
 
-    def calculate_quality_detail(self, row):
-        base_amount = 0
-        total_quantity = 0
+    def calculate_quality_detail(self, detail):
+        quality_rows = self.get_quality_rows(
+            detail
+        )
 
-        if not row.quality_details:
+        if not quality_rows:
             frappe.throw(
                 _(
                     "Quality-wise rows are required for "
                     "Salary Format {0}."
                 ).format(
                     frappe.bold(
-                        row.salary_format
+                        detail.salary_format
                     )
                 )
             )
 
+        base_amount = 0
+        total_quantity = 0
         seen_quality = set()
 
-        for quality_row in row.quality_details:
+        for quality_row in quality_rows:
             if not quality_row.quality_code:
                 frappe.throw(
-                    _(
-                        "Quality is required in every row "
-                        "for Salary Format {0}."
-                    ).format(
-                        frappe.bold(
-                            row.salary_format
-                        )
-                    )
+                    "Quality is required in every "
+                    "Salary Quality Detail row."
                 )
 
             if (
@@ -453,7 +512,7 @@ class WorkerMonthlySalary(Document):
                             quality_row.quality_code
                         ),
                         frappe.bold(
-                            row.salary_format
+                            detail.salary_format
                         ),
                     )
                 )
@@ -472,10 +531,8 @@ class WorkerMonthlySalary(Document):
 
             if quantity < 0 or rate < 0:
                 frappe.throw(
-                    _(
-                        "Quality quantity and rate cannot "
-                        "be negative."
-                    )
+                    "Quality quantity and rate cannot "
+                    "be negative."
                 )
 
             quality_row.amount = flt(
@@ -488,19 +545,19 @@ class WorkerMonthlySalary(Document):
                 quality_row.amount
             )
 
-        row.source_quantity = flt(
+        detail.source_quantity = flt(
             total_quantity,
             4,
         )
 
-        row.base_amount = flt(
+        detail.base_amount = flt(
             base_amount,
             2,
         )
 
-        row.final_amount = flt(
-            row.base_amount
-            + flt(row.extra_amount),
+        detail.final_amount = flt(
+            detail.base_amount
+            + flt(detail.extra_amount),
             2,
         )
 
@@ -530,30 +587,47 @@ class WorkerMonthlySalary(Document):
         )
 
     def validate_all_required_values(self):
-        for row in self.salary_details or []:
-            if row.requires_quality:
+        for detail in self.salary_details or []:
+            if detail.requires_quality:
+                quality_rows = (
+                    self.get_quality_rows(detail)
+                )
+
+                if not quality_rows:
+                    frappe.throw(
+                        "Quality-wise rows are required for "
+                        f"Salary Format {detail.salary_format}."
+                    )
+
+                for row in quality_rows:
+                    if flt(row.rate) <= 0:
+                        frappe.throw(
+                            "Rate must be greater than zero "
+                            f"for Quality {row.quality_code}."
+                        )
+
                 continue
 
-            if flt(row.source_quantity) <= 0:
+            if flt(detail.source_quantity) <= 0:
                 frappe.throw(
                     _(
                         "Source Quantity must be greater "
                         "than zero for Salary Format {0}."
                     ).format(
                         frappe.bold(
-                            row.salary_format
+                            detail.salary_format
                         )
                     )
                 )
 
-            if flt(row.rate) <= 0:
+            if flt(detail.rate) <= 0:
                 frappe.throw(
                     _(
                         "Rate must be greater than zero "
                         "for Salary Format {0}."
                     ).format(
                         frappe.bold(
-                            row.salary_format
+                            detail.salary_format
                         )
                     )
                 )
@@ -573,7 +647,6 @@ def refresh_salary_calculation(
             "Only Draft Salary documents can be refreshed."
         )
 
-    document.validate()
     document.save()
 
     return {

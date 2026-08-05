@@ -28,12 +28,26 @@ frappe.ui.form.on('Worker Monthly Salary', {
 
     worker(frm) {
         frm.clear_table('salary_details');
+        frm.clear_table(
+            'salary_quality_details'
+        );
+
         frm.refresh_field('salary_details');
+        frm.refresh_field(
+            'salary_quality_details'
+        );
     },
 
     salary_month(frm) {
         frm.clear_table('salary_details');
+        frm.clear_table(
+            'salary_quality_details'
+        );
+
         frm.refresh_field('salary_details');
+        frm.refresh_field(
+            'salary_quality_details'
+        );
     }
 });
 
@@ -86,10 +100,24 @@ frappe.ui.form.on('Worker Salary Quality Detail', {
         );
     },
 
-    quality_details_remove(frm) {
+    salary_quality_details_remove(frm) {
         calculate_salary_totals(frm);
     }
 });
+
+
+function get_quality_rows(
+    frm,
+    detail
+) {
+    return (
+        frm.doc.salary_quality_details || []
+    ).filter(
+        row =>
+            row.salary_detail_key
+            === detail.salary_detail_key
+    );
+}
 
 
 async function calculate_salary_detail(
@@ -97,20 +125,16 @@ async function calculate_salary_detail(
     cdt,
     cdn
 ) {
-    const row = locals[cdt][cdn];
+    const detail = locals[cdt][cdn];
 
-    if (row.requires_quality) {
+    if (detail.requires_quality) {
         calculate_salary_totals(frm);
         return;
     }
 
     const baseAmount =
-        flt(row.source_quantity)
-        * flt(row.rate);
-
-    const finalAmount =
-        baseAmount
-        + flt(row.extra_amount);
+        flt(detail.source_quantity)
+        * flt(detail.rate);
 
     await frappe.model.set_value(
         cdt,
@@ -123,7 +147,11 @@ async function calculate_salary_detail(
         cdt,
         cdn,
         'final_amount',
-        flt(finalAmount, 2)
+        flt(
+            baseAmount
+            + flt(detail.extra_amount),
+            2
+        )
     );
 
     calculate_salary_totals(frm);
@@ -135,15 +163,15 @@ async function calculate_quality_row(
     cdt,
     cdn
 ) {
-    const row = locals[cdt][cdn];
+    const qualityRow = locals[cdt][cdn];
 
     await frappe.model.set_value(
         cdt,
         cdn,
         'amount',
         flt(
-            flt(row.source_quantity)
-            * flt(row.rate),
+            flt(qualityRow.source_quantity)
+            * flt(qualityRow.rate),
             2
         )
     );
@@ -161,35 +189,38 @@ function calculate_salary_totals(frm) {
         detail => {
             if (detail.requires_quality) {
                 const qualityRows =
-                    detail.quality_details || [];
-
-                const quantity =
-                    qualityRows.reduce(
-                        (total, row) =>
-                            total
-                            + flt(
-                                row.source_quantity
-                            ),
-                        0
-                    );
-
-                const base =
-                    qualityRows.reduce(
-                        (total, row) =>
-                            total
-                            + flt(row.amount),
-                        0
+                    get_quality_rows(
+                        frm,
+                        detail
                     );
 
                 detail.source_quantity =
-                    flt(quantity, 4);
+                    flt(
+                        qualityRows.reduce(
+                            (total, row) =>
+                                total
+                                + flt(
+                                    row.source_quantity
+                                ),
+                            0
+                        ),
+                        4
+                    );
 
                 detail.base_amount =
-                    flt(base, 2);
+                    flt(
+                        qualityRows.reduce(
+                            (total, row) =>
+                                total
+                                + flt(row.amount),
+                            0
+                        ),
+                        2
+                    );
 
                 detail.final_amount =
                     flt(
-                        base
+                        detail.base_amount
                         + flt(
                             detail.extra_amount
                         ),
@@ -209,6 +240,9 @@ function calculate_salary_totals(frm) {
     );
 
     frm.refresh_field('salary_details');
+    frm.refresh_field(
+        'salary_quality_details'
+    );
 
     frm.set_value(
         'base_salary_total',

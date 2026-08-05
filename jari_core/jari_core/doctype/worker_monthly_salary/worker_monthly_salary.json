@@ -15,6 +15,7 @@
   "approved_attendance_hours",
   "calculation_section",
   "salary_details",
+  "salary_quality_details",
   "summary_section",
   "base_salary_total",
   "extra_amount_total",
@@ -135,6 +136,12 @@
    "options": "Worker Monthly Salary",
    "print_hide": 1,
    "read_only": 1
+  },
+  {
+   "fieldname": "salary_quality_details",
+   "fieldtype": "Table",
+   "label": "Salary Quality Details",
+   "options": "Worker Salary Quality Detail"
   }
  ],
  "grid_page_length": 50,

@@ -4,6 +4,8 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "salary_detail_key",
+  "salary_format",
   "quality_code",
   "source_quantity",
   "rate",
@@ -48,6 +50,23 @@
    "fieldname": "remarks",
    "fieldtype": "Small Text",
    "label": "Remarks"
+  },
+  {
+   "fieldname": "salary_detail_key",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Salary Detail Key",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "salary_format",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Salary Format",
+   "options": "Worker Salary Format",
+   "read_only": 1,
+   "reqd": 1
   }
  ],
  "istable": 1,
