@@ -30,7 +30,7 @@
    "in_list_view": 1,
    "label": "Product",
    "options": "Product Master",
-   "read_only": 1,
+   "read_only": 0,
    "reqd": 1
   },
   {
@@ -39,14 +39,14 @@
    "in_list_view": 1,
    "label": "Product Quality",
    "options": "Quality Master",
-   "read_only": 1
+   "read_only": 0
   },
   {
    "fieldname": "colour",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Colour",
-   "read_only": 1
+   "read_only": 0
   },
   {
    "fieldname": "issued_weight",

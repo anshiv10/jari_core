@@ -1,8 +1,7 @@
-
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import flt, today
+from frappe.utils import flt
 
 
 class AsarvaReceive(Document):
@@ -30,17 +29,56 @@ class AsarvaReceive(Document):
             exclude_receive=self.name
         )
 
+    # =========================================================
+    # ISSUE VALIDATION
+    # =========================================================
+
     def validate_issue(self):
         if not self.asarva_issue:
             return
 
-        issue_status = frappe.db.get_value(
-            "Asarva Issue",
-            self.asarva_issue,
-            "docstatus",
+        # Lock the Issue row during validation.
+        #
+        # This prevents two users from saving two different
+        # Asarva Receive documents against the same Issue at
+        # almost exactly the same time.
+        issue_rows = frappe.db.sql(
+            """
+            SELECT
+                name,
+                docstatus,
+                status
+            FROM `tabAsarva Issue`
+            WHERE name = %s
+            FOR UPDATE
+            """,
+            (self.asarva_issue,),
+            as_dict=True,
         )
 
-        if issue_status == 2:
+        if not issue_rows:
+            frappe.throw(
+                _(
+                    "Asarva Issue {0} does not exist."
+                ).format(
+                    frappe.bold(self.asarva_issue)
+                )
+            )
+
+        issue = issue_rows[0]
+
+        # An Asarva Receive must always come from a submitted Issue.
+        if issue.docstatus != 1:
+            frappe.throw(
+                _(
+                    "Asarva Issue {0} must be submitted "
+                    "before creating an Asarva Receive."
+                ).format(
+                    frappe.bold(self.asarva_issue)
+                )
+            )
+
+        if issue.status == "Cancelled":
             frappe.throw(
                 _(
                     "Cancelled Asarva Issue {0} cannot "
@@ -50,15 +88,49 @@ class AsarvaReceive(Document):
                 )
             )
 
-        if self.docstatus == 1 and issue_status != 1:
+        # IMPORTANT BUSINESS RULE:
+        #
+        # One Asarva Issue can have only ONE active
+        # Asarva Receive document.
+        #
+        # Draft Receive also reserves the Issue.
+        #
+        # Cancelled Receive does NOT reserve it.
+        existing_receive = frappe.db.sql(
+            """
+            SELECT name
+            FROM `tabAsarva Receive`
+            WHERE asarva_issue = %s
+              AND docstatus < 2
+              AND name != %s
+            ORDER BY creation ASC
+            LIMIT 1
+            """,
+            (
+                self.asarva_issue,
+                self.name or "",
+            ),
+            as_dict=True,
+        )
+
+        if existing_receive:
             frappe.throw(
                 _(
-                    "Asarva Issue {0} must be submitted "
-                    "before submitting this Receive."
+                    "Asarva Issue {0} is already being used "
+                    "in Asarva Receive {1}.<br><br>"
+                    "Please open the existing Receive and add "
+                    "additional Received Product rows there."
                 ).format(
-                    frappe.bold(self.asarva_issue)
+                    frappe.bold(self.asarva_issue),
+                    frappe.bold(
+                        existing_receive[0].name
+                    ),
                 )
             )
+
+    # =========================================================
+    # FETCH ISSUE INFORMATION
+    # =========================================================
 
     def pull_issue_details(self):
         if not self.asarva_issue:
@@ -77,9 +149,17 @@ class AsarvaReceive(Document):
         self.process_master = issue.process_master
         self.quality_code = issue.quality_code
 
+        # Do NOT rebuild rows every time the document saves.
+        #
+        # Existing Receive rows belong to the Receive transaction
+        # and are allowed to be greater than Issue row count.
         if self.receive_items:
             return
 
+        # Initial convenience rows:
+        # create one starting Receive row per Issue row.
+        #
+        # User can freely add more rows afterwards.
         for issue_row in issue.issue_items or []:
             row = self.append(
                 "receive_items",
@@ -95,11 +175,16 @@ class AsarvaReceive(Document):
             row.issued_weight = flt(
                 issue_row.issued_weight
             )
+
             row.quantity_firka = 0
             row.gross_weight = 0
             row.baad_weight = 0
             row.received_weight = 0
             row.uom = "KG"
+
+    # =========================================================
+    # RECEIVE ROW VALIDATION
+    # =========================================================
 
     def validate_items(self):
         if not self.receive_items:
@@ -107,12 +192,44 @@ class AsarvaReceive(Document):
                 _("At least one Receive Item is required.")
             )
 
+        # Products may be split into any number of Receive rows,
+        # but a completely unrelated Product must not be received
+        # against this Issue.
+        allowed_products = set(
+            frappe.get_all(
+                "Asarva Issue Item",
+                filters={
+                    "parent": self.asarva_issue,
+                    "parenttype": "Asarva Issue",
+                },
+                pluck="product",
+            )
+        )
+
         for row in self.receive_items:
+
             if not row.product:
                 frappe.throw(
                     _(
                         "Product is required in row #{0}."
                     ).format(row.idx)
+                )
+
+            if (
+                allowed_products
+                and row.product not in allowed_products
+            ):
+                frappe.throw(
+                    _(
+                        "Product {0} in row #{1} was not "
+                        "issued in Asarva Issue {2}."
+                    ).format(
+                        frappe.bold(row.product),
+                        row.idx,
+                        frappe.bold(
+                            self.asarva_issue
+                        ),
+                    )
                 )
 
             if int(row.quantity_firka or 0) < 0:
@@ -152,6 +269,13 @@ class AsarvaReceive(Document):
                 3,
             )
 
+            if not row.uom:
+                row.uom = "KG"
+
+    # =========================================================
+    # TOTALS
+    # =========================================================
+
     def calculate_totals(self):
         self.total_gross_weight = flt(
             sum(
@@ -177,6 +301,10 @@ class AsarvaReceive(Document):
             3,
         )
 
+    # =========================================================
+    # UPDATE ASARVA ISSUE SUMMARY
+    # =========================================================
+
     def refresh_issue_totals(
         self,
         exclude_receive=None,
@@ -197,16 +325,18 @@ class AsarvaReceive(Document):
             conditions.append(
                 "parent.name != %(exclude_receive)s"
             )
+
             values["exclude_receive"] = (
                 exclude_receive
             )
 
         total_received = frappe.db.sql(
             f"""
-            SELECT COALESCE(
-                SUM(item.received_weight),
-                0
-            )
+            SELECT
+                COALESCE(
+                    SUM(item.received_weight),
+                    0
+                )
             FROM `tabAsarva Receive Item` item
             INNER JOIN `tabAsarva Receive` parent
                 ON parent.name = item.parent
@@ -248,17 +378,20 @@ class AsarvaReceive(Document):
 
         if issue.docstatus == 2:
             status = "Cancelled"
+
         elif total_received <= 0:
             status = (
                 "Issued"
                 if issue.docstatus == 1
                 else "Draft"
             )
+
         elif (
             expected > 0
             and total_received >= expected
         ):
             status = "Received"
+
         else:
             status = "Partially Received"
 
@@ -276,6 +409,10 @@ class AsarvaReceive(Document):
         )
 
 
+# =============================================================
+# CLIENT FETCH METHOD
+# =============================================================
+
 @frappe.whitelist()
 def get_asarva_issue_details(issue_name):
     if not issue_name:
@@ -286,29 +423,58 @@ def get_asarva_issue_details(issue_name):
         issue_name,
     )
 
+    if issue.docstatus != 1:
+        frappe.throw(
+            _(
+                "Asarva Issue {0} must be submitted."
+            ).format(
+                frappe.bold(issue_name)
+            )
+        )
+
     return {
         "company": issue.company,
+
         "asarva_outsourcer":
             issue.asarva_outsourcer,
-        "batch_no": issue.batch_no,
-        "process_master": issue.process_master,
-        "quality_code": issue.quality_code,
+
+        "batch_no":
+            issue.batch_no,
+
+        "process_master":
+            issue.process_master,
+
+        "quality_code":
+            issue.quality_code,
+
         "items": [
             {
-                "source_issue_item": row.name,
-                "product": row.product,
+                "source_issue_item":
+                    row.name,
+
+                "product":
+                    row.product,
+
                 "product_quality":
                     row.product_quality,
-                "colour": row.colour,
-                "issued_weight": flt(
-                    row.issued_weight
-                ),
-                "uom": row.uom or "KG",
+
+                "colour":
+                    row.colour,
+
+                "issued_weight":
+                    flt(row.issued_weight),
+
+                "uom":
+                    row.uom or "KG",
             }
             for row in issue.issue_items or []
         ],
     }
 
+
+# =============================================================
+# ASARVA ISSUE LINK QUERY
+# =============================================================
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
@@ -320,51 +486,99 @@ def asarva_issue_query(
     page_len,
     filters,
 ):
+    filters = filters or {}
+
+    current_receive = (
+        filters.get("current_receive")
+        or ""
+    )
+
     return frappe.db.sql(
         """
         SELECT
             issue.name,
+
             CONCAT(
                 'Batch: ',
-                COALESCE(issue.batch_no, ''),
+                COALESCE(
+                    issue.batch_no,
+                    ''
+                ),
+
                 ' | Outsourcer: ',
                 COALESCE(
                     issue.asarva_outsourcer,
                     ''
                 ),
+
                 ' | Expected: ',
                 FORMAT(
                     issue.expected_received_weight,
                     3
                 ),
+
                 ' KG | Received: ',
                 FORMAT(
                     issue.total_received_weight,
                     3
                 ),
+
                 ' KG | Status: ',
                 issue.status
             ) AS description
+
         FROM `tabAsarva Issue` issue
-        WHERE issue.docstatus IN (0, 1)
+
+        WHERE issue.docstatus = 1
+
           AND issue.status != 'Cancelled'
+
+          AND NOT EXISTS (
+              SELECT 1
+              FROM `tabAsarva Receive` receive_doc
+              WHERE
+                  receive_doc.asarva_issue =
+                      issue.name
+
+                  AND receive_doc.docstatus < 2
+
+                  AND (
+                      %(current_receive)s = ''
+                      OR receive_doc.name !=
+                         %(current_receive)s
+                  )
+          )
+
           AND (
               issue.name LIKE %(txt)s
+
               OR COALESCE(
                   issue.batch_no,
                   ''
               ) LIKE %(txt)s
+
               OR COALESCE(
                   issue.asarva_outsourcer,
                   ''
               ) LIKE %(txt)s
           )
+
         ORDER BY issue.creation DESC
+
         LIMIT %(start)s, %(page_len)s
         """,
+
         {
-            "txt": f"%{txt}%",
-            "start": start,
-            "page_len": page_len,
+            "txt":
+                f"%{txt}%",
+
+            "current_receive":
+                current_receive,
+
+            "start":
+                start,
+
+            "page_len":
+                page_len,
         },
     )
