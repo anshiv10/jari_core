@@ -9,8 +9,7 @@ class SpindalPetiEntry(Document):
         self.set_peti_id()
         self.pull_spindal_issue_details()
         self.sync_bobbin_count_with_nang()
-        self.set_default_uom()
-        self.normalize_weights_to_kg()
+        self.normalize_peti_weights()
         self.calculate_net_weight()
         self.set_bobbin_balance()
         self.set_remaining_net_weight()
@@ -71,67 +70,54 @@ class SpindalPetiEntry(Document):
         if self.name and not self.peti_id:
             self.peti_id = self.name
 
-    def set_default_uom(self):
+    def normalize_peti_weights(self):
         """
-        New Spindal Peti entries may initially be entered in grams.
+        Spindal Peti physical weights are ENTERED in grams but
+        permanently STORED in KG.
 
-        During validation, all gram-based values are converted to KG
-        and the stored UOM is changed permanently to KG.
+        Example:
+            Gross input = 9888 GM
+            Baad input  = 2635 GM
+
+            Gross KG = 9.888
+            Baad KG  = 2.635
+            Net KG   = 7.253
+
+        Dedicated gram fields remove all ambiguity caused by changing
+        UOM from gram to KG after an earlier save.
         """
-        if not self.uom:
-            self.uom = "gram"
 
-    def normalize_weights_to_kg(self):
-        """
-        Permanently normalize Spindal Peti weights to KG.
+        gross_gm = flt(self.gross_weight_gm)
+        baad_gm = flt(self.baad_weight_gm)
 
-        Gram aliases are converted only when the current UOM is
-        gram-based. After conversion, UOM becomes KG, preventing the
-        same values from being converted again on later saves.
-        """
-        normalized_uom = (self.uom or "").strip().lower()
-
-        gram_uoms = {
-            "g",
-            "gm",
-            "gram",
-            "grams",
-            "gramme",
-            "grammes",
-        }
-
-        kg_uoms = {
-            "kg",
-            "kgs",
-            "kilogram",
-            "kilograms",
-        }
-
-        if normalized_uom in gram_uoms:
-            self.gross_weight = flt(self.gross_weight) / 1000
-            self.baad_weight = flt(self.baad_weight) / 1000
-
-            if flt(self.net_weight):
-                self.net_weight = flt(self.net_weight) / 1000
-
-            if flt(self.remaining_net_weight):
-                self.remaining_net_weight = (
-                    flt(self.remaining_net_weight) / 1000
-                )
-
-            self.uom = "KG"
-            return
-
-        if normalized_uom in kg_uoms:
-            self.uom = "KG"
-            return
-
-        frappe.throw(
-            "Unsupported UOM: {0}. Only gram or KG is allowed "
-            "for Spindal Peti Entry.".format(
-                self.uom or "Blank"
+        if gross_gm < 0:
+            frappe.throw(
+                "Gross Weight (GM) cannot be negative."
             )
+
+        if baad_gm < 0:
+            frappe.throw(
+                "Baad Weight (GM) cannot be negative."
+            )
+
+        if gross_gm > 0 and baad_gm > gross_gm:
+            frappe.throw(
+                "Baad Weight (GM) cannot be greater than "
+                "Gross Weight (GM)."
+            )
+
+        self.gross_weight = flt(
+            gross_gm / 1000,
+            3
         )
+
+        self.baad_weight = flt(
+            baad_gm / 1000,
+            3
+        )
+
+        # Downstream Peti/Gilit/Inventory values are always KG.
+        self.uom = "KG"
 
     def pull_spindal_issue_details(self):
         if not self.spindal_issue:
