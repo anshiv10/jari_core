@@ -108,10 +108,14 @@ async function calculate_spindal_peti_weights(frm) {
      * Before Gilit consumption starts, Remaining N.W
      * mirrors Net Weight.
      */
-    if (
-        frm.is_new() ||
-        !flt(frm.doc.remaining_net_weight)
-    ) {
+    /*
+     * A Draft Peti has not yet been consumed by Gilit,
+     * therefore Remaining N.W must exactly match Net Weight.
+     *
+     * Submitted Peti balances are controlled by Gilit and
+     * must never be reset from the browser.
+     */
+    if (frm.doc.docstatus === 0) {
         await frm.set_value(
             'remaining_net_weight',
             flt(

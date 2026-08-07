@@ -167,11 +167,18 @@ class SpindalPetiEntry(Document):
             self.remaining_bobbin = total_bobbin
 
     def set_remaining_net_weight(self):
-        if (
-            flt(self.net_weight)
-            and not flt(self.remaining_net_weight)
-        ):
-            self.remaining_net_weight = flt(self.net_weight)
+        """
+        While the Peti is Draft, Remaining N.W must always mirror
+        the newly calculated Net Weight.
+
+        After submission, Gilit consumption controls the remaining
+        balance and it must never be reset here.
+        """
+        if self.docstatus == 0:
+            self.remaining_net_weight = flt(
+                self.net_weight,
+                3
+            )
 
     def validate_weights(self):
         total_bobbin = cint(
