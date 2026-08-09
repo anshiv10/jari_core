@@ -94,8 +94,9 @@
   {
    "fieldname": "edit_baad_weight",
    "fieldtype": "Button",
-   "label": "View / Edit Baad Weight",
-   "in_list_view": 1
+   "label": "Edit Weight",
+   "in_list_view": 1,
+   "columns": 1
   },
   {
    "fieldname": "baad_weight_details",

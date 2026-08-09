@@ -329,13 +329,20 @@ function show_taniya_baad_weight_dialog(
     cdn
 ) {
     const row = locals[cdt][cdn];
+
+    if (!row) {
+        frappe.msgprint(
+            __('Unable to locate the selected output row.')
+        );
+        return;
+    }
+
     const quantity = cint(row.quantity);
 
     if (quantity <= 0) {
         frappe.msgprint(
-            __('Please enter Quantity greater than zero.')
+            __('Please enter Quantity greater than zero first.')
         );
-
         return;
     }
 
@@ -350,58 +357,124 @@ function show_taniya_baad_weight_dialog(
 
     const fields = [];
 
+    /*
+     * Summary of the selected row.
+     */
     fields.push({
         fieldname: 'information',
         fieldtype: 'HTML',
         options: `
             <div class="alert alert-info">
+                <strong>${__('Product')}:</strong>
+                ${frappe.utils.escape_html(
+                    row.product_name ||
+                    row.product ||
+                    ''
+                )}
+                &nbsp; | &nbsp;
+
                 <strong>${__('Quantity')}:</strong>
                 ${quantity}
                 &nbsp; | &nbsp;
-                <strong>${__('Received Weight')}:</strong>
-                ${format_number(
-                    flt(row.weight),
-                    null,
-                    3
+
+                <strong>${__('UOM')}:</strong>
+                ${frappe.utils.escape_html(
+                    row.uom || ''
                 )}
-                ${frappe.utils.escape_html(row.uom || '')}
             </div>
         `
     });
 
+    /*
+     * Client requested editable Received Weight inside popup.
+     */
+    fields.push({
+        fieldname: 'received_weight',
+        fieldtype: 'Float',
+        label: __('Received Weight'),
+        reqd: 1,
+        default: flt(row.weight),
+        precision: 3,
+        description: __(
+            'Edit the total received weight for this output row.'
+        )
+    });
+
+    fields.push({
+        fieldname: 'baad_section',
+        fieldtype: 'Section Break',
+        label: __('Piece-wise Baad Weight')
+    });
+
+    /*
+     * Generate one Baad Weight field per Quantity.
+     */
     for (
         let pieceNumber = 1;
         pieceNumber <= quantity;
         pieceNumber += 1
     ) {
         fields.push({
-            fieldname: `piece_weight_${pieceNumber}`,
+            fieldname:
+                `piece_weight_${pieceNumber}`,
+
             fieldtype: 'Float',
+
             label: __(
                 'Piece {0} Baad Weight',
                 [pieceNumber]
             ),
+
             reqd: 1,
+
             default: flt(
                 normalizedWeights[
                     pieceNumber - 1
                 ]
             ),
+
             precision: 3
         });
     }
 
     const dialog = new frappe.ui.Dialog({
-        title: __('Add Baad Weight'),
-        size: quantity > 8 ? 'large' : 'small',
+        title: __('Edit Weight'),
+
+        size:
+            quantity > 8
+                ? 'large'
+                : 'small',
+
         fields,
+
         primary_action_label:
-            __('Apply Baad Weight'),
+            __('Apply Weight'),
 
         async primary_action(values) {
+
+            const receivedWeight =
+                flt(values.received_weight);
+
+            /*
+             * Received Weight validation.
+             */
+            if (receivedWeight <= 0) {
+                frappe.msgprint(
+                    __(
+                        'Received Weight must be greater than zero.'
+                    )
+                );
+                return;
+            }
+
+
             let totalBaadWeight = 0;
             const pieceWeights = [];
 
+            /*
+             * Validate and total every individual
+             * Baad Weight entry.
+             */
             for (
                 let pieceNumber = 1;
                 pieceNumber <= quantity;
@@ -421,7 +494,6 @@ function show_taniya_baad_weight_dialog(
                             [pieceNumber]
                         )
                     );
-
                     return;
                 }
 
@@ -432,81 +504,136 @@ function show_taniya_baad_weight_dialog(
                 totalBaadWeight += value;
             }
 
-            const receivedWeight =
-                flt(row.weight);
 
-            if (receivedWeight <= 0) {
-                frappe.msgprint(
-                    __(
-                        'Enter Received Weight before ' +
-                        'applying Baad Weight.'
-                    )
-                );
+            totalBaadWeight =
+                flt(totalBaadWeight, 3);
+
+
+            /*
+             * Baad cannot exceed Received Weight.
+             */
+            if (
+                totalBaadWeight >
+                receivedWeight
+            ) {
+                frappe.msgprint({
+                    title:
+                        __('Invalid Weight'),
+
+                    indicator:
+                        'red',
+
+                    message:
+                        __(
+                            'Total Baad Weight {0} cannot exceed ' +
+                            'Received Weight {1}.',
+                            [
+                                format_number(
+                                    totalBaadWeight,
+                                    null,
+                                    3
+                                ),
+                                format_number(
+                                    receivedWeight,
+                                    null,
+                                    3
+                                )
+                            ]
+                        )
+                });
 
                 return;
             }
 
-            if (totalBaadWeight > receivedWeight) {
-                frappe.msgprint(
-                    __(
-                        'Total Baad Weight {0} cannot exceed ' +
-                        'Received Weight {1}.',
-                        [
-                            format_number(
-                                totalBaadWeight,
-                                null,
-                                3
-                            ),
-                            format_number(
-                                receivedWeight,
-                                null,
-                                3
-                            )
-                        ]
-                    )
-                );
-
-                return;
-            }
 
             const netWeight =
-                receivedWeight - totalBaadWeight;
+                flt(
+                    receivedWeight -
+                    totalBaadWeight,
+                    3
+                );
+
+
+            if (netWeight <= 0) {
+                frappe.msgprint({
+                    title:
+                        __('Invalid Net Weight'),
+
+                    indicator:
+                        'red',
+
+                    message:
+                        __(
+                            'N.W (DATA) must be greater than zero.'
+                        )
+                });
+
+                return;
+            }
+
+
+            /*
+             * Save all values back to the child row.
+             *
+             * These values are validated again by Python
+             * during Save/Submit, so JS is not the sole
+             * calculation authority.
+             */
 
             await frappe.model.set_value(
                 cdt,
                 cdn,
                 'baad_weight_details',
-                JSON.stringify(pieceWeights)
+                JSON.stringify(
+                    pieceWeights
+                )
+            );
+
+            await frappe.model.set_value(
+                cdt,
+                cdn,
+                'weight',
+                flt(
+                    receivedWeight,
+                    3
+                )
             );
 
             await frappe.model.set_value(
                 cdt,
                 cdn,
                 'baad_weight',
-                flt(totalBaadWeight, 3)
+                totalBaadWeight
             );
 
             await frappe.model.set_value(
                 cdt,
                 cdn,
                 'net_weight',
-                flt(netWeight, 3)
+                netWeight
             );
 
-            frm.refresh_field('output_items');
 
-            calculate_taniya_output_totals(frm);
+            frm.refresh_field(
+                'output_items'
+            );
+
+            calculate_taniya_output_totals(
+                frm
+            );
 
             dialog.hide();
 
             frappe.show_alert({
                 message: __(
-                    'Baad Weight and N.W (DATA) calculated.'
+                    'Received Weight, Baad Weight and ' +
+                    'N.W (DATA) updated successfully.'
                 ),
                 indicator: 'green'
             });
         }
     });
+
 
     dialog.show();
 }
