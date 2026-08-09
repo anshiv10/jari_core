@@ -66,7 +66,7 @@ frappe.ui.form.on('Spindal Receive', {
 
                     d.peti_no = p.name;
                     d.product = data.kasab_product;
-                    d.uom = p.uom || 'gram';
+                    d.uom = p.uom || 'KG';
                     d.gross_weight = p.gross_weight;
                     d.net_weight = p.net_weight;
                 });

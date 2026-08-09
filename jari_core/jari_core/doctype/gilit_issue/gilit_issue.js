@@ -117,7 +117,7 @@ frappe.ui.form.on('Gilit Issue Peti Item', {
                     );
                     frappe.model.set_value(cdt, cdn, 'khata_no', peti.khata_no);
                     frappe.model.set_value(cdt, cdn, 'product', kasab);
-                    frappe.model.set_value(cdt, cdn, 'uom', peti.uom || 'gram');
+                    frappe.model.set_value(cdt, cdn, 'uom', peti.uom || 'KG');
                     frappe.model.set_value(cdt, cdn, 'gross_weight', peti.gross_weight);
                     frappe.model.set_value(cdt, cdn, 'baad_weight', peti.baad_weight);
                     frappe.model.set_value(cdt, cdn, 'net_weight', peti.net_weight);

@@ -85,7 +85,7 @@ class SpindalReceive(Document):
             row = self.append("received_peti_items", {})
             row.peti_no = peti.get("name")
             row.product = kasab
-            row.uom = peti.get("uom") or "gram"
+            row.uom = peti.get("uom") or "KG"
             row.gross_weight = flt(peti.get("gross_weight"))
             row.net_weight = flt(peti.get("net_weight"))
 

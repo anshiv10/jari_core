@@ -9,6 +9,7 @@ class SpindalPetiEntry(Document):
         self.set_peti_id()
         self.pull_spindal_issue_details()
         self.sync_bobbin_count_with_nang()
+        self.validate_source_weights()
         self.normalize_peti_weights()
         self.calculate_net_weight()
         self.set_bobbin_balance()
@@ -69,6 +70,33 @@ class SpindalPetiEntry(Document):
     def set_peti_id(self):
         if self.name and not self.peti_id:
             self.peti_id = self.name
+
+    def validate_source_weights(self):
+        """
+        Physical Spindal Peti weights must always originate from
+        the dedicated GM input fields.
+
+        Derived Gross/Baad/Net values are stored in KG only.
+        """
+
+        gross_gm = flt(self.gross_weight_gm)
+        baad_gm = flt(self.baad_weight_gm)
+
+        if gross_gm <= 0:
+            frappe.throw(
+                "Gross Weight (GM) must be greater than zero."
+            )
+
+        if baad_gm < 0:
+            frappe.throw(
+                "Baad Weight (GM) cannot be negative."
+            )
+
+        if baad_gm > gross_gm:
+            frappe.throw(
+                "Baad Weight (GM) cannot be greater than "
+                "Gross Weight (GM)."
+            )
 
     def normalize_peti_weights(self):
         """
