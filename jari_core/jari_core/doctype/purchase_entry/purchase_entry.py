@@ -1,6 +1,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe.utils import flt, today
+from jari_core.jari_core.stock_utils import get_or_create_stock_source
 
 
 class PurchaseEntry(Document):
@@ -126,6 +127,18 @@ class PurchaseEntry(Document):
             if not row.product or not flt(row.net_weight):
                 continue
 
+            stock_source = get_or_create_stock_source(
+                source_type="Purchase Entry",
+                company=self.company,
+                product=row.product,
+                source_doctype=self.doctype,
+                source_name=self.name,
+                source_row=row.name,
+                source_date=self.purchase_date or today(),
+                batch_number=self.name,
+                remarks=f"Purchase from {self.vendor}",
+            )
+
             last_balance = self.get_last_balance(row.product)
             new_balance = flt(last_balance) + flt(row.net_weight)
 
@@ -135,6 +148,7 @@ class PurchaseEntry(Document):
                 "department": self.department,
                 "product": row.product,
                 "batch_number": self.name,
+                "stock_source": stock_source,
                 "in_weight": flt(row.net_weight),
                 "out_weight": 0,
                 "current_balance": new_balance,

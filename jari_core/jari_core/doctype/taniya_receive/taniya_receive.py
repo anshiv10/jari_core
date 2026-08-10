@@ -3,6 +3,7 @@ import json
 import frappe
 from frappe.model.document import Document
 from frappe.utils import flt, today
+from jari_core.jari_core.stock_utils import get_or_create_stock_source
 
 
 class TaniyaReceive(Document):
@@ -349,6 +350,21 @@ class TaniyaReceive(Document):
             if not row.product or output_weight <= 0:
                 continue
 
+            stock_source = get_or_create_stock_source(
+                source_type="Production Receive",
+                company=self.company,
+                product=row.product,
+                source_doctype=self.doctype,
+                source_name=self.name,
+                source_row=row.name,
+                source_date=self.receive_date or today(),
+                batch_number=self.batch_no,
+                remarks=(
+                    "Taniya DATA output received after "
+                    "Baad Weight deduction"
+                ),
+            )
+
             balance = self.get_last_balance(
                 self.company,
                 "Taniya",
@@ -361,6 +377,7 @@ class TaniyaReceive(Document):
                 "department": "Taniya",
                 "product": row.product,
                 "batch_number": self.batch_no,
+                "stock_source": stock_source,
                 "in_weight": output_weight,
                 "out_weight": 0,
                 "current_balance": (
@@ -381,6 +398,18 @@ class TaniyaReceive(Document):
             if not row.waste_product or not flt(row.weight):
                 continue
 
+            stock_source = get_or_create_stock_source(
+                source_type="Production Receive",
+                company=self.company,
+                product=row.waste_product,
+                source_doctype=self.doctype,
+                source_name=self.name,
+                source_row=row.name,
+                source_date=self.receive_date or today(),
+                batch_number=self.batch_no,
+                remarks="Taniya waste generated",
+            )
+
             balance = self.get_last_balance(self.company, "Taniya", row.waste_product)
 
             frappe.get_doc({
@@ -389,6 +418,7 @@ class TaniyaReceive(Document):
                 "department": "Taniya",
                 "product": row.waste_product,
                 "batch_number": self.batch_no,
+                "stock_source": stock_source,
                 "in_weight": flt(row.weight),
                 "out_weight": 0,
                 "current_balance": flt(balance) + flt(row.weight),

@@ -165,3 +165,517 @@ def product_query_by_department(doctype, txt, searchfield, start, page_len, filt
         "start": start,
         "page_len": page_len
     })
+
+# ============================================================
+# SOURCE-WISE INVENTORY TRACKING
+# ============================================================
+
+
+def make_stock_source_key(
+    source_doctype,
+    source_name,
+    source_row=None,
+):
+    return "|".join([
+        source_doctype or "",
+        source_name or "",
+        source_row or "__PARENT__",
+    ])
+
+
+def get_or_create_stock_source(
+    *,
+    source_type,
+    company,
+    product,
+    source_doctype,
+    source_name,
+    source_row=None,
+    source_date=None,
+    batch_number=None,
+    remarks=None,
+):
+    """
+    Register one immutable stock source.
+
+    One Purchase/Receive child row = one Inventory Stock Source.
+    """
+
+    source_key = make_stock_source_key(
+        source_doctype,
+        source_name,
+        source_row,
+    )
+
+    existing = frappe.db.get_value(
+        "Inventory Stock Source",
+        {
+            "source_key": source_key,
+        },
+        "name",
+    )
+
+    if existing:
+        source = frappe.get_doc(
+            "Inventory Stock Source",
+            existing,
+        )
+
+        if source.company != company:
+            frappe.throw(
+                f"Stock Source {existing} belongs to "
+                f"Company {source.company}, not {company}."
+            )
+
+        if source.product != product:
+            frappe.throw(
+                f"Stock Source {existing} belongs to "
+                f"Product {source.product}, not {product}."
+            )
+
+        return existing
+
+    source = frappe.get_doc({
+        "doctype": "Inventory Stock Source",
+        "source_type": source_type,
+        "company": company,
+        "product": product,
+        "source_doctype": source_doctype,
+        "source_name": source_name,
+        "source_row": source_row,
+        "source_date": source_date,
+        "batch_number": batch_number,
+        "source_key": source_key,
+        "remarks": remarks,
+    })
+
+    source.insert(
+        ignore_permissions=True
+    )
+
+    return source.name
+
+
+def get_stock_source_balance(
+    stock_source,
+    department,
+):
+    """
+    Return available KG for one exact Source + Department.
+
+    Normal sources:
+        SUM(source-linked ledger IN - OUT)
+
+    Legacy sources:
+        Legacy opening balance
+        + subsequent source-linked ledger IN - OUT
+    """
+
+    if not stock_source or not department:
+        return 0
+
+    source = frappe.get_cached_doc(
+        "Inventory Stock Source",
+        stock_source,
+    )
+
+    opening = 0
+
+    if (
+        source.is_legacy
+        and source.opening_department == department
+    ):
+        opening = flt(
+            source.opening_weight
+        )
+
+    ledger_net = frappe.db.sql(
+        """
+        SELECT
+            COALESCE(
+                SUM(in_weight),
+                0
+            )
+            -
+            COALESCE(
+                SUM(out_weight),
+                0
+            )
+        FROM `tabInventory Ledger`
+        WHERE stock_source = %s
+          AND company = %s
+          AND department = %s
+          AND product = %s
+        """,
+        (
+            stock_source,
+            source.company,
+            department,
+            source.product,
+        ),
+    )[0][0]
+
+    return flt(
+        opening + flt(ledger_net),
+        6,
+    )
+
+
+@frappe.whitelist()
+def get_stock_source_details(
+    stock_source,
+    department,
+):
+    if not stock_source:
+        return {}
+
+    source = frappe.get_doc(
+        "Inventory Stock Source",
+        stock_source,
+    )
+
+    return {
+        "stock_source": source.name,
+        "source_type": source.source_type,
+        "source_doctype": source.source_doctype,
+        "source_name": source.source_name,
+        "source_row": source.source_row,
+        "source_date": source.source_date,
+        "batch_number": source.batch_number,
+        "company": source.company,
+        "product": source.product,
+        "department": department,
+        "available_weight": get_stock_source_balance(
+            source.name,
+            department,
+        ),
+    }
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def stock_source_query(
+    doctype,
+    txt,
+    searchfield,
+    start,
+    page_len,
+    filters,
+):
+    """
+    Show stock sources available for one exact:
+
+        Company
+        Department
+        Product
+
+    Submitted Purchase/Receive sources and Legacy Opening
+    sources are handled through the same query.
+    """
+
+    filters = filters or {}
+
+    company = filters.get("company")
+    department = filters.get("department")
+    product = filters.get("product")
+
+    if not company or not department or not product:
+        return []
+
+    return frappe.db.sql(
+        """
+        SELECT
+            src.name,
+
+            CONCAT(
+                CASE
+                    WHEN src.is_legacy = 1
+                        THEN 'Legacy Opening'
+                    ELSE COALESCE(
+                        src.source_name,
+                        src.name
+                    )
+                END,
+
+                ' | ',
+
+                src.source_type,
+
+                ' | Date: ',
+
+                COALESCE(
+                    DATE_FORMAT(
+                        src.source_date,
+                        '%%d-%%m-%%Y'
+                    ),
+                    '-'
+                ),
+
+                ' | Available: ',
+
+                FORMAT(
+                    (
+                        CASE
+                            WHEN src.is_legacy = 1
+                             AND src.opening_department = %(department)s
+                            THEN src.opening_weight
+                            ELSE 0
+                        END
+                        +
+                        COALESCE(
+                            ledger.net_qty,
+                            0
+                        )
+                    ),
+                    3
+                ),
+
+                ' KG'
+            ) AS description
+
+        FROM `tabInventory Stock Source` src
+
+        LEFT JOIN (
+            SELECT
+                stock_source,
+                SUM(in_weight - out_weight) AS net_qty
+            FROM `tabInventory Ledger`
+            WHERE company = %(company)s
+              AND department = %(department)s
+              AND product = %(product)s
+              AND IFNULL(stock_source, '') != ''
+            GROUP BY stock_source
+        ) ledger
+            ON ledger.stock_source = src.name
+
+        WHERE src.company = %(company)s
+          AND src.product = %(product)s
+
+          AND (
+                (
+                    CASE
+                        WHEN src.is_legacy = 1
+                         AND src.opening_department = %(department)s
+                        THEN src.opening_weight
+                        ELSE 0
+                    END
+                    +
+                    COALESCE(
+                        ledger.net_qty,
+                        0
+                    )
+                )
+              ) > 0.000001
+
+          AND (
+                src.name LIKE %(txt)s
+                OR COALESCE(
+                    src.source_name,
+                    ''
+                ) LIKE %(txt)s
+                OR COALESCE(
+                    src.source_type,
+                    ''
+                ) LIKE %(txt)s
+                OR COALESCE(
+                    src.batch_number,
+                    ''
+                ) LIKE %(txt)s
+              )
+
+        ORDER BY
+            src.source_date ASC,
+            src.creation ASC
+
+        LIMIT %(start)s, %(page_len)s
+        """,
+        {
+            "company": company,
+            "department": department,
+            "product": product,
+            "txt": f"%{txt}%",
+            "start": start,
+            "page_len": page_len,
+        },
+    )
+
+
+def consume_selected_stock_source(
+    *,
+    doc,
+    stock_source,
+    source_department,
+    product,
+    required_qty,
+    batch_no,
+    posting_date,
+    transaction_type="Production Input",
+    remarks=None,
+):
+    """
+    Consume only the exact stock source selected by the user.
+
+    The source row is locked during submission so two users
+    cannot successfully over-consume the same stock source.
+    """
+
+    required_qty = flt(
+        required_qty,
+        6,
+    )
+
+    if required_qty <= 0:
+        return
+
+    if not stock_source:
+        frappe.throw(
+            f"Stock Source is required for product {product}."
+        )
+
+    if not source_department:
+        frappe.throw(
+            f"Source Department is required for product {product}."
+        )
+
+    # Serialize consumption attempts for this source.
+    locked = frappe.db.sql(
+        """
+        SELECT name
+        FROM `tabInventory Stock Source`
+        WHERE name = %s
+        FOR UPDATE
+        """,
+        stock_source,
+    )
+
+    if not locked:
+        frappe.throw(
+            f"Stock Source {stock_source} does not exist."
+        )
+
+    source = frappe.get_doc(
+        "Inventory Stock Source",
+        stock_source,
+    )
+
+    if source.company != doc.company:
+        frappe.throw(
+            f"Stock Source {stock_source} belongs to "
+            f"{source.company}, not {doc.company}."
+        )
+
+    if source.product != product:
+        frappe.throw(
+            f"Stock Source {stock_source} belongs to "
+            f"Product {source.product}, not {product}."
+        )
+
+    source_available = get_stock_source_balance(
+        stock_source,
+        source_department,
+    )
+
+    if required_qty > source_available + 0.000001:
+        frappe.throw(
+            f"Insufficient balance in selected Stock Source "
+            f"{stock_source} for {product}. "
+            f"Available: {source_available:.3f} KG, "
+            f"Requested: {required_qty:.3f} KG."
+        )
+
+    physical_balance = flt(
+        get_last_balance(
+            doc.company,
+            source_department,
+            product,
+        )
+    )
+
+    if required_qty > physical_balance + 0.000001:
+        frappe.throw(
+            f"Insufficient physical stock for {product} in "
+            f"{source_department}. "
+            f"Available: {physical_balance:.3f} KG, "
+            f"Requested: {required_qty:.3f} KG."
+        )
+
+    frappe.get_doc({
+        "doctype": "Inventory Ledger",
+        "company": doc.company,
+        "department": source_department,
+        "product": product,
+        "batch_number": batch_no,
+        "stock_source": stock_source,
+        "in_weight": 0,
+        "out_weight": required_qty,
+        "current_balance": (
+            physical_balance
+            - required_qty
+        ),
+        "transaction_type": transaction_type,
+        "reference_doctype": doc.doctype,
+        "reference_name": doc.name,
+        "date": posting_date or today(),
+        "remarks": (
+            remarks
+            or f"Issue consumed from Stock Source {stock_source}"
+        ),
+    }).insert(
+        ignore_permissions=True
+    )
+
+
+def add_source_linked_transfer_in(
+    *,
+    doc,
+    stock_source,
+    department,
+    product,
+    qty,
+    batch_no,
+    posting_date,
+    remarks=None,
+):
+    """
+    Move selected-source lineage into the destination
+    department without creating a new inventory source.
+    """
+
+    qty = flt(
+        qty,
+        6,
+    )
+
+    if qty <= 0:
+        return
+
+    balance = flt(
+        get_last_balance(
+            doc.company,
+            department,
+            product,
+        )
+    )
+
+    frappe.get_doc({
+        "doctype": "Inventory Ledger",
+        "company": doc.company,
+        "department": department,
+        "product": product,
+        "batch_number": batch_no,
+        "stock_source": stock_source,
+        "in_weight": qty,
+        "out_weight": 0,
+        "current_balance": balance + qty,
+        "transaction_type": "Stock Transfer In",
+        "reference_doctype": doc.doctype,
+        "reference_name": doc.name,
+        "date": posting_date or today(),
+        "remarks": (
+            remarks
+            or f"Source-linked WIP material inward in {department}"
+        ),
+    }).insert(
+        ignore_permissions=True
+    )
+

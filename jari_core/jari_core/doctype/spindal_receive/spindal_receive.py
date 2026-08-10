@@ -1,6 +1,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe.utils import flt, today
+from jari_core.jari_core.stock_utils import get_or_create_stock_source
 
 
 def get_kasab_product():
@@ -242,7 +243,16 @@ class SpindalReceive(Document):
             }
         )
 
-    def add_ledger(self, department, product, in_weight, out_weight, transaction_type, remarks):
+    def add_ledger(
+        self,
+        department,
+        product,
+        in_weight,
+        out_weight,
+        transaction_type,
+        remarks,
+        stock_source=None,
+    ):
         if not product or (not flt(in_weight) and not flt(out_weight)):
             return
 
@@ -254,6 +264,7 @@ class SpindalReceive(Document):
             "department": department,
             "product": product,
             "batch_number": self.active_batch_no,
+            "stock_source": stock_source,
             "in_weight": flt(in_weight),
             "out_weight": flt(out_weight),
             "current_balance": flt(balance) + flt(in_weight) - flt(out_weight),
@@ -278,17 +289,44 @@ class SpindalReceive(Document):
             if uom in ["gm", "gram", "grams", "g"]:
                 weight = weight / 1000
 
+            stock_source = get_or_create_stock_source(
+                source_type="Production Receive",
+                company=self.company,
+                product=kasab,
+                source_doctype=self.doctype,
+                source_name=self.name,
+                source_row=row.name,
+                source_date=self.receive_date or today(),
+                batch_number=self.active_batch_no,
+                remarks=(
+                    f"Spindal Peti {row.peti_no or row.name} output received"
+                ),
+            )
+
             self.add_ledger(
                 department=department,
                 product=kasab,
                 in_weight=weight,
                 out_weight=0,
                 transaction_type="Production Output",
-                remarks="Spindal peti output received"
+                remarks="Spindal peti output received",
+                stock_source=stock_source,
             )
 
         for row in self.waste_items or []:
             product = getattr(row, "waste_product", None)
+
+            stock_source = get_or_create_stock_source(
+                source_type="Production Receive",
+                company=self.company,
+                product=product,
+                source_doctype=self.doctype,
+                source_name=self.name,
+                source_row=row.name,
+                source_date=self.receive_date or today(),
+                batch_number=self.active_batch_no,
+                remarks="Spindal waste generated",
+            )
 
             self.add_ledger(
                 department=department,
@@ -296,7 +334,8 @@ class SpindalReceive(Document):
                 in_weight=flt(row.weight),
                 out_weight=0,
                 transaction_type="Waste Generated",
-                remarks="Spindal waste generated"
+                remarks="Spindal waste generated",
+                stock_source=stock_source,
             )
 
 

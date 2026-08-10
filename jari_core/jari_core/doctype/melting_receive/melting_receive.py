@@ -1,6 +1,7 @@
 import frappe
 from frappe.model.document import Document
 from frappe.utils import flt, today
+from jari_core.jari_core.stock_utils import get_or_create_stock_source
 
 
 class MeltingReceive(Document):
@@ -200,6 +201,18 @@ class MeltingReceive(Document):
             if not row.product or not flt(row.weight):
                 continue
 
+            stock_source = get_or_create_stock_source(
+                source_type="Production Receive",
+                company=self.company,
+                product=row.product,
+                source_doctype=self.doctype,
+                source_name=self.name,
+                source_row=row.name,
+                source_date=self.receive_date or today(),
+                batch_number=self.batch_no,
+                remarks="Melting output received",
+            )
+
             balance = self.get_last_balance(self.company, "Melting", row.product)
 
             frappe.get_doc({
@@ -208,6 +221,7 @@ class MeltingReceive(Document):
                 "department": "Melting",
                 "product": row.product,
                 "batch_number": self.batch_no,
+                "stock_source": stock_source,
                 "in_weight": flt(row.weight),
                 "out_weight": 0,
                 "current_balance": flt(balance) + flt(row.weight),
@@ -223,6 +237,18 @@ class MeltingReceive(Document):
             if not row.waste_product or not flt(row.weight):
                 continue
 
+            stock_source = get_or_create_stock_source(
+                source_type="Production Receive",
+                company=self.company,
+                product=row.waste_product,
+                source_doctype=self.doctype,
+                source_name=self.name,
+                source_row=row.name,
+                source_date=self.receive_date or today(),
+                batch_number=self.batch_no,
+                remarks="Melting waste generated",
+            )
+
             balance = self.get_last_balance(self.company, "Melting", row.waste_product)
 
             frappe.get_doc({
@@ -231,6 +257,7 @@ class MeltingReceive(Document):
                 "department": "Melting",
                 "product": row.waste_product,
                 "batch_number": self.batch_no,
+                "stock_source": stock_source,
                 "in_weight": flt(row.weight),
                 "out_weight": 0,
                 "current_balance": flt(balance) + flt(row.weight),

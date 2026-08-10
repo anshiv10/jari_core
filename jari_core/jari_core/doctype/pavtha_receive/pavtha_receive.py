@@ -4,6 +4,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt, today
+from jari_core.jari_core.stock_utils import get_or_create_stock_source
 
 
 VALID_ISSUE_RECEIVE_TYPES = {
@@ -1203,6 +1204,20 @@ class PavthaReceive(Document):
                 or "In-house"
             )
 
+            stock_source = get_or_create_stock_source(
+                source_type="Production Receive",
+                company=self.company,
+                product=row.product,
+                source_doctype=self.doctype,
+                source_name=self.name,
+                source_row=row.name,
+                source_date=self.receive_date or today(),
+                batch_number=self.batch_no,
+                remarks=(
+                    f"Pavtha {issue_receive_type} output received"
+                ),
+            )
+
             balance = self.get_last_balance(
                 self.company,
                 destination_department,
@@ -1216,6 +1231,8 @@ class PavthaReceive(Document):
                     "department": destination_department,
                     "product": row.product,
                     "batch_number": self.batch_no,
+                    "stock_source": stock_source,
+                    "stock_source": stock_source,
                     "in_weight": flt(row.weight),
                     "out_weight": 0,
                     "current_balance": (
@@ -1246,6 +1263,20 @@ class PavthaReceive(Document):
             issue_receive_type = (
                 row.issue_receive_type
                 or "In-house"
+            )
+
+            stock_source = get_or_create_stock_source(
+                source_type="Production Receive",
+                company=self.company,
+                product=row.waste_product,
+                source_doctype=self.doctype,
+                source_name=self.name,
+                source_row=row.name,
+                source_date=self.receive_date or today(),
+                batch_number=self.batch_no,
+                remarks=(
+                    f"Pavtha {issue_receive_type} waste generated"
+                ),
             )
 
             balance = self.get_last_balance(
