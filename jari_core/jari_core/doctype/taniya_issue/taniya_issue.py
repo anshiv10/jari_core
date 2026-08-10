@@ -58,7 +58,12 @@ class TaniyaIssue(Document):
         is new or already exists. The hidden existing_batch_no field is
         retained only for backward compatibility.
         """
-        entered_batch = (self.new_batch_no or "").strip()
+        entered_batch = (
+            self.new_batch_no
+            or self.existing_batch_no
+            or self.batch_no
+            or ""
+        ).strip()
 
         if not entered_batch:
             frappe.throw("Batch No is required.")
