@@ -1,45 +1,115 @@
 console.log('Pavtha Issue JS Loaded Successfully');
 
+
 frappe.ui.form.on('Pavtha Issue', {
+
     setup(frm) {
+        set_jari_issue_type_process_query(
+            frm,
+            'Pavtha Issue'
+        );
+
         set_product_query_by_department(frm);
-        set_process_query_by_department(frm);
+        apply_process_party_queries(frm);
     },
 
-    refresh(frm) {
-        set_product_query_by_department(frm);
-        set_process_query_by_department(frm);
 
-        if (frm.is_new() && !frm.doc.issue_date) {
+    refresh(frm) {
+        if (
+            frm.is_new() &&
+            !frm.doc.issue_date
+        ) {
             frm.set_value(
                 'issue_date',
                 frappe.datetime.get_today()
             );
         }
 
+        /*
+         * Process selection is controlled by
+         * Process Master.jari_issue_type.
+         *
+         * We deliberately DO NOT filter Process by
+         * to_department because Process itself controls
+         * From / To Department.
+         */
+        set_jari_issue_type_process_query(
+            frm,
+            'Pavtha Issue'
+        );
+
+        set_product_query_by_department(frm);
+        apply_process_party_queries(frm);
+
         set_default_type_on_existing_issue_items(frm);
         refresh_all_stock_summaries(frm);
         calculate_total_issue_weight(frm);
     },
 
-    to_department(frm) {
-        clear_process_if_department_changed(frm);
+
+    async process_master(frm) {
+
+        /*
+         * Correct Process-first sequence:
+         *
+         * 1. Process selected
+         * 2. Fetch From / To Department
+         * 3. Apply Process-specific master filters
+         * 4. Validate previous party selections
+         * 5. Fetch Process input products
+         */
+
+        await apply_issue_process_departments(frm);
+
         set_product_query_by_department(frm);
-        set_process_query_by_department(frm);
+        apply_process_party_queries(frm);
+
+        await validate_selected_process_party(
+            frm,
+            'outsourcer',
+            'Jobworker Master',
+            0
+        );
+
+        await validate_selected_process_party(
+            frm,
+            'operator',
+            'Worker Master',
+            1
+        );
+
+        await validate_selected_process_party(
+            frm,
+            'quality_code',
+            'Quality Master',
+            0
+        );
+
+        await fetch_process_items(frm);
     },
+
+
+    /*
+     * IMPORTANT:
+     *
+     * Department is generated from Process Master.
+     * Therefore changing To Department programmatically
+     * must NOT clear Process Master.
+     */
+    to_department(frm) {
+        set_product_query_by_department(frm);
+    },
+
 
     company(frm) {
         refresh_all_stock_summaries(frm);
     },
 
-    process_master(frm) {
-        fetch_process_items(frm);
-    },
 
     outsourcer(frm) {
         /*
-         * Issue/Receive Type is intentionally row-controlled.
-         * Selecting an Outsourcer must not overwrite row values.
+         * Issue/Receive classification is row-wise.
+         * Outsourcer selection must never overwrite it.
          */
         set_default_type_on_existing_issue_items(frm);
     }
@@ -47,6 +117,7 @@ frappe.ui.form.on('Pavtha Issue', {
 
 
 frappe.ui.form.on('Pavtha Issue Item', {
+
     issue_items_add(frm, cdt, cdn) {
         const row = frappe.get_doc(
             cdt,
@@ -63,25 +134,30 @@ frappe.ui.form.on('Pavtha Issue Item', {
         }
     },
 
+
     product(frm, cdt, cdn) {
         const row = frappe.get_doc(
             cdt,
             cdn
         );
 
-        if (row.product) {
-            fetch_stock_summary(
-                frm,
-                cdt,
-                cdn,
-                row.product
-            );
+        if (!row.product) {
+            return;
         }
+
+        fetch_stock_summary(
+            frm,
+            cdt,
+            cdn,
+            row.product
+        );
     },
+
 
     weight(frm) {
         calculate_total_issue_weight(frm);
     },
+
 
     issue_items_remove(frm) {
         calculate_total_issue_weight(frm);
@@ -90,18 +166,38 @@ frappe.ui.form.on('Pavtha Issue Item', {
 
 
 async function fetch_process_items(frm) {
+
     if (!frm.doc.process_master) {
         frm.clear_table('issue_items');
         frm.refresh_field('issue_items');
+
         calculate_total_issue_weight(frm);
+
         return;
     }
 
     try {
-        const process = await frappe.db.get_doc(
-            'Process Master',
-            frm.doc.process_master
-        );
+
+        const selectedProcess =
+            frm.doc.process_master;
+
+        const process =
+            await frappe.db.get_doc(
+                'Process Master',
+                selectedProcess
+            );
+
+        /*
+         * Prevent an older asynchronous response from
+         * populating rows after the user has selected a
+         * different Process.
+         */
+        if (
+            frm.doc.process_master !==
+            selectedProcess
+        ) {
+            return;
+        }
 
         frm.clear_table('issue_items');
 
@@ -112,7 +208,10 @@ async function fetch_process_items(frm) {
             get_pavtha_transaction_type(frm);
 
         if (!inputRows.length) {
+
             frm.refresh_field('issue_items');
+
+            calculate_total_issue_weight(frm);
 
             frappe.msgprint({
                 title: __('Process Master'),
@@ -122,11 +221,12 @@ async function fetch_process_items(frm) {
                 indicator: 'orange'
             });
 
-            calculate_total_issue_weight(frm);
             return;
         }
 
+
         inputRows.forEach(sourceRow => {
+
             const product =
                 sourceRow.product ||
                 sourceRow.product_code ||
@@ -144,22 +244,28 @@ async function fetch_process_items(frm) {
                 return;
             }
 
+
             const child = frm.add_child(
                 'issue_items',
                 {
                     product: product,
+
                     uom: uom,
+
                     weight: flt(
                         sourceRow.weight ||
                         sourceRow.qty ||
                         sourceRow.input_weight
                     ),
+
                     issue_receive_type:
                         transactionType,
+
                     current_stock_summary:
                         __('Loading...')
                 }
             );
+
 
             fetch_stock_summary(
                 frm,
@@ -169,76 +275,77 @@ async function fetch_process_items(frm) {
             );
         });
 
-        frm.refresh_field('issue_items');
+
+        frm.refresh_field(
+            'issue_items'
+        );
+
         calculate_total_issue_weight(frm);
+
 
         frappe.show_alert({
             message:
                 __('Pavtha input products were loaded.'),
             indicator: 'green'
         });
+
+
     } catch (error) {
+
         console.error(
             'Unable to load Pavtha process items:',
             error
         );
 
         frappe.msgprint({
-            title: __('Unable to Load Process'),
+            title:
+                __('Unable to Load Process'),
+
             message: __(
                 'The selected Process Master could not be loaded. Check the browser console and server logs.'
             ),
-            indicator: 'red'
+
+            indicator:
+                'red'
         });
     }
 }
 
 
 function get_pavtha_transaction_type(frm) {
+
     /*
-     * Client-approved behaviour:
-     * every new Product Detail row defaults to In-house.
+     * Default transaction classification.
      *
-     * The user may manually change an individual row to:
-     * - Readymade
-     * - Return
+     * Individual rows may subsequently be changed to:
+     *
+     * In-house
+     * Readymade
+     * Return
      */
     return 'In-house';
 }
 
 
-function synchronize_issue_item_types(frm) {
-    /*
-     * Never overwrite a user's selected classification.
-     * Only repair blank legacy/new rows.
-     */
-    (frm.doc.issue_items || []).forEach(row => {
-        if (!row.issue_receive_type) {
-            frappe.model.set_value(
-                row.doctype,
-                row.name,
-                'issue_receive_type',
-                'In-house'
-            );
-        }
-    });
-}
-
-
 function set_default_type_on_existing_issue_items(frm) {
+
     const transactionType =
         get_pavtha_transaction_type(frm);
 
-    (frm.doc.issue_items || []).forEach(row => {
-        if (!row.issue_receive_type) {
-            frappe.model.set_value(
-                row.doctype,
-                row.name,
-                'issue_receive_type',
-                transactionType
-            );
+    (frm.doc.issue_items || []).forEach(
+        row => {
+
+            if (!row.issue_receive_type) {
+
+                frappe.model.set_value(
+                    row.doctype,
+                    row.name,
+                    'issue_receive_type',
+                    transactionType
+                );
+            }
         }
-    });
+    );
 }
 
 
@@ -248,20 +355,37 @@ function fetch_stock_summary(
     cdn,
     product
 ) {
+
     if (!product) {
         return;
     }
 
+
     frappe.call({
+
         method:
             'jari_core.jari_core.doctype.pavtha_issue.pavtha_issue.get_product_stock_summary',
 
         args: {
             product: product,
-            company: frm.doc.company || null
+            company:
+                frm.doc.company || null
         },
 
+
         callback(r) {
+
+            /*
+             * Row may have been removed while the
+             * async request was executing.
+             */
+            if (
+                !locals[cdt] ||
+                !locals[cdt][cdn]
+            ) {
+                return;
+            }
+
             frappe.model.set_value(
                 cdt,
                 cdn,
@@ -271,38 +395,52 @@ function fetch_stock_summary(
             );
         },
 
+
         error(error) {
+
             console.error(
                 `Unable to fetch stock summary for ${product}:`,
                 error
             );
 
-            frappe.model.set_value(
-                cdt,
-                cdn,
-                'current_stock_summary',
-                __('Unable to load stock')
-            );
+            if (
+                locals[cdt] &&
+                locals[cdt][cdn]
+            ) {
+
+                frappe.model.set_value(
+                    cdt,
+                    cdn,
+                    'current_stock_summary',
+                    __('Unable to load stock')
+                );
+            }
         }
     });
 }
 
 
 function refresh_all_stock_summaries(frm) {
-    (frm.doc.issue_items || []).forEach(row => {
-        if (row.product) {
-            fetch_stock_summary(
-                frm,
-                row.doctype,
-                row.name,
-                row.product
-            );
+
+    (frm.doc.issue_items || []).forEach(
+        row => {
+
+            if (row.product) {
+
+                fetch_stock_summary(
+                    frm,
+                    row.doctype,
+                    row.name,
+                    row.product
+                );
+            }
         }
-    });
+    );
 }
 
 
 function calculate_total_issue_weight(frm) {
+
     const total = (
         frm.doc.issue_items || []
     ).reduce(
@@ -310,6 +448,7 @@ function calculate_total_issue_weight(frm) {
             sum + flt(row.weight),
         0
     );
+
 
     set_parent_value_if_changed(
         frm,
@@ -319,40 +458,13 @@ function calculate_total_issue_weight(frm) {
 }
 
 
-function set_process_query_by_department(frm) {
-    frm.set_query(
-        'process_master',
-        () => {
-            return {
-                filters: {
-                    department:
-                        frm.doc.to_department || ''
-                }
-            };
-        }
-    );
-}
-
-
-function clear_process_if_department_changed(frm) {
-    if (frm.doc.process_master) {
-        frm.set_value(
-            'process_master',
-            null
-        );
-    } else {
-        frm.clear_table('issue_items');
-        frm.refresh_field('issue_items');
-        calculate_total_issue_weight(frm);
-    }
-}
-
-
 function set_product_query_by_department(frm) {
+
     frm.set_query(
         'product',
         'issue_items',
         () => {
+
             return {
                 query:
                     'jari_core.jari_core.stock_utils.product_query_by_department',
@@ -372,17 +484,23 @@ function set_parent_value_if_changed(
     fieldname,
     value
 ) {
-    const currentValue = flt(
-        frm.doc[fieldname]
-    );
 
-    const nextValue = flt(value);
+    const currentValue =
+        flt(
+            frm.doc[fieldname]
+        );
+
+    const nextValue =
+        flt(value);
+
 
     if (
         Math.abs(
-            currentValue - nextValue
+            currentValue -
+            nextValue
         ) > 0.000001
     ) {
+
         frm.set_value(
             fieldname,
             nextValue
@@ -391,63 +509,42 @@ function set_parent_value_if_changed(
 }
 
 
-// BEGIN PROCESS-WISE WORKER FILTER: Pavtha Issue
-frappe.ui.form.on('Pavtha Issue', {
-    setup(frm) {
-        apply_process_party_queries(frm);
-    },
-
-    refresh(frm) {
-        apply_process_party_queries(frm);
-    },
-
-    process_master(frm) {
-        apply_process_party_queries(frm);
-
-        validate_selected_process_party(
-            frm,
-            'outsourcer',
-            'Jobworker Master',
-            0
-        );
-
-        validate_selected_process_party(
-            frm,
-            'operator',
-            'Worker Master',
-            1
-        );
-
-        validate_selected_process_party(
-            frm,
-            'quality_code',
-            'Quality Master',
-            0
-        );
-
-    }
-});
-
+/*
+ * ============================================================
+ * PROCESS-SPECIFIC PARTY FILTERING
+ * ============================================================
+ */
 
 function get_process_assigned_query(
     frm,
     masterDoctype,
     requireActive
 ) {
+
     if (!frm.doc.process_master) {
+
         return {
             filters: {
-                name: '__NO_PROCESS_SELECTED__'
+                name:
+                    '__NO_PROCESS_SELECTED__'
             }
         };
     }
 
+
     return {
-        query: 'jari_core.jari_core.doctype.process_master.process_master.process_assigned_master_query',
+
+        query:
+            'jari_core.jari_core.doctype.process_master.process_master.process_assigned_master_query',
+
         filters: {
-            master_doctype: masterDoctype,
+
+            master_doctype:
+                masterDoctype,
+
             process_master:
                 frm.doc.process_master,
+
             require_active:
                 requireActive ? 1 : 0
         }
@@ -459,7 +556,8 @@ function apply_process_party_queries(frm) {
 
     frm.set_query(
         'outsourcer',
-        function () {
+        () => {
+
             return get_process_assigned_query(
                 frm,
                 'Jobworker Master',
@@ -468,9 +566,11 @@ function apply_process_party_queries(frm) {
         }
     );
 
+
     frm.set_query(
         'operator',
-        function () {
+        () => {
+
             return get_process_assigned_query(
                 frm,
                 'Worker Master',
@@ -479,9 +579,11 @@ function apply_process_party_queries(frm) {
         }
     );
 
+
     frm.set_query(
         'quality_code',
-        function () {
+        () => {
+
             return get_process_assigned_query(
                 frm,
                 'Quality Master',
@@ -489,7 +591,6 @@ function apply_process_party_queries(frm) {
             );
         }
     );
-
 }
 
 
@@ -499,14 +600,18 @@ async function validate_selected_process_party(
     masterDoctype,
     requireActive
 ) {
+
     const selectedName =
         frm.doc[fieldname];
+
 
     if (!selectedName) {
         return;
     }
 
+
     if (!frm.doc.process_master) {
+
         await frm.set_value(
             fieldname,
             ''
@@ -515,49 +620,76 @@ async function validate_selected_process_party(
         return;
     }
 
+
     try {
-        const response = await frappe.call({
-            method: 'jari_core.jari_core.doctype.process_master.process_master.get_master_process_assignment_status',
-            args: {
-                master_doctype:
-                    masterDoctype,
-                master_name:
-                    selectedName,
-                process_master:
-                    frm.doc.process_master,
-                require_active:
-                    requireActive ? 1 : 0
-            }
-        });
+
+        const response =
+            await frappe.call({
+
+                method:
+                    'jari_core.jari_core.doctype.process_master.process_master.get_master_process_assignment_status',
+
+                args: {
+
+                    master_doctype:
+                        masterDoctype,
+
+                    master_name:
+                        selectedName,
+
+                    process_master:
+                        frm.doc.process_master,
+
+                    require_active:
+                        requireActive ? 1 : 0
+                }
+            });
+
 
         const status =
             response.message || {};
 
+
         if (!status.valid) {
+
             await frm.set_value(
                 fieldname,
                 ''
             );
 
+
             frappe.show_alert({
+
                 message: __(
                     'Selection cleared because it is not actively assigned to the selected Process.'
                 ),
-                indicator: 'orange'
+
+                indicator:
+                    'orange'
             });
         }
+
+
     } catch (error) {
+
         console.error(
             `Unable to validate ${fieldname}:`,
             error
         );
     }
 }
-// END PROCESS-WISE WORKER FILTER: Pavtha Issue
 
+
+/*
+ * ============================================================
+ * PROCESS-FIRST DEPARTMENT ROUTING
+ * ============================================================
+ */
 
 async function apply_issue_process_departments(frm) {
+
     if (!frm.doc.process_master) {
+
         await frm.set_value(
             'from_department',
             ''
@@ -571,22 +703,43 @@ async function apply_issue_process_departments(frm) {
         return;
     }
 
-    const response = await frappe.db.get_value(
-        'Process Master',
-        frm.doc.process_master,
-        [
-            'process_name',
-            'from_department',
-            'to_department'
-        ]
-    );
 
-    const route = response.message || {};
+    const selectedProcess =
+        frm.doc.process_master;
+
+
+    const response =
+        await frappe.db.get_value(
+            'Process Master',
+            selectedProcess,
+            [
+                'process_name',
+                'from_department',
+                'to_department'
+            ]
+        );
+
+
+    /*
+     * Ignore stale asynchronous response.
+     */
+    if (
+        frm.doc.process_master !==
+        selectedProcess
+    ) {
+        return;
+    }
+
+
+    const route =
+        response.message || {};
+
 
     if (
         !route.from_department ||
         !route.to_department
     ) {
+
         await frm.set_value(
             'from_department',
             ''
@@ -597,14 +750,20 @@ async function apply_issue_process_departments(frm) {
             ''
         );
 
+
         frappe.msgprint({
-            title: __('Process Routing Missing'),
-            indicator: 'red',
+
+            title:
+                __('Process Routing Missing'),
+
+            indicator:
+                'red',
+
             message: __(
                 'Please configure From Department and To Department in Process Master {0}.',
                 [
                     route.process_name ||
-                    frm.doc.process_master
+                    selectedProcess
                 ]
             )
         });
@@ -612,10 +771,12 @@ async function apply_issue_process_departments(frm) {
         return;
     }
 
+
     await frm.set_value(
         'from_department',
         route.from_department
     );
+
 
     await frm.set_value(
         'to_department',
@@ -623,46 +784,32 @@ async function apply_issue_process_departments(frm) {
     );
 }
 
-// BEGIN PROCESS-FIRST DEPARTMENT ROUTING
-frappe.ui.form.on('Pavtha Issue', {
-    process_master(frm) {
-        apply_issue_process_departments(frm);
-    }
-});
-// END PROCESS-FIRST DEPARTMENT ROUTING
 
-// BEGIN JARI ISSUE TYPE PROCESS FILTER
-frappe.ui.form.on('Pavtha Issue', {
-    setup(frm) {
-        set_jari_issue_type_process_query(
-            frm,
-            'Pavtha Issue'
-        );
-    },
-
-    refresh(frm) {
-        set_jari_issue_type_process_query(
-            frm,
-            'Pavtha Issue'
-        );
-    }
-});
+/*
+ * ============================================================
+ * JARI ISSUE TYPE PROCESS FILTER
+ * ============================================================
+ */
 
 function set_jari_issue_type_process_query(
     frm,
     issueType
 ) {
+
     frm.set_query(
         'process_master',
-        function () {
+        () => {
+
             return {
+
                 query:
                     'jari_core.jari_core.doctype.process_master.process_master.process_by_jari_issue_type_query',
+
                 filters: {
-                    jari_issue_type: issueType
+                    jari_issue_type:
+                        issueType
                 }
             };
         }
     );
 }
-// END JARI ISSUE TYPE PROCESS FILTER

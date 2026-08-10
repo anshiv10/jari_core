@@ -20,8 +20,9 @@ VALID_ISSUE_RECEIVE_TYPES = {
 class PavthaIssue(Document):
 
     def validate(self):
-        self.validate_process_assignments()
         self.set_defaults()
+        self.validate_outsourcing()
+        self.validate_process_assignments()
         validate_process_departments(self)
         validate_process_issue_type(
             self,
@@ -29,6 +30,40 @@ class PavthaIssue(Document):
         )
         self.validate_items()
         self.calculate_totals()
+
+    def validate_outsourcing(self):
+        """
+        Outsourcer requirement is controlled exclusively by
+        Process Master.is_outsourced.
+
+        In-house Process:
+            Outsourcer is not applicable and is cleared.
+
+        Outsourced Process:
+            Outsourcer is mandatory and must also be assigned
+            to the selected Process.
+        """
+        if not self.process_master:
+            return
+
+        is_outsourced = bool(
+            frappe.db.get_value(
+                "Process Master",
+                self.process_master,
+                "is_outsourced",
+            )
+        )
+
+        if is_outsourced:
+            if not self.outsourcer:
+                frappe.throw(
+                    _(
+                        "Outsourcer is required because the "
+                        "selected Process is Outsourced."
+                    )
+                )
+        else:
+            self.outsourcer = None
 
     def validate_process_assignments(self):
         validate_process_party(

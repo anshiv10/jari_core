@@ -68,7 +68,7 @@
    "in_list_view": 1,
    "label": "Outsourcer",
    "options": "Jobworker Master",
-   "reqd": 1
+   "reqd": 0
   },
   {
    "fieldname": "dept_batch_section",
