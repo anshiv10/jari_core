@@ -402,7 +402,7 @@ def spindal_issue_for_peti_query(doctype, txt, searchfield, start, page_len, fil
                 ' | Issue: ', si.name
             ) AS description
         FROM `tabSpindal Issue` si
-        WHERE si.docstatus = 1
+        WHERE si.docstatus = 0
           AND NOT EXISTS (
               SELECT 1
               FROM `tabSpindal Receive` sr

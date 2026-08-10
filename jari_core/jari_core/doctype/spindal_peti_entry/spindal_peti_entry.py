@@ -17,6 +17,50 @@ class SpindalPetiEntry(Document):
         self.validate_weights()
 
     def before_submit(self):
+        """
+        A Peti may be prepared and saved while the linked
+        Spindal Issue is still Draft.
+
+        The Peti itself can be submitted only after its
+        source Spindal Issue has been submitted, because
+        Spindal Issue submission posts the source inventory
+        transfer.
+        """
+        if not self.spindal_issue:
+            frappe.throw(
+                "Spindal Issue is required before submitting Peti."
+            )
+
+        issue_docstatus = frappe.db.get_value(
+            "Spindal Issue",
+            self.spindal_issue,
+            "docstatus",
+        )
+
+        if issue_docstatus is None:
+            frappe.throw(
+                f"Spindal Issue {self.spindal_issue} does not exist."
+            )
+
+        if int(issue_docstatus) == 0:
+            frappe.throw(
+                "The linked Spindal Issue is still Saved/Draft. "
+                "Please Submit the Spindal Issue first, then "
+                "Submit this Peti Entry."
+            )
+
+        if int(issue_docstatus) == 2:
+            frappe.throw(
+                "The linked Spindal Issue is Cancelled. "
+                "This Peti Entry cannot be submitted."
+            )
+
+        if int(issue_docstatus) != 1:
+            frappe.throw(
+                "The linked Spindal Issue must be Submitted "
+                "before this Peti Entry can be submitted."
+            )
+
         if flt(self.gross_weight) <= 0:
             frappe.throw(
                 "Gross Weight must be greater than zero "
