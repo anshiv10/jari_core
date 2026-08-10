@@ -26,23 +26,80 @@ frappe.ui.form.on('Taniya Issue', {
         set_operator_in_child_rows(frm);
     },
 
-    set_batch_no(frm) {
-        frm.set_value('batch_no', frm.doc.new_batch_no || '');
+    async set_batch_no(frm) {
+        const enteredBatch =
+            (frm.doc.new_batch_no || '').trim();
 
-        if (!frm.doc.new_batch_no) {
-            frm.set_value('issue_type', 'New Batch');
+        await frm.set_value(
+            'batch_no',
+            enteredBatch
+        );
+
+        if (!enteredBatch) {
+            await frm.set_value(
+                'issue_type',
+                'New Batch'
+            );
+
+            await frm.set_value(
+                'existing_batch_no',
+                ''
+            );
+
             return;
         }
 
-        frappe.db.count('Taniya Issue', {
-            filters: {
-                batch_no: frm.doc.new_batch_no,
-                docstatus: 1,
-                name: ['!=', frm.doc.name || '']
-            }
-        }).then(count => {
-            frm.set_value('issue_type', count > 0 ? 'Re Issue' : 'New Batch');
-        });
+        const batchBeingChecked =
+            enteredBatch;
+
+        const count =
+            await frappe.db.count(
+                'Taniya Issue',
+                {
+                    filters: {
+                        batch_no:
+                            batchBeingChecked,
+                        docstatus: 1,
+                        name: [
+                            '!=',
+                            frm.doc.name || ''
+                        ]
+                    }
+                }
+            );
+
+        /*
+         * Ignore an old async result if the user changed
+         * Batch No while the database check was running.
+         */
+        if (
+            (frm.doc.new_batch_no || '').trim()
+            !== batchBeingChecked
+        ) {
+            return;
+        }
+
+        const isReIssue =
+            count > 0;
+
+        await frm.set_value(
+            'issue_type',
+            isReIssue
+                ? 'Re Issue'
+                : 'New Batch'
+        );
+
+        /*
+         * existing_batch_no stays hidden and is maintained
+         * only for backward compatibility with historical
+         * records / code.
+         */
+        await frm.set_value(
+            'existing_batch_no',
+            isReIssue
+                ? batchBeingChecked
+                : ''
+        );
     },
 
     process_master(frm) {

@@ -50,14 +50,36 @@ class TaniyaIssue(Document):
             self.issue_type = "New Batch"
 
     def set_batch_no(self):
-        if self.issue_type == "New Batch":
-            if not self.new_batch_no:
-                frappe.throw("New Batch No is required.")
-            self.batch_no = self.new_batch_no
-        elif self.issue_type == "Re Issue":
-            if not self.existing_batch_no:
-                frappe.throw("Existing Batch No is required for Re Issue.")
-            self.batch_no = self.existing_batch_no
+        """
+        Batch No is entered through new_batch_no for both first issue
+        and later re-issues.
+
+        The system automatically determines whether the entered Batch
+        is new or already exists. The hidden existing_batch_no field is
+        retained only for backward compatibility.
+        """
+        entered_batch = (self.new_batch_no or "").strip()
+
+        if not entered_batch:
+            frappe.throw("Batch No is required.")
+
+        self.batch_no = entered_batch
+
+        previous_issued = frappe.db.count(
+            "Taniya Issue",
+            {
+                "batch_no": entered_batch,
+                "docstatus": 1,
+                "name": ["!=", self.name],
+            },
+        )
+
+        if previous_issued:
+            self.issue_type = "Re Issue"
+            self.existing_batch_no = entered_batch
+        else:
+            self.issue_type = "New Batch"
+            self.existing_batch_no = None
 
     def set_issue_status(self):
         previous_issued = frappe.db.count(
