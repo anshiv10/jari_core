@@ -109,15 +109,15 @@ class TaniyaReceive(Document):
         self.quality_code = issue.quality_code
         self.operator = issue.operator
 
-        # IMPORTANT: total input from ALL submitted Taniya Issues of same batch
-        total = frappe.db.sql("""
-            SELECT SUM(total_issue_weight)
-            FROM `tabTaniya Issue`
-            WHERE docstatus IN (0, 1)
-              AND batch_no = %s
-        """, self.batch_no)[0][0]
+        # One Taniya Receive currently references one specific Taniya Issue.
+        # Therefore input weight must come only from the selected Issue,
+        # not from every Issue having the same batch number.
+        if issue.docstatus != 1:
+            frappe.throw(
+                f"Taniya Issue {issue.name} must be Submitted before Receive."
+            )
 
-        self.total_input_weight = flt(total)
+        self.total_input_weight = flt(issue.total_issue_weight)
 
     def validate_items(self):
         if not self.output_items and not self.waste_items:
@@ -401,17 +401,22 @@ class TaniyaReceive(Document):
             }).insert(ignore_permissions=True)
 
     def mark_batch_issues_partially_received(self):
-        if not self.batch_no:
+        """
+        Update only the Taniya Issue referenced by this Receive.
+
+        Other re-issue documents may share the same batch number, but
+        they are independent Issue transactions and must not have their
+        status changed by this Receive.
+        """
+        if not self.taniya_issue:
             return
 
-        issues = frappe.get_all(
+        frappe.db.set_value(
             "Taniya Issue",
-            filters={"batch_no": self.batch_no, "docstatus": 1},
-            pluck="name"
+            self.taniya_issue,
+            "status",
+            "Partially Received",
         )
-
-        for issue in issues:
-            frappe.db.set_value("Taniya Issue", issue, "status", "Partially Received")
 
 
 @frappe.whitelist()
@@ -424,10 +429,10 @@ def taniya_issue_query(doctype, txt, searchfield, start, page_len, filters):
                 'Batch: ', COALESCE(ti.batch_no, ti.new_batch_no, ti.name),
                 ' | Issue: ', ti.name,
                 ' | Date: ', DATE_FORMAT(COALESCE(ti.issue_date, ti.creation), '%%d-%%m-%%Y'),
-                ' | Status: ', IF(ti.docstatus = 0, 'Saved', 'Submitted')
+                ' | Status: Submitted'
             ) AS description
         FROM `tabTaniya Issue` ti
-        WHERE ti.docstatus IN (0, 1)
+        WHERE ti.docstatus = 1
           AND NOT EXISTS (
               SELECT 1
               FROM `tabTaniya Receive` tr

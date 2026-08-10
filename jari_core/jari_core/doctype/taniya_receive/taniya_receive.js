@@ -32,25 +32,14 @@ frappe.ui.form.on('Taniya Receive', {
                 frm.set_value('quality_code', issue.quality_code);
                 frm.set_value('operator', issue.operator);
 
-                frappe.call({
-                    method: 'frappe.client.get_list',
-                    args: {
-                        doctype: 'Taniya Issue',
-                        filters: {
-                            batch_no: issue.batch_no,
-                            docstatus: ['in', [0, 1]]
-                        },
-                        fields: ['name', 'total_issue_weight'],
-                        limit_page_length: 500
-                    },
-                    callback(ir) {
-                        let total = 0;
-                        (ir.message || []).forEach(x => {
-                            total += flt(x.total_issue_weight);
-                        });
-                        frm.set_value('total_input_weight', total);
-                    }
-                });
+                /*
+                 * A Taniya Receive references one specific Taniya Issue.
+                 * Do not aggregate every Issue sharing the batch number.
+                 */
+                frm.set_value(
+                    'total_input_weight',
+                    flt(issue.total_issue_weight)
+                );
 
                 frappe.call({
                     method: 'frappe.client.get',
