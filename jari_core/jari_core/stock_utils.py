@@ -679,3 +679,99 @@ def add_source_linked_transfer_in(
         ignore_permissions=True
     )
 
+
+def reverse_reference_inventory_ledger(doc):
+    """
+    Append exact reversals for Inventory Ledger movements created
+    by one submitted source document.
+
+    Source lineage is preserved through stock_source.
+    """
+
+    reversal_exists = frappe.db.exists(
+        "Inventory Ledger",
+        {
+            "reference_doctype": doc.doctype,
+            "reference_name": doc.name,
+            "transaction_type": "Cancellation Reversal",
+        },
+    )
+
+    if reversal_exists:
+        return
+
+    original_rows = frappe.get_all(
+        "Inventory Ledger",
+        filters={
+            "reference_doctype": doc.doctype,
+            "reference_name": doc.name,
+            "transaction_type": ["!=", "Cancellation Reversal"],
+        },
+        fields=[
+            "name",
+            "company",
+            "department",
+            "product",
+            "batch_number",
+            "stock_source",
+            "in_weight",
+            "out_weight",
+        ],
+        order_by="creation asc",
+    )
+
+    for row in original_rows:
+
+        current = flt(
+            get_last_balance(
+                row.company,
+                row.department,
+                row.product,
+            ),
+            6,
+        )
+
+        reverse_in = flt(
+            row.out_weight,
+            6,
+        )
+
+        reverse_out = flt(
+            row.in_weight,
+            6,
+        )
+
+        new_balance = (
+            current
+            + reverse_in
+            - reverse_out
+        )
+
+        if new_balance < -0.000001:
+            frappe.throw(
+                f"Cannot cancel {doc.doctype} {doc.name}. "
+                f"Reversing {row.product} in {row.department} "
+                f"would make stock negative."
+            )
+
+        frappe.get_doc({
+            "doctype": "Inventory Ledger",
+            "company": row.company,
+            "department": row.department,
+            "product": row.product,
+            "batch_number": row.batch_number,
+            "stock_source": row.stock_source,
+            "in_weight": reverse_in,
+            "out_weight": reverse_out,
+            "current_balance": new_balance,
+            "transaction_type": "Cancellation Reversal",
+            "reference_doctype": doc.doctype,
+            "reference_name": doc.name,
+            "date": today(),
+            "remarks": (
+                f"Cancellation reversal of ledger {row.name}"
+            ),
+        }).insert(
+            ignore_permissions=True
+        )
+

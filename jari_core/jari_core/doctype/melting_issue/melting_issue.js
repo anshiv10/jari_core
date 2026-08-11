@@ -426,3 +426,321 @@ function set_jari_issue_type_process_query(
     );
 }
 // END JARI ISSUE TYPE PROCESS FILTER
+
+
+/*
+ * ============================================================
+ * ENTRY-WISE STOCK SOURCE SELECTION
+ * ============================================================
+ */
+
+frappe.ui.form.on('Melting Issue', {
+
+    setup(frm) {
+        setup_melting_stock_source_query(frm);
+    },
+
+    refresh(frm) {
+        setup_melting_stock_source_query(frm);
+        sync_melting_source_departments(frm);
+    },
+
+    company(frm) {
+        clear_all_melting_stock_sources(frm);
+    },
+
+    from_department(frm) {
+        clear_all_melting_stock_sources(frm);
+        sync_melting_source_departments(frm);
+    }
+});
+
+
+frappe.ui.form.on('Melting Issue Item', {
+
+    issue_items_add(frm, cdt, cdn) {
+        frappe.model.set_value(
+            cdt,
+            cdn,
+            'source_department',
+            frm.doc.from_department || ''
+        );
+    },
+
+    product(frm, cdt, cdn) {
+        clear_melting_row_source(
+            frm,
+            cdt,
+            cdn
+        );
+    },
+
+    async stock_source(frm, cdt, cdn) {
+
+        const row =
+            locals[cdt][cdn];
+
+        if (!row.stock_source) {
+            await clear_melting_source_details(
+                cdt,
+                cdn
+            );
+
+            return;
+        }
+
+        const department =
+            row.source_department ||
+            frm.doc.from_department ||
+            '';
+
+        if (!department) {
+            frappe.msgprint(
+                __('Source Department is required.')
+            );
+
+            await frappe.model.set_value(
+                cdt,
+                cdn,
+                'stock_source',
+                ''
+            );
+
+            return;
+        }
+
+        const selectedSource =
+            row.stock_source;
+
+        const response =
+            await frappe.call({
+                method:
+                    'jari_core.jari_core.stock_utils.get_stock_source_details',
+
+                args: {
+                    stock_source:
+                        selectedSource,
+                    department:
+                        department
+                }
+            });
+
+        /*
+         * Ignore a stale async result.
+         */
+        if (
+            !locals[cdt] ||
+            !locals[cdt][cdn] ||
+            locals[cdt][cdn].stock_source
+                !== selectedSource
+        ) {
+            return;
+        }
+
+        const details =
+            response.message || {};
+
+        if (
+            details.company !== frm.doc.company ||
+            details.product !== row.product
+        ) {
+            frappe.msgprint({
+                title:
+                    __('Invalid Stock Source'),
+                indicator:
+                    'red',
+                message:
+                    __('Selected Stock Source does not match the Company/Product of this row.')
+            });
+
+            await frappe.model.set_value(
+                cdt,
+                cdn,
+                'stock_source',
+                ''
+            );
+
+            return;
+        }
+
+        await frappe.model.set_value(
+            cdt,
+            cdn,
+            'source_department',
+            department
+        );
+
+        await frappe.model.set_value(
+            cdt,
+            cdn,
+            'source_date',
+            details.source_date || ''
+        );
+
+        await frappe.model.set_value(
+            cdt,
+            cdn,
+            'source_available_weight',
+            flt(
+                details.available_weight
+            )
+        );
+    },
+
+    weight(frm, cdt, cdn) {
+
+        const row =
+            locals[cdt][cdn];
+
+        if (
+            row.stock_source &&
+            flt(row.weight) >
+            flt(row.source_available_weight)
+        ) {
+            frappe.show_alert({
+                message:
+                    __('Issue Weight is greater than the currently displayed Stock Source balance.'),
+                indicator:
+                    'orange'
+            });
+        }
+    }
+});
+
+
+function setup_melting_stock_source_query(frm) {
+
+    frm.set_query(
+        'stock_source',
+        'issue_items',
+        function(doc, cdt, cdn) {
+
+            const row =
+                locals[cdt][cdn];
+
+            return {
+                query:
+                    'jari_core.jari_core.stock_utils.stock_source_query',
+
+                filters: {
+                    company:
+                        frm.doc.company || '',
+
+                    department:
+                        row.source_department ||
+                        frm.doc.from_department ||
+                        '',
+
+                    product:
+                        row.product || ''
+                }
+            };
+        }
+    );
+}
+
+
+function sync_melting_source_departments(frm) {
+
+    (frm.doc.issue_items || []).forEach(
+        row => {
+
+            if (
+                row.source_department !==
+                (frm.doc.from_department || '')
+            ) {
+                frappe.model.set_value(
+                    row.doctype,
+                    row.name,
+                    'source_department',
+                    frm.doc.from_department || ''
+                );
+            }
+        }
+    );
+}
+
+
+async function clear_melting_row_source(
+    frm,
+    cdt,
+    cdn
+) {
+
+    if (
+        !locals[cdt] ||
+        !locals[cdt][cdn]
+    ) {
+        return;
+    }
+
+    await frappe.model.set_value(
+        cdt,
+        cdn,
+        'stock_source',
+        ''
+    );
+
+    await clear_melting_source_details(
+        cdt,
+        cdn
+    );
+
+    await frappe.model.set_value(
+        cdt,
+        cdn,
+        'source_department',
+        frm.doc.from_department || ''
+    );
+}
+
+
+async function clear_melting_source_details(
+    cdt,
+    cdn
+) {
+
+    await frappe.model.set_value(
+        cdt,
+        cdn,
+        'source_date',
+        ''
+    );
+
+    await frappe.model.set_value(
+        cdt,
+        cdn,
+        'source_available_weight',
+        0
+    );
+}
+
+
+function clear_all_melting_stock_sources(frm) {
+
+    (frm.doc.issue_items || []).forEach(
+        row => {
+
+            frappe.model.set_value(
+                row.doctype,
+                row.name,
+                'stock_source',
+                ''
+            );
+
+            frappe.model.set_value(
+                row.doctype,
+                row.name,
+                'source_date',
+                ''
+            );
+
+            frappe.model.set_value(
+                row.doctype,
+                row.name,
+                'source_available_weight',
+                0
+            );
+        }
+    );
+}

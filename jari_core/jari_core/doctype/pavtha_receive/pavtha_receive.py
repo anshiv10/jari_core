@@ -1232,7 +1232,6 @@ class PavthaReceive(Document):
                     "product": row.product,
                     "batch_number": self.batch_no,
                     "stock_source": stock_source,
-                    "stock_source": stock_source,
                     "in_weight": flt(row.weight),
                     "out_weight": 0,
                     "current_balance": (
