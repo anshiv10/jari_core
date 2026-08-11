@@ -117,8 +117,13 @@ class SpindalPetiEntry(Document):
 
     def validate_source_weights(self):
         """
-        Physical Spindal Peti weights must always originate from
-        the dedicated GM input fields.
+        Validate the dedicated GM input fields.
+
+        Client workflow:
+        - Baad Weight may be entered first.
+        - Gross Weight may remain blank/zero while the Peti is Draft.
+        - Once Gross Weight is entered, Baad Weight cannot exceed it.
+        - Final Gross/Net requirements are enforced in before_submit().
 
         Derived Gross/Baad/Net values are stored in KG only.
         """
@@ -126,9 +131,9 @@ class SpindalPetiEntry(Document):
         gross_gm = flt(self.gross_weight_gm)
         baad_gm = flt(self.baad_weight_gm)
 
-        if gross_gm <= 0:
+        if gross_gm < 0:
             frappe.throw(
-                "Gross Weight (GM) must be greater than zero."
+                "Gross Weight (GM) cannot be negative."
             )
 
         if baad_gm < 0:
@@ -136,7 +141,9 @@ class SpindalPetiEntry(Document):
                 "Baad Weight (GM) cannot be negative."
             )
 
-        if baad_gm > gross_gm:
+        # While Draft, Baad Weight may be recorded before Gross Weight.
+        # Validate the comparison only after Gross Weight is entered.
+        if gross_gm > 0 and baad_gm > gross_gm:
             frappe.throw(
                 "Baad Weight (GM) cannot be greater than "
                 "Gross Weight (GM)."

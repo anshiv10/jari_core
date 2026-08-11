@@ -177,7 +177,7 @@
    "fieldtype": "Float",
    "label": "Gross Weight (GM)",
    "precision": "3",
-   "reqd": 1,
+   "reqd": 0,
    "in_list_view": 1
   },
   {
