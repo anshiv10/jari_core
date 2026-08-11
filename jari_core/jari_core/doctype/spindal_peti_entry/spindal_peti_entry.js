@@ -20,6 +20,22 @@ frappe.ui.form.on('Spindal Peti Entry', {
 
     baad_weight_gm(frm) {
         calculate_spindal_peti_weights(frm);
+    },
+
+    quality_code(frm) {
+        /*
+         * Keep the read-only display Quality synchronized with the
+         * user's selected Quality Code.
+         */
+        if (
+            frm.doc.quality_code &&
+            frm.doc.quality !== frm.doc.quality_code
+        ) {
+            frm.set_value(
+                'quality',
+                frm.doc.quality_code
+            );
+        }
     }
 });
 

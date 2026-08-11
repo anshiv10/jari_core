@@ -214,6 +214,18 @@ class SpindalPetiEntry(Document):
         self.uom = "KG"
 
     def pull_spindal_issue_details(self):
+        """
+        Pull common details from the linked Spindal Issue without
+        destroying a Quality explicitly selected in the Peti.
+
+        Quality priority:
+        1. Peti quality_code
+        2. Peti quality
+        3. Spindal Issue quality_code
+
+        A blank Quality on Spindal Issue must never overwrite
+        an already-selected Peti Quality.
+        """
         if not self.spindal_issue:
             return
 
@@ -224,10 +236,36 @@ class SpindalPetiEntry(Document):
 
         self.company = issue.company
         self.batch_no = issue.active_batch_no
-        self.quality_code = issue.quality_code
 
-        if hasattr(self, "quality"):
-            self.quality = issue.quality_code
+        peti_quality_code = (
+            self.quality_code
+            if hasattr(self, "quality_code")
+            else None
+        )
+
+        peti_quality = (
+            self.quality
+            if hasattr(self, "quality")
+            else None
+        )
+
+        issue_quality = (
+            issue.quality_code
+            if hasattr(issue, "quality_code")
+            else None
+        )
+
+        resolved_quality = (
+            peti_quality_code
+            or peti_quality
+            or issue_quality
+        )
+
+        if resolved_quality:
+            self.quality_code = resolved_quality
+
+            if hasattr(self, "quality"):
+                self.quality = resolved_quality
 
     def sync_bobbin_count_with_nang(self):
         if cint(self.nang) and not cint(self.bobbin_count):
@@ -447,6 +485,13 @@ class SpindalPetiEntry(Document):
         }).insert(ignore_permissions=True)
 
     def reverse_kasab_stock(self):
+        # If this Peti was submitted while the linked Spindal Issue
+        # was still Draft, its KASAB Production Output was never
+        # posted. In that case there is nothing to reverse.
+        if not self.ledger_exists("Production Output"):
+            return
+
+        # Prevent duplicate reversal.
         if self.ledger_exists("Adjustment"):
             return
 
