@@ -18,13 +18,16 @@ class SpindalPetiEntry(Document):
 
     def before_submit(self):
         """
-        A Peti may be prepared and saved while the linked
-        Spindal Issue is still Draft.
+        Client-approved workflow:
 
-        The Peti itself can be submitted only after its
-        source Spindal Issue has been submitted, because
-        Spindal Issue submission posts the source inventory
-        transfer.
+        Spindal Peti Entry may be submitted while its linked
+        Spindal Issue is either Draft or Submitted.
+
+        Cancelled Spindal Issue is never allowed.
+
+        If the Issue is still Draft, Peti submission is allowed
+        but KASAB stock posting is deferred until the Issue is
+        eventually submitted.
         """
         if not self.spindal_issue:
             frappe.throw(
@@ -42,23 +45,18 @@ class SpindalPetiEntry(Document):
                 f"Spindal Issue {self.spindal_issue} does not exist."
             )
 
-        if int(issue_docstatus) == 0:
-            frappe.throw(
-                "The linked Spindal Issue is still Saved/Draft. "
-                "Please Submit the Spindal Issue first, then "
-                "Submit this Peti Entry."
-            )
+        issue_docstatus = cint(issue_docstatus)
 
-        if int(issue_docstatus) == 2:
+        if issue_docstatus == 2:
             frappe.throw(
                 "The linked Spindal Issue is Cancelled. "
                 "This Peti Entry cannot be submitted."
             )
 
-        if int(issue_docstatus) != 1:
+        if issue_docstatus not in (0, 1):
             frappe.throw(
-                "The linked Spindal Issue must be Submitted "
-                "before this Peti Entry can be submitted."
+                f"Invalid document status for linked Spindal Issue "
+                f"{self.spindal_issue}."
             )
 
         if flt(self.gross_weight) <= 0:
@@ -89,8 +87,25 @@ class SpindalPetiEntry(Document):
                 self.get_net_weight_in_kg()
             )
 
-        self.post_kasab_stock()
+        # Peti may be submitted while the linked Issue is Draft.
+        # KASAB stock is posted only after the source Issue has
+        # actually posted its inventory transaction.
+        if self.is_linked_spindal_issue_submitted():
+            self.post_kasab_stock()
+
         self.db_set("status", "Received")
+
+    def is_linked_spindal_issue_submitted(self):
+        if not self.spindal_issue:
+            return False
+
+        issue_docstatus = frappe.db.get_value(
+            "Spindal Issue",
+            self.spindal_issue,
+            "docstatus",
+        )
+
+        return cint(issue_docstatus) == 1
 
     def on_cancel(self):
         consumed_bobbin = (

@@ -25,6 +25,7 @@ class SpindalIssue(Document):
             "Spindal Issue",
         )
         self.set_active_batch_no()
+        self.validate_submitted_peti_consistency()
         self.validate_issue_items()
         self.validate_draft_stock_availability()
         self.calculate_totals()
@@ -46,7 +47,73 @@ class SpindalIssue(Document):
 
     def on_submit(self):
         self.post_inventory_transfer()
+        self.post_pending_peti_stock()
         self.set_issue_status()
+
+    def post_pending_peti_stock(self):
+        """
+        Post KASAB stock for submitted Petis that were created
+        while this Spindal Issue was still Draft.
+
+        Spindal Peti Entry.post_kasab_stock() already protects
+        against duplicate Production Output ledger posting.
+        """
+        peti_names = frappe.get_all(
+            "Spindal Peti Entry",
+            filters={
+                "spindal_issue": self.name,
+                "docstatus": 1,
+            },
+            pluck="name",
+        )
+
+        for peti_name in peti_names:
+            peti = frappe.get_doc(
+                "Spindal Peti Entry",
+                peti_name,
+            )
+            peti.post_kasab_stock()
+
+    def validate_submitted_peti_consistency(self):
+        """
+        Once a Peti is submitted against a Draft Spindal Issue,
+        Company and Batch must not be changed on that Issue.
+        """
+        submitted_petis = frappe.get_all(
+            "Spindal Peti Entry",
+            filters={
+                "spindal_issue": self.name,
+                "docstatus": 1,
+            },
+            fields=[
+                "name",
+                "company",
+                "batch_no",
+            ],
+        )
+
+        for peti in submitted_petis:
+            if (
+                peti.company
+                and self.company
+                and peti.company != self.company
+            ):
+                frappe.throw(
+                    f"Company cannot be changed because submitted "
+                    f"Spindal Peti Entry {peti.name} is already linked "
+                    f"to this Spindal Issue."
+                )
+
+            if (
+                peti.batch_no
+                and self.active_batch_no
+                and peti.batch_no != self.active_batch_no
+            ):
+                frappe.throw(
+                    f"Batch No cannot be changed because submitted "
+                    f"Spindal Peti Entry {peti.name} already belongs "
+                    f"to Batch {peti.batch_no}."
+                )
 
     def set_defaults(self):
         apply_process_department_defaults(self)
