@@ -741,6 +741,26 @@ def reverse_reference_inventory_ledger(doc):
             6,
         )
 
+        # If cancellation would remove stock from a department,
+        # verify that the exact source being reversed still has
+        # enough quantity there. This prevents source-wise stock
+        # from becoming negative when downstream transactions have
+        # already consumed that particular source.
+        if row.stock_source and reverse_out > 0:
+            source_available = get_stock_source_balance(
+                row.stock_source,
+                row.department,
+            )
+
+            if reverse_out > source_available + 0.000001:
+                frappe.throw(
+                    f"Cannot cancel {doc.doctype} {doc.name}. "
+                    f"Stock Source {row.stock_source} has already been "
+                    f"consumed downstream in {row.department}. "
+                    f"Source Available: {source_available:.3f} KG, "
+                    f"Required for reversal: {reverse_out:.3f} KG."
+                )
+
         new_balance = (
             current
             + reverse_in

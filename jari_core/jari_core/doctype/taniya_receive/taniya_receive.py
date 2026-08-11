@@ -92,6 +92,51 @@ class TaniyaReceive(Document):
         if exists:
             frappe.throw(f"Taniya Issue {self.taniya_issue} is already received in submitted Taniya Receive {exists}.")
 
+    def before_submit(self):
+        """
+        Taniya Receive may be prepared/saved against a Draft Taniya
+        Issue, but it may be submitted only after that Issue itself
+        has been submitted.
+
+        This preserves inventory chronology:
+        source Issue stock must be posted before Receive output stock.
+        """
+        if not self.taniya_issue:
+            frappe.throw(
+                "Taniya Issue is required before submitting "
+                "Taniya Receive."
+            )
+
+        issue_docstatus = frappe.db.get_value(
+            "Taniya Issue",
+            self.taniya_issue,
+            "docstatus",
+        )
+
+        if issue_docstatus is None:
+            frappe.throw(
+                f"Taniya Issue {self.taniya_issue} does not exist."
+            )
+
+        if int(issue_docstatus) == 0:
+            frappe.throw(
+                f"Taniya Issue {self.taniya_issue} is still "
+                f"Saved/Draft. Please Submit the Taniya Issue first, "
+                f"then Submit this Taniya Receive."
+            )
+
+        if int(issue_docstatus) == 2:
+            frappe.throw(
+                f"Taniya Issue {self.taniya_issue} is Cancelled. "
+                f"This Taniya Receive cannot be submitted."
+            )
+
+        if int(issue_docstatus) != 1:
+            frappe.throw(
+                f"Taniya Issue {self.taniya_issue} must be Submitted "
+                f"before this Taniya Receive can be submitted."
+            )
+
     def on_submit(self):
         self.set_approx_silver()
         self.db_set('approx_silver_weight', flt(self.approx_silver_weight))
@@ -110,12 +155,19 @@ class TaniyaReceive(Document):
         self.quality_code = issue.quality_code
         self.operator = issue.operator
 
-        # One Taniya Receive currently references one specific Taniya Issue.
+        # One Taniya Receive references one specific Taniya Issue.
         # Therefore input weight must come only from the selected Issue,
         # not from every Issue having the same batch number.
-        if issue.docstatus != 1:
+        #
+        # Client workflow:
+        # - Draft/Saved Taniya Issue may be selected while preparing
+        #   and saving a Taniya Receive.
+        # - Cancelled Taniya Issue must never be used.
+        # - Receive submission is protected separately in before_submit().
+        if issue.docstatus == 2:
             frappe.throw(
-                f"Taniya Issue {issue.name} must be Submitted before Receive."
+                f"Taniya Issue {issue.name} is Cancelled and cannot "
+                f"be used in Taniya Receive."
             )
 
         self.total_input_weight = flt(issue.total_issue_weight)
@@ -452,30 +504,78 @@ class TaniyaReceive(Document):
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def taniya_issue_query(doctype, txt, searchfield, start, page_len, filters):
+    """
+    Taniya Receive selector.
+
+    Show:
+        docstatus = 0 -> Saved/Draft Taniya Issue
+        docstatus = 1 -> Submitted Taniya Issue
+
+    Hide:
+        docstatus = 2 -> Cancelled Taniya Issue
+
+    An Issue that already has a submitted Taniya Receive remains
+    excluded so the same Issue cannot be received twice.
+    """
     return frappe.db.sql("""
         SELECT
             ti.name,
             CONCAT(
-                'Batch: ', COALESCE(ti.batch_no, ti.new_batch_no, ti.name),
-                ' | Issue: ', ti.name,
-                ' | Date: ', DATE_FORMAT(COALESCE(ti.issue_date, ti.creation), '%%d-%%m-%%Y'),
-                ' | Status: Submitted'
+                'Batch: ',
+                COALESCE(
+                    ti.batch_no,
+                    ti.new_batch_no,
+                    ti.name
+                ),
+                ' | Issue: ',
+                ti.name,
+                ' | Date: ',
+                DATE_FORMAT(
+                    COALESCE(
+                        ti.issue_date,
+                        ti.creation
+                    ),
+                    '%%d-%%m-%%Y'
+                ),
+                ' | Status: ',
+                CASE
+                    WHEN ti.docstatus = 0
+                        THEN 'Saved'
+                    WHEN ti.docstatus = 1
+                        THEN 'Submitted'
+                    ELSE 'Unknown'
+                END
             ) AS description
         FROM `tabTaniya Issue` ti
-        WHERE ti.docstatus = 1
+        WHERE ti.docstatus IN (0, 1)
+
           AND NOT EXISTS (
               SELECT 1
               FROM `tabTaniya Receive` tr
               WHERE tr.docstatus = 1
                 AND tr.taniya_issue = ti.name
           )
+
           AND (
               ti.name LIKE %(txt)s
-              OR COALESCE(ti.batch_no, '') LIKE %(txt)s
-              OR COALESCE(ti.new_batch_no, '') LIKE %(txt)s
-              OR COALESCE(ti.company, '') LIKE %(txt)s
+              OR COALESCE(
+                    ti.batch_no,
+                    ''
+                 ) LIKE %(txt)s
+              OR COALESCE(
+                    ti.new_batch_no,
+                    ''
+                 ) LIKE %(txt)s
+              OR COALESCE(
+                    ti.company,
+                    ''
+                 ) LIKE %(txt)s
           )
-        ORDER BY ti.creation DESC
+
+        ORDER BY
+            ti.docstatus ASC,
+            ti.creation DESC
+
         LIMIT %(start)s, %(page_len)s
     """, {
         "txt": f"%{txt}%",
