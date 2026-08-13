@@ -437,10 +437,298 @@ def get_stock_source_locations(stock_source):
 
     return result
 
+
+# ============================================================
+# BEGIN SAVED DRAFT STOCK SOURCE RESERVATION
+# ============================================================
+
+# Saved Draft Issue documents reserve exact Stock Sources.
+#
+# Inventory Ledger remains physical/submitted stock only.
+#
+# Reservation identity:
+#   Stock Source + Source Department
+#
+# This allows:
+#   Physical source stock
+#       - Saved Draft reservations
+#       = Effective available stock
+#
+# On Submit the Draft reservation disappears automatically because
+# the parent document is no longer docstatus = 0, while the real
+# Inventory Ledger movement is posted by the Issue controller.
+
+DRAFT_STOCK_SOURCE_RESERVATION_TABLES = (
+    {
+        "parent_doctype": "Melting Issue",
+        "child_doctype": "Melting Issue Item",
+        "qty_field": "weight",
+    },
+    {
+        "parent_doctype": "Pavtha Issue",
+        "child_doctype": "Pavtha Issue Item",
+        "qty_field": "weight",
+    },
+    {
+        "parent_doctype": "Taniya Issue",
+        "child_doctype": "Taniya Issue Item",
+        "qty_field": "weight",
+    },
+    {
+        "parent_doctype": "Spindal Issue",
+        "child_doctype": "Spindal Issue Item",
+        "qty_field": "weight",
+    },
+    {
+        "parent_doctype": "Asarva Issue",
+        "child_doctype": "Asarva Issue Item",
+        "qty_field": "weight",
+    },
+    {
+        "parent_doctype": "Gilit Issue",
+        "child_doctype": "Gilit Metal Water Input",
+        "qty_field": "issued_weight_kg",
+    },
+)
+
+
+def get_draft_stock_source_reserved_weight(
+    stock_source,
+    department,
+    exclude_doctype=None,
+    exclude_name=None,
+):
+    """
+    Return KG reserved in SAVED Draft Issue rows for one exact:
+
+        Inventory Stock Source
+        +
+        Source Department
+
+    Unsaved browser rows are deliberately excluded because they do
+    not yet represent a committed reservation.
+
+    exclude_doctype + exclude_name are used when validating/editing
+    an existing Draft so the document does not reserve against itself
+    twice.
+    """
+    if not stock_source or not department:
+        return 0
+
+    total_reserved = 0
+
+    for config in (
+        DRAFT_STOCK_SOURCE_RESERVATION_TABLES
+    ):
+        parent_doctype = (
+            config["parent_doctype"]
+        )
+
+        child_doctype = (
+            config["child_doctype"]
+        )
+
+        qty_field = (
+            config["qty_field"]
+        )
+
+        # Keep this shared helper compatible with installations
+        # where an optional Issue DocType may not exist.
+        if not frappe.db.exists(
+            "DocType",
+            parent_doctype,
+        ):
+            continue
+
+        if not frappe.db.exists(
+            "DocType",
+            child_doctype,
+        ):
+            continue
+
+        child_meta = frappe.get_meta(
+            child_doctype
+        )
+
+        if (
+            not child_meta.has_field(
+                "stock_source"
+            )
+            or not child_meta.has_field(
+                "source_department"
+            )
+            or not child_meta.has_field(
+                qty_field
+            )
+        ):
+            continue
+
+        conditions = [
+            "parent_doc.docstatus = 0",
+            "child_row.stock_source = %(stock_source)s",
+            "child_row.source_department = %(department)s",
+        ]
+
+        values = {
+            "stock_source":
+                stock_source,
+
+            "department":
+                department,
+        }
+
+        if (
+            exclude_doctype
+            == parent_doctype
+            and exclude_name
+        ):
+            conditions.append(
+                "parent_doc.name != %(exclude_name)s"
+            )
+
+            values["exclude_name"] = (
+                exclude_name
+            )
+
+        reserved = frappe.db.sql(
+            f"""
+            SELECT
+                COALESCE(
+                    SUM(
+                        child_row.`{qty_field}`
+                    ),
+                    0
+                )
+            FROM `tab{child_doctype}` child_row
+            INNER JOIN `tab{parent_doctype}` parent_doc
+                ON parent_doc.name = child_row.parent
+            WHERE {" AND ".join(conditions)}
+            """,
+            values,
+        )[0][0]
+
+        total_reserved += flt(
+            reserved,
+            6,
+        )
+
+    return flt(
+        total_reserved,
+        6,
+    )
+
+
+def get_effective_stock_source_balance(
+    stock_source,
+    department,
+    exclude_doctype=None,
+    exclude_name=None,
+):
+    """
+    Effective issueable quantity:
+
+        Physical Stock Source balance
+        -
+        reservations in other Saved Draft Issues
+    """
+    physical = flt(
+        get_stock_source_balance(
+            stock_source,
+            department,
+        ),
+        6,
+    )
+
+    reserved = flt(
+        get_draft_stock_source_reserved_weight(
+            stock_source,
+            department,
+            exclude_doctype=
+                exclude_doctype,
+            exclude_name=
+                exclude_name,
+        ),
+        6,
+    )
+
+    return flt(
+        max(
+            0,
+            physical - reserved,
+        ),
+        6,
+    )
+
+
+def get_available_stock_source_locations(
+    stock_source,
+    exclude_doctype=None,
+    exclude_name=None,
+):
+    """
+    Return source locations after subtracting Saved Draft
+    reservations.
+
+    Physical source-location calculation remains untouched.
+    """
+    physical_locations = (
+        get_stock_source_locations(
+            stock_source
+        )
+    )
+
+    result = []
+
+    for location in physical_locations:
+        department = (
+            location["department"]
+        )
+
+        available = (
+            get_effective_stock_source_balance(
+                stock_source,
+                department,
+                exclude_doctype=
+                    exclude_doctype,
+                exclude_name=
+                    exclude_name,
+            )
+        )
+
+        if available > 0.000001:
+            result.append({
+                "department":
+                    department,
+
+                "available_weight":
+                    flt(
+                        available,
+                        6,
+                    ),
+            })
+
+    result.sort(
+        key=lambda row: (
+            row["department"],
+            -flt(
+                row["available_weight"]
+            ),
+        )
+    )
+
+    return result
+
+
+# ============================================================
+# END SAVED DRAFT STOCK SOURCE RESERVATION
+# ============================================================
+
 @frappe.whitelist()
 def get_stock_source_details(
     stock_source,
     department=None,
+    current_doctype=None,
+    current_name=None,
 ):
     if not stock_source:
         return {}
@@ -450,8 +738,10 @@ def get_stock_source_details(
         stock_source,
     )
 
-    locations = get_stock_source_locations(
-        stock_source
+    locations = get_available_stock_source_locations(
+        stock_source,
+        exclude_doctype=current_doctype,
+        exclude_name=current_name,
     )
 
     selected_department = (
@@ -470,9 +760,11 @@ def get_stock_source_details(
 
     if selected_department:
         available_weight = (
-            get_stock_source_balance(
+            get_effective_stock_source_balance(
                 source.name,
                 selected_department,
+                exclude_doctype=current_doctype,
+                exclude_name=current_name,
             )
         )
 
@@ -574,6 +866,20 @@ def stock_source_query(
         or ""
     )
 
+    current_doctype = (
+        filters.get(
+            "current_doctype"
+        )
+        or None
+    )
+
+    current_name = (
+        filters.get(
+            "current_name"
+        )
+        or None
+    )
+
     if not company or not product:
         return []
 
@@ -612,8 +918,12 @@ def stock_source_query(
 
     for source in sources:
         locations = (
-            get_stock_source_locations(
-                source.name
+            get_available_stock_source_locations(
+                source.name,
+                exclude_doctype=
+                    current_doctype,
+                exclude_name=
+                    current_name,
             )
         )
 
@@ -776,6 +1086,22 @@ def prepare_selected_stock_source(
             f"for {row.product}."
         )
 
+    locked = frappe.db.sql(
+        """
+        SELECT name
+        FROM `tabInventory Stock Source`
+        WHERE name = %s
+        FOR UPDATE
+        """,
+        row.stock_source,
+    )
+
+    if not locked:
+        frappe.throw(
+            f"Row #{row.idx}: Stock Source "
+            f"{row.stock_source} does not exist."
+        )
+
     source = frappe.get_doc(
         "Inventory Stock Source",
         row.stock_source,
@@ -798,8 +1124,12 @@ def prepare_selected_stock_source(
         )
 
     locations = (
-        get_stock_source_locations(
-            row.stock_source
+        get_available_stock_source_locations(
+            row.stock_source,
+            exclude_doctype=
+                doc.doctype,
+            exclude_name=
+                doc.name,
         )
     )
 
@@ -872,9 +1202,13 @@ def prepare_selected_stock_source(
             )
 
     available = (
-        get_stock_source_balance(
+        get_effective_stock_source_balance(
             row.stock_source,
             row.source_department,
+            exclude_doctype=
+                doc.doctype,
+            exclude_name=
+                doc.name,
         )
     )
 
@@ -1005,9 +1339,15 @@ def consume_selected_stock_source(
             f"Product {source.product}, not {product}."
         )
 
-    source_available = get_stock_source_balance(
-        stock_source,
-        source_department,
+    source_available = (
+        get_effective_stock_source_balance(
+            stock_source,
+            source_department,
+            exclude_doctype=
+                doc.doctype,
+            exclude_name=
+                doc.name,
+        )
     )
 
     if required_qty > source_available + 0.000001:

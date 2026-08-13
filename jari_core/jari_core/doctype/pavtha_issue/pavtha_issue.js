@@ -892,7 +892,16 @@ function jari_pavtha_source_setup_source_query(frm) {
                         row.product || '',
 
                     preferred_department:
-                        frm.doc.from_department || ''
+                        frm.doc.from_department || '',
+
+                    // SAVED DRAFT SOURCE RESERVATION CONTEXT
+                    current_doctype:
+                        frm.doc.doctype || 'Pavtha Issue',
+
+                    current_name:
+                        frm.is_new()
+                            ? ''
+                            : (frm.doc.name || '')
                 }
             };
         }
@@ -925,7 +934,15 @@ async function jari_pavtha_source_load_source(
 
             args: {
                 stock_source:
-                    selectedSource
+                    selectedSource,
+
+                current_doctype:
+                    frm.doc.doctype || 'Pavtha Issue',
+
+                current_name:
+                    frm.is_new()
+                        ? ''
+                        : (frm.doc.name || '')
             }
         });
 
@@ -1036,7 +1053,15 @@ async function jari_pavtha_source_load_source(
                     selectedSource,
 
                 department:
-                    department
+                    department,
+
+                current_doctype:
+                    frm.doc.doctype || 'Pavtha Issue',
+
+                current_name:
+                    frm.is_new()
+                        ? ''
+                        : (frm.doc.name || '')
             }
         });
 
