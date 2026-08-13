@@ -243,6 +243,31 @@ def sum_taniya_receive_by_tag(doc, tag):
     return total
 
 
+def sum_taniya_output_net_by_tag(doc, tag):
+    """
+    Sum N.W (DATA) from Taniya Output Item rows matching Product Tag.
+
+    Taniya Output Item:
+        weight     = Received Weight
+        net_weight = N.W (DATA) after Baad Weight deduction
+
+    This helper is intentionally output-only. Waste rows must not be
+    included in TAR Received.
+    """
+    wanted_tag = (tag or "").strip().upper()
+    total = 0
+
+    for row in doc.get("output_items") or []:
+        product = getattr(row, "product", None)
+
+        if product_tag(product) == wanted_tag:
+            total += flt(
+                getattr(row, "net_weight", 0)
+            )
+
+    return flt(total, 3)
+
+
 def calculate_taniya_payout(doc):
     """
     Calculate outsourced Taniya payout.
@@ -326,9 +351,17 @@ def calculate_taniya_payout(doc):
         * flt(doc.majoori_rate)
     )
 
+    # TAR Received must use N.W (DATA), not Received Weight.
+    #
+    # Client rule:
+    # TAR Received = total N.W (DATA) of TAR-labelled
+    # Taniya Output Item rows.
+    #
+    # TAR (Y) is retained because it is an existing TAR
+    # classification already supported by this payout formula.
     tar_received = (
-        sum_taniya_receive_by_tag(doc, "TAR")
-        + sum_taniya_receive_by_tag(doc, "TAR (Y)")
+        sum_taniya_output_net_by_tag(doc, "TAR")
+        + sum_taniya_output_net_by_tag(doc, "TAR (Y)")
     )
 
     goti_received = sum_taniya_receive_by_tag(
