@@ -19,9 +19,18 @@ class AsarvaReceive(Document):
         self.refresh_issue_totals()
 
     def on_submit(self):
+        self.post_inventory_transaction()
         self.refresh_issue_totals()
 
     def on_cancel(self):
+        from jari_core.jari_core.stock_utils import (
+            reverse_reference_inventory_ledger,
+        )
+
+        reverse_reference_inventory_ledger(
+            self
+        )
+
         self.refresh_issue_totals()
 
     def on_trash(self):
@@ -142,45 +151,121 @@ class AsarvaReceive(Document):
         )
 
         self.company = issue.company
+
         self.asarva_outsourcer = (
             issue.asarva_outsourcer
         )
-        self.batch_no = issue.batch_no
-        self.process_master = issue.process_master
-        self.quality_code = issue.quality_code
 
-        # Do NOT rebuild rows every time the document saves.
-        #
-        # Existing Receive rows belong to the Receive transaction
-        # and are allowed to be greater than Issue row count.
+        self.batch_no = (
+            issue.batch_no
+        )
+
+        self.process_master = (
+            issue.process_master
+        )
+
+        self.quality_code = (
+            issue.quality_code
+        )
+
+        # Existing Receive rows belong to this
+        # transaction and must never be rebuilt.
         if self.receive_items:
             return
 
-        # Initial convenience rows:
-        # create one starting Receive row per Issue row.
-        #
-        # User can freely add more rows afterwards.
-        for issue_row in issue.issue_items or []:
+        process = frappe.get_doc(
+            "Process Master",
+            issue.process_master,
+        )
+
+        outputs = [
+            row
+            for row in (
+                process.output_products
+                or []
+            )
+            if row.product
+        ]
+
+        if not outputs:
+            frappe.throw(
+                _(
+                    "No Output Product is configured "
+                    "in Process {0}."
+                ).format(
+                    frappe.bold(
+                        process.process_name
+                        or process.name
+                    )
+                )
+            )
+
+        colours = {
+            row.colour
+            for row in (
+                issue.issue_items
+                or []
+            )
+            if row.colour
+        }
+
+        default_colour = (
+            next(iter(colours))
+            if len(colours) == 1
+            else None
+        )
+
+        one_output = (
+            len(outputs) == 1
+        )
+
+        for output in outputs:
+
             row = self.append(
                 "receive_items",
                 {},
             )
 
-            row.source_issue_item = issue_row.name
-            row.product = issue_row.product
-            row.product_quality = (
-                issue_row.product_quality
+            row.source_issue_item = None
+
+            row.product = (
+                output.product
             )
-            row.colour = issue_row.colour
-            row.issued_weight = flt(
-                issue_row.issued_weight
+
+            row.product_quality = (
+                issue.quality_code
+            )
+
+            row.colour = (
+                default_colour
+            )
+
+            row.issued_weight = (
+                flt(
+                    issue.total_issued_weight
+                )
+                if one_output
+                else 0
             )
 
             row.quantity_firka = 0
             row.gross_weight = 0
             row.baad_weight = 0
             row.received_weight = 0
-            row.uom = "KG"
+
+            product_uom = (
+                frappe.db.get_value(
+                    "Product Master",
+                    output.product,
+                    "unit",
+                )
+                or ""
+            )
+
+            row.uom = (
+                product_uom
+                or "KG"
+            )
 
     # =========================================================
     # RECEIVE ROW VALIDATION
@@ -189,79 +274,125 @@ class AsarvaReceive(Document):
     def validate_items(self):
         if not self.receive_items:
             frappe.throw(
-                _("At least one Receive Item is required.")
+                _(
+                    "At least one Receive Item "
+                    "is required."
+                )
             )
 
-        # Products may be split into any number of Receive rows,
-        # but a completely unrelated Product must not be received
-        # against this Issue.
-        allowed_products = set(
-            frappe.get_all(
-                "Asarva Issue Item",
-                filters={
-                    "parent": self.asarva_issue,
-                    "parenttype": "Asarva Issue",
-                },
-                pluck="product",
-            )
+        issue = frappe.get_doc(
+            "Asarva Issue",
+            self.asarva_issue,
         )
+
+        process = frappe.get_doc(
+            "Process Master",
+            issue.process_master,
+        )
+
+        allowed_products = {
+            row.product
+            for row in (
+                process.output_products
+                or []
+            )
+            if row.product
+        }
+
+        if not allowed_products:
+            frappe.throw(
+                _(
+                    "No Output Product is configured "
+                    "in Process {0}."
+                ).format(
+                    frappe.bold(
+                        process.process_name
+                        or process.name
+                    )
+                )
+            )
 
         for row in self.receive_items:
 
             if not row.product:
                 frappe.throw(
                     _(
-                        "Product is required in row #{0}."
-                    ).format(row.idx)
+                        "Product is required in "
+                        "row #{0}."
+                    ).format(
+                        row.idx
+                    )
                 )
 
             if (
-                allowed_products
-                and row.product not in allowed_products
+                row.product
+                not in allowed_products
             ):
                 frappe.throw(
                     _(
-                        "Product {0} in row #{1} was not "
-                        "issued in Asarva Issue {2}."
+                        "Product {0} is not configured "
+                        "as an Output Product of "
+                        "Process {1}."
                     ).format(
-                        frappe.bold(row.product),
-                        row.idx,
                         frappe.bold(
-                            self.asarva_issue
+                            row.product
+                        ),
+                        frappe.bold(
+                            process.process_name
+                            or process.name
                         ),
                     )
                 )
 
-            if int(row.quantity_firka or 0) < 0:
+            if int(
+                row.quantity_firka
+                or 0
+            ) < 0:
                 frappe.throw(
                     _(
-                        "Quantity Firka cannot be negative "
-                        "in row #{0}."
-                    ).format(row.idx)
+                        "Quantity Firka cannot be "
+                        "negative in row #{0}."
+                    ).format(
+                        row.idx
+                    )
                 )
 
-            gross = flt(row.gross_weight)
-            baad = flt(row.baad_weight)
+            gross = flt(
+                row.gross_weight
+            )
+
+            baad = flt(
+                row.baad_weight
+            )
 
             if gross < 0:
                 frappe.throw(
                     _(
-                        "G.W cannot be negative in row #{0}."
-                    ).format(row.idx)
+                        "G.W cannot be negative "
+                        "in row #{0}."
+                    ).format(
+                        row.idx
+                    )
                 )
 
             if baad < 0:
                 frappe.throw(
                     _(
-                        "Baad cannot be negative in row #{0}."
-                    ).format(row.idx)
+                        "Baad cannot be negative "
+                        "in row #{0}."
+                    ).format(
+                        row.idx
+                    )
                 )
 
             if baad > gross:
                 frappe.throw(
                     _(
-                        "Baad cannot exceed G.W in row #{0}."
-                    ).format(row.idx)
+                        "Baad cannot exceed G.W "
+                        "in row #{0}."
+                    ).format(
+                        row.idx
+                    )
                 )
 
             row.received_weight = flt(
@@ -408,6 +539,213 @@ class AsarvaReceive(Document):
             update_modified=False,
         )
 
+    def ledger_exists(self):
+        return bool(
+            frappe.db.exists(
+                "Inventory Ledger",
+                {
+                    "reference_doctype":
+                        self.doctype,
+                    "reference_name":
+                        self.name,
+                },
+            )
+        )
+
+    def get_last_balance(
+        self,
+        department,
+        product,
+    ):
+        return (
+            frappe.db.get_value(
+                "Inventory Ledger",
+                {
+                    "company":
+                        self.company,
+                    "department":
+                        department,
+                    "product":
+                        product,
+                },
+                "current_balance",
+                order_by=
+                    "creation desc",
+            )
+            or 0
+        )
+
+    def post_inventory_transaction(self):
+        from jari_core.jari_core.stock_utils import (
+            consume_selected_stock_source,
+            get_or_create_stock_source,
+        )
+
+        if self.ledger_exists():
+            return
+
+        issue = frappe.get_doc(
+            "Asarva Issue",
+            self.asarva_issue,
+        )
+
+        # -----------------------------------------------------
+        # 1. Consume the exact AUR WIP that Asarva Issue moved
+        #    into the Process To Department.
+        # -----------------------------------------------------
+
+        for issue_row in (
+            issue.issue_items
+            or []
+        ):
+
+            required = flt(
+                issue_row.issued_weight
+            )
+
+            if (
+                not issue_row.product
+                or required <= 0
+            ):
+                continue
+
+            if not issue_row.stock_source:
+                frappe.throw(
+                    _(
+                        "Asarva Issue row #{0} does "
+                        "not contain Stock Source lineage."
+                    ).format(
+                        issue_row.idx
+                    )
+                )
+
+            consume_selected_stock_source(
+                doc=self,
+                stock_source=
+                    issue_row.stock_source,
+                source_department=
+                    issue.to_department,
+                product=
+                    issue_row.product,
+                required_qty=
+                    required,
+                batch_no=
+                    self.batch_no,
+                posting_date=
+                    self.receive_date,
+                transaction_type=
+                    "Production Input",
+                remarks=(
+                    "Asarva WIP consumed during "
+                    "Receive / transformation"
+                ),
+            )
+
+        # -----------------------------------------------------
+        # 2. Create new physical stock sources for actual
+        #    Process Output Products, e.g. DATA.
+        # -----------------------------------------------------
+
+        for row in (
+            self.receive_items
+            or []
+        ):
+
+            qty = flt(
+                row.received_weight
+            )
+
+            if (
+                not row.product
+                or qty <= 0
+            ):
+                continue
+
+            stock_source = (
+                get_or_create_stock_source(
+                    source_type=
+                        "Production Receive",
+                    company=
+                        self.company,
+                    product=
+                        row.product,
+                    source_doctype=
+                        self.doctype,
+                    source_name=
+                        self.name,
+                    source_row=
+                        row.name,
+                    source_date=
+                        self.receive_date,
+                    batch_number=
+                        self.batch_no,
+                    remarks=(
+                        "Asarva Process Output "
+                        "received"
+                    ),
+                )
+            )
+
+            last_balance = (
+                self.get_last_balance(
+                    issue.to_department,
+                    row.product,
+                )
+            )
+
+            frappe.get_doc({
+                "doctype":
+                    "Inventory Ledger",
+
+                "company":
+                    self.company,
+
+                "department":
+                    issue.to_department,
+
+                "product":
+                    row.product,
+
+                "batch_number":
+                    self.batch_no,
+
+                "stock_source":
+                    stock_source,
+
+                "in_weight":
+                    qty,
+
+                "out_weight":
+                    0,
+
+                "current_balance":
+                    flt(
+                        last_balance
+                        + qty,
+                        6,
+                    ),
+
+                "transaction_type":
+                    "Production Output",
+
+                "reference_doctype":
+                    self.doctype,
+
+                "reference_name":
+                    self.name,
+
+                "date":
+                    self.receive_date,
+
+                "remarks":
+                    (
+                        "Asarva output received "
+                        f"in {issue.to_department}"
+                    ),
+            }).insert(
+                ignore_permissions=True
+            )
+
 
 # =============================================================
 # CLIENT FETCH METHOD
@@ -426,14 +764,103 @@ def get_asarva_issue_details(issue_name):
     if issue.docstatus != 1:
         frappe.throw(
             _(
-                "Asarva Issue {0} must be submitted."
+                "Asarva Issue {0} must be "
+                "submitted."
             ).format(
-                frappe.bold(issue_name)
+                frappe.bold(
+                    issue_name
+                )
             )
         )
 
+    process = frappe.get_doc(
+        "Process Master",
+        issue.process_master,
+    )
+
+    outputs = [
+        row
+        for row in (
+            process.output_products
+            or []
+        )
+        if row.product
+    ]
+
+    if not outputs:
+        frappe.throw(
+            _(
+                "No Output Product is configured "
+                "in Process {0}."
+            ).format(
+                frappe.bold(
+                    process.process_name
+                    or process.name
+                )
+            )
+        )
+
+    colours = {
+        row.colour
+        for row in (
+            issue.issue_items
+            or []
+        )
+        if row.colour
+    }
+
+    default_colour = (
+        next(iter(colours))
+        if len(colours) == 1
+        else None
+    )
+
+    one_output = (
+        len(outputs) == 1
+    )
+
+    items = []
+
+    for output in outputs:
+
+        product_uom = (
+            frappe.db.get_value(
+                "Product Master",
+                output.product,
+                "unit",
+            )
+            or "KG"
+        )
+
+        items.append({
+            "source_issue_item":
+                None,
+
+            "product":
+                output.product,
+
+            "product_quality":
+                issue.quality_code,
+
+            "colour":
+                default_colour,
+
+            "issued_weight":
+                (
+                    flt(
+                        issue.total_issued_weight
+                    )
+                    if one_output
+                    else 0
+                ),
+
+            "uom":
+                product_uom,
+        })
+
     return {
-        "company": issue.company,
+        "company":
+            issue.company,
 
         "asarva_outsourcer":
             issue.asarva_outsourcer,
@@ -447,28 +874,8 @@ def get_asarva_issue_details(issue_name):
         "quality_code":
             issue.quality_code,
 
-        "items": [
-            {
-                "source_issue_item":
-                    row.name,
-
-                "product":
-                    row.product,
-
-                "product_quality":
-                    row.product_quality,
-
-                "colour":
-                    row.colour,
-
-                "issued_weight":
-                    flt(row.issued_weight),
-
-                "uom":
-                    row.uom or "KG",
-            }
-            for row in issue.issue_items or []
-        ],
+        "items":
+            items,
     }
 
 

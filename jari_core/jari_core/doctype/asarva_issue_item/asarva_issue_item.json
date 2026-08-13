@@ -6,6 +6,13 @@
  "field_order": [
   "issue_date",
   "product",
+  "source_department",
+  "stock_source",
+  "source_reference",
+  "source_date",
+  "source_original_weight",
+  "source_available_weight",
+  "source_remaining_weight",
   "product_quality",
   "rangrej_operator",
   "colour",
@@ -65,6 +72,58 @@
    "in_list_view": 1,
    "label": "UOM",
    "read_only": 1
+  },
+  {
+   "fieldname": "source_department",
+   "fieldtype": "Link",
+   "label": "Source Department",
+   "options": "Department Master",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "stock_source",
+   "fieldtype": "Link",
+   "label": "Stock Source / Receive Entry",
+   "options": "Inventory Stock Source",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "source_reference",
+   "fieldtype": "Data",
+   "label": "Source Reference",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "source_date",
+   "fieldtype": "Date",
+   "label": "Source Date",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "source_original_weight",
+   "fieldtype": "Float",
+   "label": "Original Received Weight",
+   "precision": "6",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_available_weight",
+   "fieldtype": "Float",
+   "label": "Available Before Issue",
+   "precision": "6",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "source_remaining_weight",
+   "fieldtype": "Float",
+   "label": "Remaining After Issue",
+   "precision": "6",
+   "read_only": 1,
+   "in_list_view": 1
   }
  ],
  "istable": 1,

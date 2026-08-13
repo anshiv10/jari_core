@@ -118,33 +118,54 @@ class AsarvaIssue(Document):
             )
 
     def validate_items(self):
+        from jari_core.jari_core.stock_utils import (
+            prepare_selected_stock_source,
+        )
+
         if not self.issue_items:
             frappe.throw(
-                _("At least one Product Issue row is required.")
+                _(
+                    "At least one Product Issue row "
+                    "is required."
+                )
             )
 
         for row in self.issue_items:
+
             if not row.product:
                 frappe.throw(
                     _(
                         "Product is required in row #{0}."
-                    ).format(row.idx)
+                    ).format(
+                        row.idx
+                    )
                 )
 
             if not row.colour:
                 frappe.throw(
                     _(
                         "Colour is required in row #{0}."
-                    ).format(row.idx)
+                    ).format(
+                        row.idx
+                    )
                 )
 
             if flt(row.issued_weight) <= 0:
                 frappe.throw(
                     _(
-                        "Issued Weight must be greater than "
-                        "zero in row #{0}."
-                    ).format(row.idx)
+                        "Issued Weight must be greater "
+                        "than zero in row #{0}."
+                    ).format(
+                        row.idx
+                    )
                 )
+
+            prepare_selected_stock_source(
+                doc=self,
+                row=row,
+                required_qty=
+                    row.issued_weight,
+            )
 
     def calculate_totals(self):
         total_issued = sum(
@@ -198,6 +219,8 @@ class AsarvaIssue(Document):
         )
 
     def on_submit(self):
+        self.post_inventory_transfer()
+
         total_received = flt(
             frappe.db.get_value(
                 self.doctype,
@@ -218,11 +241,14 @@ class AsarvaIssue(Document):
 
         if (
             expected_received > 0
-            and total_received >= expected_received
+            and total_received
+            >= expected_received
         ):
             status = "Received"
+
         elif total_received > 0:
             status = "Partially Received"
+
         else:
             status = "Issued"
 
@@ -235,6 +261,14 @@ class AsarvaIssue(Document):
         )
 
     def on_cancel(self):
+        from jari_core.jari_core.stock_utils import (
+            reverse_reference_inventory_ledger,
+        )
+
+        reverse_reference_inventory_ledger(
+            self
+        )
+
         frappe.db.set_value(
             self.doctype,
             self.name,
@@ -242,3 +276,79 @@ class AsarvaIssue(Document):
             "Cancelled",
             update_modified=False,
         )
+
+    def ledger_exists(self):
+        return bool(
+            frappe.db.exists(
+                "Inventory Ledger",
+                {
+                    "reference_doctype":
+                        self.doctype,
+                    "reference_name":
+                        self.name,
+                },
+            )
+        )
+
+    def post_inventory_transfer(self):
+        from jari_core.jari_core.stock_utils import (
+            consume_selected_stock_source,
+            add_source_linked_transfer_in,
+        )
+
+        if self.ledger_exists():
+            return
+
+        for row in self.issue_items or []:
+
+            required = flt(
+                row.issued_weight
+            )
+
+            if (
+                not row.product
+                or required <= 0
+            ):
+                continue
+
+            consume_selected_stock_source(
+                doc=self,
+                stock_source=
+                    row.stock_source,
+                source_department=
+                    row.source_department,
+                product=
+                    row.product,
+                required_qty=
+                    required,
+                batch_no=
+                    self.batch_no,
+                posting_date=
+                    self.issue_date,
+                transaction_type=
+                    "Production Input",
+                remarks=(
+                    "Asarva input issued from "
+                    f"{row.source_reference or row.stock_source}"
+                ),
+            )
+
+            add_source_linked_transfer_in(
+                doc=self,
+                stock_source=
+                    row.stock_source,
+                department=
+                    self.to_department,
+                product=
+                    row.product,
+                qty=
+                    required,
+                batch_no=
+                    self.batch_no,
+                posting_date=
+                    self.issue_date,
+                remarks=(
+                    "Asarva source-linked WIP "
+                    f"in {self.to_department}"
+                ),
+            )
