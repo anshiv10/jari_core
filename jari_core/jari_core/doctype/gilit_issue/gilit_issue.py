@@ -513,6 +513,7 @@ class GilitIssue(Document):
         from jari_core.jari_core.stock_utils import (
             consume_selected_stock_source,
             add_source_linked_transfer_in,
+            get_stock_source_locations,
         )
 
         if self.ledger_exists():
@@ -522,18 +523,15 @@ class GilitIssue(Document):
             self.get_kasab_product()
         )
 
-        # ----------------------------------------------------
-        # Peti / KASAB
-        # ----------------------------------------------------
-        # New Petis carry an exact Inventory Stock Source.
-        # Historical Petis may not; those retain the legacy
-        # posting path and are not retroactively rewritten.
-        # ----------------------------------------------------
+        # ====================================================
+        # PETI / KASAB
+        # ====================================================
 
         for row in (
             self.peti_items
             or []
         ):
+
             if not row.spindal_peti_entry:
                 continue
 
@@ -545,167 +543,330 @@ class GilitIssue(Document):
             if weight <= 0:
                 continue
 
-            if row.stock_source:
+            # Determine whether this Peti has actually posted
+            # its KASAB Production Output yet.
+            peti_ledger = frappe.db.get_value(
+                "Inventory Ledger",
+                {
+                    "reference_doctype":
+                        "Spindal Peti Entry",
+
+                    "reference_name":
+                        row.spindal_peti_entry,
+
+                    "transaction_type":
+                        "Production Output",
+                },
+                [
+                    "name",
+                    "stock_source",
+                ],
+                order_by="creation desc",
+                as_dict=True,
+            )
+
+            # A NEW Peti submitted while its linked Spindal
+            # Issue is still Draft has no Production Output.
+            # It must not consume arbitrary legacy KASAB.
+            if not peti_ledger:
+                frappe.throw(
+                    f"Spindal Peti "
+                    f"{row.spindal_peti_entry} "
+                    f"has not posted its KASAB stock yet. "
+                    f"Please submit its linked Spindal "
+                    f"Issue before issuing this Peti "
+                    f"to Gilit."
+                )
+
+            # ------------------------------------------------
+            # SOURCE-AWARE NEW PETI
+            # ------------------------------------------------
+
+            if peti_ledger.stock_source:
+
+                row.stock_source = (
+                    peti_ledger.stock_source
+                )
+
+                locations = (
+                    get_stock_source_locations(
+                        row.stock_source
+                    )
+                )
+
+                positive_departments = [
+                    location[
+                        "department"
+                    ]
+                    for location
+                    in locations
+                    if flt(
+                        location[
+                            "available_weight"
+                        ]
+                    ) > 0.000001
+                ]
+
+                if not positive_departments:
+                    frappe.throw(
+                        f"KASAB source "
+                        f"{row.stock_source} for Peti "
+                        f"{row.spindal_peti_entry} "
+                        f"has no remaining stock."
+                    )
+
+                # Partial Peti previously processed in Gilit:
+                # source is already physically in Gilit.
+                # Do NOT transfer it again.
+                if (
+                    self.to_department
+                    in positive_departments
+                ):
+                    continue
+
+                # Normal first-time Peti:
+                # source should usually be in Spindal.
+                if (
+                    self.from_department
+                    in positive_departments
+                ):
+                    source_department = (
+                        self.from_department
+                    )
+
+                # Cross-department support:
+                # if exact source exists in one other location,
+                # transfer it from its actual location.
+                elif (
+                    len(
+                        positive_departments
+                    ) == 1
+                ):
+                    source_department = (
+                        positive_departments[0]
+                    )
+
+                else:
+                    frappe.throw(
+                        f"KASAB source "
+                        f"{row.stock_source} for Peti "
+                        f"{row.spindal_peti_entry} "
+                        f"exists in multiple departments: "
+                        f"{', '.join(positive_departments)}. "
+                        f"Cannot determine a unique physical "
+                        f"source location."
+                    )
 
                 consume_selected_stock_source(
                     doc=self,
+
                     stock_source=
                         row.stock_source,
+
                     source_department=
-                        self.from_department,
+                        source_department,
+
                     product=
                         kasab_product,
+
                     required_qty=
                         weight,
+
                     batch_no=
                         self.gilit_batch_no,
+
                     posting_date=
                         self.issue_date
                         or today(),
+
                     transaction_type=
                         "Stock Transfer Out",
+
                     remarks=(
                         "KASAB Peti transferred "
-                        "from Spindal to Gilit"
+                        f"from {source_department} "
+                        "to Gilit"
                     ),
                 )
 
                 add_source_linked_transfer_in(
                     doc=self,
+
                     stock_source=
                         row.stock_source,
+
                     department=
                         self.to_department,
+
                     product=
                         kasab_product,
+
                     qty=
                         weight,
+
                     batch_no=
                         self.gilit_batch_no,
+
                     posting_date=
                         self.issue_date
                         or today(),
+
                     remarks=(
                         "KASAB Peti source-linked "
                         "inward in Gilit"
                     ),
                 )
 
-            else:
-                # Legacy Peti compatibility only.
-                source_balance = (
-                    self.get_last_balance(
-                        self.company,
-                        self.from_department,
-                        kasab_product,
-                    )
+                continue
+
+            # ------------------------------------------------
+            # HISTORICAL SOURCE-LESS PETI
+            # ------------------------------------------------
+            # Only Petis that ALREADY HAVE a legacy source-less
+            # Production Output reach this block.
+            # We deliberately do not invent an ISSRC for them.
+            # ------------------------------------------------
+
+            source_balance = (
+                self.get_last_balance(
+                    self.company,
+                    self.from_department,
+                    kasab_product,
+                )
+            )
+
+            if (
+                weight
+                > flt(source_balance)
+            ):
+                frappe.throw(
+                    f"Insufficient legacy KASAB "
+                    f"stock in "
+                    f"{self.from_department}. "
+                    f"Available: "
+                    f"{source_balance} KG, "
+                    f"Required: {weight} KG"
                 )
 
-                if weight > flt(
-                    source_balance
-                ):
-                    frappe.throw(
-                        f"Insufficient KASAB stock "
-                        f"in {self.from_department}. "
-                        f"Available: "
-                        f"{source_balance} KG, "
-                        f"Required: {weight} KG"
-                    )
+            frappe.get_doc({
+                "doctype":
+                    "Inventory Ledger",
 
-                frappe.get_doc({
-                    "doctype":
-                        "Inventory Ledger",
-                    "company":
-                        self.company,
-                    "department":
-                        self.from_department,
-                    "product":
-                        kasab_product,
-                    "batch_number":
-                        self.gilit_batch_no,
-                    "in_weight":
-                        0,
-                    "out_weight":
-                        weight,
-                    "current_balance":
-                        flt(
-                            source_balance
-                            - weight,
-                            6,
-                        ),
-                    "transaction_type":
-                        "Stock Transfer Out",
-                    "reference_doctype":
-                        self.doctype,
-                    "reference_name":
-                        self.name,
-                    "date":
-                        self.issue_date
-                        or today(),
-                    "remarks":
-                        (
-                            "Legacy KASAB Peti "
-                            "issued to Gilit"
-                        ),
-                }).insert(
-                    ignore_permissions=True
+                "company":
+                    self.company,
+
+                "department":
+                    self.from_department,
+
+                "product":
+                    kasab_product,
+
+                "batch_number":
+                    self.gilit_batch_no,
+
+                "in_weight":
+                    0,
+
+                "out_weight":
+                    weight,
+
+                "current_balance":
+                    flt(
+                        source_balance
+                        - weight,
+                        6,
+                    ),
+
+                "transaction_type":
+                    "Stock Transfer Out",
+
+                "reference_doctype":
+                    self.doctype,
+
+                "reference_name":
+                    self.name,
+
+                "date":
+                    self.issue_date
+                    or today(),
+
+                "remarks":
+                    (
+                        "Historical source-less "
+                        "KASAB Peti issued to Gilit"
+                    ),
+            }).insert(
+                ignore_permissions=True
+            )
+
+            target_balance = (
+                self.get_last_balance(
+                    self.company,
+                    self.to_department,
+                    kasab_product,
                 )
+            )
 
-                target_balance = (
-                    self.get_last_balance(
-                        self.company,
-                        self.to_department,
-                        kasab_product,
-                    )
-                )
+            frappe.get_doc({
+                "doctype":
+                    "Inventory Ledger",
 
-                frappe.get_doc({
-                    "doctype":
-                        "Inventory Ledger",
-                    "company":
-                        self.company,
-                    "department":
-                        self.to_department,
-                    "product":
-                        kasab_product,
-                    "batch_number":
-                        self.gilit_batch_no,
-                    "in_weight":
-                        weight,
-                    "out_weight":
-                        0,
-                    "current_balance":
-                        flt(
-                            target_balance
-                            + weight,
-                            6,
-                        ),
-                    "transaction_type":
-                        "Stock Transfer In",
-                    "reference_doctype":
-                        self.doctype,
-                    "reference_name":
-                        self.name,
-                    "date":
-                        self.issue_date
-                        or today(),
-                    "remarks":
-                        (
-                            "Legacy KASAB Peti "
-                            "received in Gilit"
-                        ),
-                }).insert(
-                    ignore_permissions=True
-                )
+                "company":
+                    self.company,
 
-        # ----------------------------------------------------
-        # Metal Water
-        # ----------------------------------------------------
+                "department":
+                    self.to_department,
+
+                "product":
+                    kasab_product,
+
+                "batch_number":
+                    self.gilit_batch_no,
+
+                "in_weight":
+                    weight,
+
+                "out_weight":
+                    0,
+
+                "current_balance":
+                    flt(
+                        target_balance
+                        + weight,
+                        6,
+                    ),
+
+                "transaction_type":
+                    "Stock Transfer In",
+
+                "reference_doctype":
+                    self.doctype,
+
+                "reference_name":
+                    self.name,
+
+                "date":
+                    self.issue_date
+                    or today(),
+
+                "remarks":
+                    (
+                        "Historical source-less "
+                        "KASAB Peti received in Gilit"
+                    ),
+            }).insert(
+                ignore_permissions=True
+            )
+
+        # ====================================================
+        # METAL WATER
+        # ====================================================
 
         for row in (
             self.metal_water_inputs
             or []
         ):
+
             if (
                 not row.product
                 or not flt(
@@ -727,22 +888,30 @@ class GilitIssue(Document):
 
             consume_selected_stock_source(
                 doc=self,
+
                 stock_source=
                     row.stock_source,
+
                 source_department=
                     row.source_department,
+
                 product=
                     product,
+
                 required_qty=
                     required_kg,
+
                 batch_no=
                     self.gilit_batch_no,
+
                 posting_date=
                     row.input_date
                     or self.issue_date
                     or today(),
+
                 transaction_type=
                     "Production Input",
+
                 remarks=(
                     "Gilit Metal Water exact "
                     "source consumption"
