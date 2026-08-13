@@ -118,6 +118,52 @@ def get_product_stock_for_gilit(company, product, department=None):
     }
 
 
+def gilit_qty_to_kg(value, uom):
+    """
+    Normalize Metal Water issue quantities to Inventory Ledger KG.
+
+    Supported:
+      KG   -> unchanged
+      gram -> divide by 1000
+
+    Unknown/custom units are rejected instead of being silently
+    interpreted incorrectly.
+    """
+    qty = flt(value, 9)
+
+    unit = (
+        (uom or "")
+        .strip()
+        .lower()
+    )
+
+    if unit in (
+        "kg",
+        "kilogram",
+        "kilograms",
+    ):
+        return flt(
+            qty,
+            9,
+        )
+
+    if unit in (
+        "gram",
+        "grams",
+        "gm",
+        "g",
+    ):
+        return flt(
+            qty / 1000,
+            9,
+        )
+
+    frappe.throw(
+        f"Unsupported Metal Water UOM: "
+        f"{uom or '(blank)'}. "
+        f"Please use KG or gram."
+    )
+
 class GilitIssue(Document):
 
     def validate(self):
@@ -241,6 +287,23 @@ class GilitIssue(Document):
             row.peti_status = peti.status
             row.operator_name = peti.operator
 
+            row.stock_source = (
+                frappe.db.get_value(
+                    "Inventory Ledger",
+                    {
+                        "reference_doctype":
+                            "Spindal Peti Entry",
+                        "reference_name":
+                            peti.name,
+                        "transaction_type":
+                            "Production Output",
+                    },
+                    "stock_source",
+                    order_by="creation desc",
+                )
+                or ""
+            )
+
         self.quality_code = (
             next(iter(qualities))
             if qualities
@@ -248,36 +311,76 @@ class GilitIssue(Document):
         )
 
     def validate_metal_water_inputs(self):
-        for row in self.metal_water_inputs or []:
+        from jari_core.jari_core.stock_utils import (
+            prepare_selected_stock_source,
+        )
+
+        for row in (
+            self.metal_water_inputs
+            or []
+        ):
             if not row.product:
-                frappe.throw("Product Name is required in Metal Water Input.")
+                frappe.throw(
+                    "Product Name is required "
+                    "in Metal Water Input."
+                )
 
-            row.product = resolve_product(row.product)
-
-            if not row.input_date:
-                row.input_date = self.issue_date or today()
-
-            if flt(row.issued_aani) <= 0:
-                frappe.throw(f"Issued Aani must be greater than zero for {row.product}.")
-
-            stock_info = get_product_stock_for_gilit(
-                self.company,
-                row.product,
-                self.to_department
+            row.product = resolve_product(
+                row.product
             )
 
-            row.current_stock = flt(stock_info.get("current_stock"))
-
-            if stock_info.get("uom") and not row.uom:
-                row.uom = stock_info.get("uom")
-
-            if flt(row.issued_aani) > flt(row.current_stock):
-                frappe.throw(
-                    f"Insufficient stock for {row.product}. "
-                    f"Available across departments: {row.current_stock}, "
-                    f"Required: {row.issued_aani}. "
-                    f"Breakdown: {stock_info.get('breakdown') or 'No stock found'}"
+            if not row.input_date:
+                row.input_date = (
+                    self.issue_date
+                    or today()
                 )
+
+            if flt(row.issued_aani) <= 0:
+                frappe.throw(
+                    f"Issued Aani must be greater "
+                    f"than zero for {row.product}."
+                )
+
+            if not row.uom:
+                row.uom = (
+                    frappe.db.get_value(
+                        "Product Master",
+                        row.product,
+                        "unit",
+                    )
+                    or "KG"
+                )
+
+            required_kg = gilit_qty_to_kg(
+                row.issued_aani,
+                row.uom,
+            )
+
+            if required_kg <= 0:
+                frappe.throw(
+                    f"Normalized issue quantity "
+                    f"must be greater than zero "
+                    f"for {row.product}."
+                )
+
+            row.issued_weight_kg = (
+                flt(
+                    required_kg,
+                    6,
+                )
+            )
+
+            prepare_selected_stock_source(
+                doc=self,
+                row=row,
+                required_qty=
+                    required_kg,
+            )
+
+            row.current_stock = flt(
+                row.source_available_weight,
+                6,
+            )
 
     def calculate_totals(self):
         self.total_peti = 0
@@ -407,64 +510,258 @@ class GilitIssue(Document):
             frappe.throw(f"Unable to fully issue {product}. Remaining Qty: {remaining_qty}")
 
     def post_inventory_transfer(self):
+        from jari_core.jari_core.stock_utils import (
+            consume_selected_stock_source,
+            add_source_linked_transfer_in,
+        )
+
         if self.ledger_exists():
             return
 
-        product = self.get_kasab_product()
-        weight = flt(self.total_net_weight)
+        kasab_product = (
+            self.get_kasab_product()
+        )
 
-        if weight:
-            source_balance = self.get_last_balance(self.company, self.from_department, product)
+        # ----------------------------------------------------
+        # Peti / KASAB
+        # ----------------------------------------------------
+        # New Petis carry an exact Inventory Stock Source.
+        # Historical Petis may not; those retain the legacy
+        # posting path and are not retroactively rewritten.
+        # ----------------------------------------------------
 
-            if weight > flt(source_balance):
-                frappe.throw(
-                    f"Insufficient KASAB stock in {self.from_department}. "
-                    f"Available: {source_balance} KG, Required: {weight} KG"
-                )
-
-            frappe.get_doc({
-                "doctype": "Inventory Ledger",
-                "company": self.company,
-                "department": self.from_department,
-                "product": product,
-                "batch_number": self.gilit_batch_no,
-                "in_weight": 0,
-                "out_weight": weight,
-                "current_balance": flt(source_balance) - weight,
-                "transaction_type": "Stock Transfer Out",
-                "reference_doctype": self.doctype,
-                "reference_name": self.name,
-                "date": self.issue_date or today(),
-                "remarks": "Kasab issued to Gilit"
-            }).insert(ignore_permissions=True)
-
-            target_balance = self.get_last_balance(self.company, self.to_department, product)
-
-            frappe.get_doc({
-                "doctype": "Inventory Ledger",
-                "company": self.company,
-                "department": self.to_department,
-                "product": product,
-                "batch_number": self.gilit_batch_no,
-                "in_weight": weight,
-                "out_weight": 0,
-                "current_balance": flt(target_balance) + weight,
-                "transaction_type": "Stock Transfer In",
-                "reference_doctype": self.doctype,
-                "reference_name": self.name,
-                "date": self.issue_date or today(),
-                "remarks": "Kasab received in Gilit"
-            }).insert(ignore_permissions=True)
-
-        for row in self.metal_water_inputs or []:
-            if not row.product or not flt(row.issued_aani):
+        for row in (
+            self.peti_items
+            or []
+        ):
+            if not row.spindal_peti_entry:
                 continue
 
-            product = resolve_product(row.product)
-
-            self.post_out_from_available_department(
-                product=product,
-                required_qty=flt(row.issued_aani),
-                transaction_type="Production Input",
-                remarks="Metal Water Input issued in Gilit"
+            weight = flt(
+                row.net_weight,
+                6,
             )
+
+            if weight <= 0:
+                continue
+
+            if row.stock_source:
+
+                consume_selected_stock_source(
+                    doc=self,
+                    stock_source=
+                        row.stock_source,
+                    source_department=
+                        self.from_department,
+                    product=
+                        kasab_product,
+                    required_qty=
+                        weight,
+                    batch_no=
+                        self.gilit_batch_no,
+                    posting_date=
+                        self.issue_date
+                        or today(),
+                    transaction_type=
+                        "Stock Transfer Out",
+                    remarks=(
+                        "KASAB Peti transferred "
+                        "from Spindal to Gilit"
+                    ),
+                )
+
+                add_source_linked_transfer_in(
+                    doc=self,
+                    stock_source=
+                        row.stock_source,
+                    department=
+                        self.to_department,
+                    product=
+                        kasab_product,
+                    qty=
+                        weight,
+                    batch_no=
+                        self.gilit_batch_no,
+                    posting_date=
+                        self.issue_date
+                        or today(),
+                    remarks=(
+                        "KASAB Peti source-linked "
+                        "inward in Gilit"
+                    ),
+                )
+
+            else:
+                # Legacy Peti compatibility only.
+                source_balance = (
+                    self.get_last_balance(
+                        self.company,
+                        self.from_department,
+                        kasab_product,
+                    )
+                )
+
+                if weight > flt(
+                    source_balance
+                ):
+                    frappe.throw(
+                        f"Insufficient KASAB stock "
+                        f"in {self.from_department}. "
+                        f"Available: "
+                        f"{source_balance} KG, "
+                        f"Required: {weight} KG"
+                    )
+
+                frappe.get_doc({
+                    "doctype":
+                        "Inventory Ledger",
+                    "company":
+                        self.company,
+                    "department":
+                        self.from_department,
+                    "product":
+                        kasab_product,
+                    "batch_number":
+                        self.gilit_batch_no,
+                    "in_weight":
+                        0,
+                    "out_weight":
+                        weight,
+                    "current_balance":
+                        flt(
+                            source_balance
+                            - weight,
+                            6,
+                        ),
+                    "transaction_type":
+                        "Stock Transfer Out",
+                    "reference_doctype":
+                        self.doctype,
+                    "reference_name":
+                        self.name,
+                    "date":
+                        self.issue_date
+                        or today(),
+                    "remarks":
+                        (
+                            "Legacy KASAB Peti "
+                            "issued to Gilit"
+                        ),
+                }).insert(
+                    ignore_permissions=True
+                )
+
+                target_balance = (
+                    self.get_last_balance(
+                        self.company,
+                        self.to_department,
+                        kasab_product,
+                    )
+                )
+
+                frappe.get_doc({
+                    "doctype":
+                        "Inventory Ledger",
+                    "company":
+                        self.company,
+                    "department":
+                        self.to_department,
+                    "product":
+                        kasab_product,
+                    "batch_number":
+                        self.gilit_batch_no,
+                    "in_weight":
+                        weight,
+                    "out_weight":
+                        0,
+                    "current_balance":
+                        flt(
+                            target_balance
+                            + weight,
+                            6,
+                        ),
+                    "transaction_type":
+                        "Stock Transfer In",
+                    "reference_doctype":
+                        self.doctype,
+                    "reference_name":
+                        self.name,
+                    "date":
+                        self.issue_date
+                        or today(),
+                    "remarks":
+                        (
+                            "Legacy KASAB Peti "
+                            "received in Gilit"
+                        ),
+                }).insert(
+                    ignore_permissions=True
+                )
+
+        # ----------------------------------------------------
+        # Metal Water
+        # ----------------------------------------------------
+
+        for row in (
+            self.metal_water_inputs
+            or []
+        ):
+            if (
+                not row.product
+                or not flt(
+                    row.issued_aani
+                )
+            ):
+                continue
+
+            product = resolve_product(
+                row.product
+            )
+
+            required_kg = (
+                gilit_qty_to_kg(
+                    row.issued_aani,
+                    row.uom,
+                )
+            )
+
+            consume_selected_stock_source(
+                doc=self,
+                stock_source=
+                    row.stock_source,
+                source_department=
+                    row.source_department,
+                product=
+                    product,
+                required_qty=
+                    required_kg,
+                batch_no=
+                    self.gilit_batch_no,
+                posting_date=
+                    row.input_date
+                    or self.issue_date
+                    or today(),
+                transaction_type=
+                    "Production Input",
+                remarks=(
+                    "Gilit Metal Water exact "
+                    "source consumption"
+                ),
+            )
+
+    def on_cancel(self):
+        from jari_core.jari_core.stock_utils import (
+            reverse_reference_inventory_ledger,
+        )
+
+        reverse_reference_inventory_ledger(
+            self
+        )
+
+        frappe.db.set_value(
+            self.doctype,
+            self.name,
+            "status",
+            "Cancelled",
+            update_modified=False,
+        )

@@ -34,10 +34,17 @@ class GilitReceive(Document):
 
         self.db_set(
             "approx_silver_weight",
-            flt(self.approx_silver_weight),
+            flt(
+                self.approx_silver_weight
+            ),
         )
 
         self.apply_peti_receive_result()
+
+        # Exact KASAB source is consumed only now,
+        # because Receive determines actual Peti usage.
+        self.post_peti_source_consumption()
+
         self.post_outputs_and_waste()
 
         frappe.db.set_value(
@@ -49,6 +56,16 @@ class GilitReceive(Document):
         )
 
     def on_cancel(self):
+        from jari_core.jari_core.stock_utils import (
+            reverse_reference_inventory_ledger,
+        )
+
+        # Reverse KASAB consumption + Final Jari/Waste
+        # before restoring the physical Peti state.
+        reverse_reference_inventory_ledger(
+            self
+        )
+
         self.restore_original_peti_state()
 
         if self.gilit_issue:
@@ -644,7 +661,22 @@ class GilitReceive(Document):
         })
 
     def post_outputs_and_waste(self):
-        if self.ledger_exists():
+        existing_output = frappe.db.exists(
+            "Inventory Ledger",
+            {
+                "reference_doctype":
+                    self.doctype,
+                "reference_name":
+                    self.name,
+                "transaction_type":
+                    ["in", [
+                        "Production Output",
+                        "Waste Generated",
+                    ]],
+            },
+        )
+
+        if existing_output:
             return
 
         for row in self.output_items:
@@ -722,6 +754,79 @@ class GilitReceive(Document):
                 "date": self.receive_date or today(),
                 "remarks": "Gilit waste generated"
             }).insert(ignore_permissions=True)
+
+    def post_peti_source_consumption(self):
+        from jari_core.jari_core.stock_utils import (
+            consume_selected_stock_source,
+        )
+
+        for row in (
+            self.output_items
+            or []
+        ):
+            if not row.spindal_peti_entry:
+                continue
+
+            qty = flt(
+                row.used_net_weight
+                or row.weight,
+                6,
+            )
+
+            if qty <= 0:
+                continue
+
+            source_row = (
+                frappe.db.get_value(
+                    "Inventory Ledger",
+                    {
+                        "reference_doctype":
+                            "Spindal Peti Entry",
+                        "reference_name":
+                            row.spindal_peti_entry,
+                        "transaction_type":
+                            "Production Output",
+                    },
+                    [
+                        "stock_source",
+                        "product",
+                    ],
+                    order_by="creation desc",
+                    as_dict=True,
+                )
+            )
+
+            # Historical Peti:
+            # no source existed when it was produced.
+            # Never assign a guessed source now.
+            if (
+                not source_row
+                or not source_row.stock_source
+            ):
+                continue
+
+            consume_selected_stock_source(
+                doc=self,
+                stock_source=
+                    source_row.stock_source,
+                source_department=
+                    "Gilit",
+                product=
+                    source_row.product,
+                required_qty=
+                    qty,
+                batch_no=
+                    self.active_batch_no,
+                posting_date=
+                    self.receive_date
+                    or today(),
+                transaction_type=
+                    "Production Input",
+                remarks=(
+                    "Actual KASAB Peti "
+                    "consumption in Gilit Receive"
+                ),
+            )
 
 
 @frappe.whitelist()

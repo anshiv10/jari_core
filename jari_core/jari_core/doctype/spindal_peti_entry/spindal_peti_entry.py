@@ -446,7 +446,13 @@ class SpindalPetiEntry(Document):
         )
 
     def post_kasab_stock(self):
-        if self.ledger_exists("Production Output"):
+        from jari_core.jari_core.stock_utils import (
+            get_or_create_stock_source,
+        )
+
+        if self.ledger_exists(
+            "Production Output"
+        ):
             return
 
         product = self.get_kasab_product()
@@ -456,43 +462,120 @@ class SpindalPetiEntry(Document):
         if weight <= 0:
             return
 
-        last_balance = self.get_last_balance(
-            self.company,
-            department,
-            product
+        stock_source = (
+            get_or_create_stock_source(
+                source_type=
+                    "Production Receive",
+                company=
+                    self.company,
+                product=
+                    product,
+                source_doctype=
+                    self.doctype,
+                source_name=
+                    self.name,
+                source_row=
+                    self.name,
+                source_date=
+                    self.peti_date
+                    or today(),
+                batch_number=
+                    self.batch_no,
+                remarks=(
+                    "KASAB source created "
+                    "from Spindal Peti Entry"
+                ),
+            )
+        )
+
+        last_balance = (
+            self.get_last_balance(
+                self.company,
+                department,
+                product,
+            )
         )
 
         frappe.get_doc({
-            "doctype": "Inventory Ledger",
-            "company": self.company,
-            "department": department,
-            "product": product,
-            "batch_number": self.batch_no,
-            "in_weight": weight,
-            "out_weight": 0,
-            "current_balance": (
-                flt(last_balance)
-                + weight
-            ),
-            "transaction_type": "Production Output",
-            "reference_doctype": self.doctype,
-            "reference_name": self.name,
-            "date": self.peti_date or today(),
-            "remarks": (
-                "Kasab stock added from "
-                "Spindal Peti Entry"
-            )
-        }).insert(ignore_permissions=True)
+            "doctype":
+                "Inventory Ledger",
+            "company":
+                self.company,
+            "department":
+                department,
+            "product":
+                product,
+            "batch_number":
+                self.batch_no,
+            "stock_source":
+                stock_source,
+            "in_weight":
+                weight,
+            "out_weight":
+                0,
+            "current_balance":
+                flt(
+                    last_balance
+                    + weight,
+                    6,
+                ),
+            "transaction_type":
+                "Production Output",
+            "reference_doctype":
+                self.doctype,
+            "reference_name":
+                self.name,
+            "date":
+                self.peti_date
+                or today(),
+            "remarks":
+                (
+                    "KASAB stock added from "
+                    "Spindal Peti Entry"
+                ),
+        }).insert(
+            ignore_permissions=True
+        )
 
     def reverse_kasab_stock(self):
-        # If this Peti was submitted while the linked Spindal Issue
-        # was still Draft, its KASAB Production Output was never
-        # posted. In that case there is nothing to reverse.
-        if not self.ledger_exists("Production Output"):
+        from jari_core.jari_core.stock_utils import (
+            reverse_reference_inventory_ledger,
+        )
+
+        ledger = frappe.db.get_value(
+            "Inventory Ledger",
+            {
+                "reference_doctype":
+                    self.doctype,
+                "reference_name":
+                    self.name,
+                "transaction_type":
+                    "Production Output",
+            },
+            [
+                "name",
+                "stock_source",
+            ],
+            as_dict=True,
+        )
+
+        if not ledger:
             return
 
-        # Prevent duplicate reversal.
-        if self.ledger_exists("Adjustment"):
+        # New source-aware Peti.
+        if ledger.stock_source:
+            reverse_reference_inventory_ledger(
+                self
+            )
+            return
+
+        # ----------------------------------------------------
+        # Historical Peti fallback.
+        # ----------------------------------------------------
+
+        if self.ledger_exists(
+            "Adjustment"
+        ):
             return
 
         product = self.get_kasab_product()
@@ -502,36 +585,56 @@ class SpindalPetiEntry(Document):
         if weight <= 0:
             return
 
-        last_balance = self.get_last_balance(
-            self.company,
-            department,
-            product
+        last_balance = (
+            self.get_last_balance(
+                self.company,
+                department,
+                product,
+            )
         )
 
-        if weight > flt(last_balance):
+        if weight > flt(
+            last_balance
+        ):
             frappe.throw(
                 "Cannot cancel Peti because "
                 "KASAB stock is already consumed."
             )
 
         frappe.get_doc({
-            "doctype": "Inventory Ledger",
-            "company": self.company,
-            "department": department,
-            "product": product,
-            "batch_number": self.batch_no,
-            "in_weight": 0,
-            "out_weight": weight,
-            "current_balance": (
-                flt(last_balance)
-                - weight
-            ),
-            "transaction_type": "Adjustment",
-            "reference_doctype": self.doctype,
-            "reference_name": self.name,
-            "date": today(),
-            "remarks": (
-                "Kasab stock reversed due to "
-                "Spindal Peti cancellation"
-            )
-        }).insert(ignore_permissions=True)
+            "doctype":
+                "Inventory Ledger",
+            "company":
+                self.company,
+            "department":
+                department,
+            "product":
+                product,
+            "batch_number":
+                self.batch_no,
+            "in_weight":
+                0,
+            "out_weight":
+                weight,
+            "current_balance":
+                flt(
+                    last_balance
+                    - weight,
+                    6,
+                ),
+            "transaction_type":
+                "Adjustment",
+            "reference_doctype":
+                self.doctype,
+            "reference_name":
+                self.name,
+            "date":
+                today(),
+            "remarks":
+                (
+                    "Legacy KASAB stock reversed "
+                    "due to Peti cancellation"
+                ),
+        }).insert(
+            ignore_permissions=True
+        )

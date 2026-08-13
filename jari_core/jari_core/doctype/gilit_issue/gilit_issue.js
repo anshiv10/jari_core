@@ -141,54 +141,381 @@ frappe.ui.form.on('Gilit Issue Peti Item', {
 });
 
 frappe.ui.form.on('Gilit Metal Water Input', {
+
     product(frm, cdt, cdn) {
-        set_metal_water_stock(frm, cdt, cdn);
+        gilit_clear_metal_source(
+            cdt,
+            cdn
+        );
     },
 
-    issued_aani(frm, cdt, cdn) {
-        let row = locals[cdt][cdn];
-
-        if (flt(row.issued_aani) > flt(row.current_stock)) {
-            frappe.msgprint('Issued Aani cannot be greater than Current Stock.');
-            frappe.model.set_value(cdt, cdn, 'issued_aani', 0);
-        }
+    uom(frm, cdt, cdn) {
+        gilit_refresh_metal_remaining(
+            cdt,
+            cdn
+        );
     },
 
-    metal_water_inputs_add(frm, cdt, cdn) {
-        frappe.model.set_value(cdt, cdn, 'input_date', frm.doc.issue_date || frappe.datetime.get_today());
+    async stock_source(
+        frm,
+        cdt,
+        cdn
+    ) {
+        await gilit_load_metal_source(
+            frm,
+            cdt,
+            cdn
+        );
+    },
+
+    issued_aani(
+        frm,
+        cdt,
+        cdn
+    ) {
+        gilit_refresh_metal_remaining(
+            cdt,
+            cdn
+        );
+    },
+
+    metal_water_inputs_add(
+        frm,
+        cdt,
+        cdn
+    ) {
+        frappe.model.set_value(
+            cdt,
+            cdn,
+            'input_date',
+            frm.doc.issue_date
+            || frappe.datetime.get_today()
+        );
     }
 });
 
-function set_metal_water_stock(frm, cdt, cdn) {
-    let row = locals[cdt][cdn];
 
-    if (!frm.doc.company || !row.product) {
+function gilit_qty_to_kg(
+    value,
+    uom
+) {
+    const qty = flt(value);
+
+    const unit =
+        (uom || '')
+        .trim()
+        .toLowerCase();
+
+    if (
+        [
+            'kg',
+            'kilogram',
+            'kilograms'
+        ].includes(unit)
+    ) {
+        return qty;
+    }
+
+    if (
+        [
+            'gram',
+            'grams',
+            'gm',
+            'g'
+        ].includes(unit)
+    ) {
+        return qty / 1000;
+    }
+
+    return null;
+}
+
+
+function gilit_setup_metal_source_query(
+    frm
+) {
+    frm.set_query(
+        'stock_source',
+        'metal_water_inputs',
+        function(
+            doc,
+            cdt,
+            cdn
+        ) {
+            const row =
+                locals[cdt][cdn];
+
+            return {
+                query:
+                    'jari_core.jari_core.stock_utils.stock_source_query',
+
+                filters: {
+                    company:
+                        frm.doc.company
+                        || '',
+
+                    product:
+                        row.product
+                        || '',
+
+                    preferred_department:
+                        frm.doc.to_department
+                        || 'Gilit'
+                }
+            };
+        }
+    );
+}
+
+
+async function gilit_load_metal_source(
+    frm,
+    cdt,
+    cdn
+) {
+    const row =
+        locals[cdt][cdn];
+
+    if (
+        !row
+        || !row.stock_source
+    ) {
         return;
     }
 
-    frappe.call({
-        method: 'jari_core.jari_core.doctype.gilit_issue.gilit_issue.get_product_stock_for_gilit',
-        args: {
-            company: frm.doc.company,
-            product: row.product,
-            department: frm.doc.to_department
-        },
-        callback(r) {
-            if (!r.message) return;
+    const sourceName =
+        row.stock_source;
 
-            frappe.model.set_value(cdt, cdn, 'current_stock', flt(r.message.current_stock));
+    const response =
+        await frappe.call({
+            method:
+                'jari_core.jari_core.stock_utils.get_stock_source_details',
 
-            if (r.message.uom) {
-                frappe.model.set_value(cdt, cdn, 'uom', r.message.uom);
+            args: {
+                stock_source:
+                    sourceName
             }
+        });
 
-            if (r.message.product) {
-                frappe.model.set_value(cdt, cdn, 'product', r.message.product);
+    const details =
+        response.message || {};
+
+    const locations =
+        details.locations || [];
+
+    if (!locations.length) {
+        frappe.msgprint(
+            __(
+                'Selected source has no remaining stock.'
+            )
+        );
+
+        await frappe.model.set_value(
+            cdt,
+            cdn,
+            'stock_source',
+            ''
+        );
+
+        return;
+    }
+
+    let department = '';
+
+    const preferred =
+        frm.doc.to_department
+        || 'Gilit';
+
+    const preferredLocation =
+        locations.find(
+            x =>
+                x.department
+                === preferred
+        );
+
+    if (preferredLocation) {
+        department =
+            preferredLocation.department;
+    } else if (
+        locations.length === 1
+    ) {
+        department =
+            locations[0].department;
+    } else {
+        department =
+            locations[0].department;
+    }
+
+    const detailResponse =
+        await frappe.call({
+            method:
+                'jari_core.jari_core.stock_utils.get_stock_source_details',
+
+            args: {
+                stock_source:
+                    sourceName,
+
+                department:
+                    department
             }
+        });
 
-            frm.refresh_field('metal_water_inputs');
+    const finalDetails =
+        detailResponse.message || {};
+
+    await frappe.model.set_value(
+        cdt,
+        cdn,
+        'source_department',
+        department
+    );
+
+    await frappe.model.set_value(
+        cdt,
+        cdn,
+        'source_reference',
+        finalDetails.source_reference
+        || ''
+    );
+
+    await frappe.model.set_value(
+        cdt,
+        cdn,
+        'source_date',
+        finalDetails.source_date
+        || ''
+    );
+
+    await frappe.model.set_value(
+        cdt,
+        cdn,
+        'source_original_weight',
+        flt(
+            finalDetails.original_weight
+        )
+    );
+
+    await frappe.model.set_value(
+        cdt,
+        cdn,
+        'source_available_weight',
+        flt(
+            finalDetails.available_weight
+        )
+    );
+
+    await frappe.model.set_value(
+        cdt,
+        cdn,
+        'current_stock',
+        flt(
+            finalDetails.available_weight
+        )
+    );
+
+    gilit_refresh_metal_remaining(
+        cdt,
+        cdn
+    );
+}
+
+
+function gilit_refresh_metal_remaining(
+    cdt,
+    cdn
+) {
+    const row =
+        locals[cdt][cdn];
+
+    if (!row) {
+        return;
+    }
+
+    const issuedKg =
+        gilit_qty_to_kg(
+            row.issued_aani,
+            row.uom
+        );
+
+    if (issuedKg === null) {
+        frappe.model.set_value(
+            cdt,
+            cdn,
+            'issued_weight_kg',
+            0
+        );
+
+        return;
+    }
+
+    frappe.model.set_value(
+        cdt,
+        cdn,
+        'issued_weight_kg',
+        issuedKg
+    );
+
+    frappe.model.set_value(
+        cdt,
+        cdn,
+        'source_remaining_weight',
+        Math.max(
+            0,
+            flt(
+                row.source_available_weight
+            )
+            -
+            issuedKg
+        )
+    );
+}
+
+
+function gilit_clear_metal_source(
+    cdt,
+    cdn
+) {
+    [
+        'stock_source',
+        'source_department',
+        'source_reference',
+        'source_date',
+        'source_original_weight',
+        'source_available_weight',
+        'issued_weight_kg',
+        'source_remaining_weight',
+        'current_stock'
+    ].forEach(
+        fieldname => {
+            frappe.model.set_value(
+                cdt,
+                cdn,
+                fieldname,
+                ''
+            );
         }
-    });
+    );
+}
+
+
+function set_metal_water_stock(
+    frm,
+    cdt,
+    cdn
+) {
+    const row =
+        locals[cdt][cdn];
+
+    if (
+        row
+        && row.stock_source
+    ) {
+        gilit_load_metal_source(
+            frm,
+            cdt,
+            cdn
+        );
+    }
 }
 
 function refresh_all_metal_water_stock(frm) {
@@ -492,3 +819,20 @@ function set_jari_issue_type_process_query(
     );
 }
 // END JARI ISSUE TYPE PROCESS FILTER
+
+
+// BEGIN GILIT EXACT SOURCE QUERY
+frappe.ui.form.on('Gilit Issue', {
+    setup(frm) {
+        gilit_setup_metal_source_query(
+            frm
+        );
+    },
+
+    refresh(frm) {
+        gilit_setup_metal_source_query(
+            frm
+        );
+    }
+});
+// END GILIT EXACT SOURCE QUERY

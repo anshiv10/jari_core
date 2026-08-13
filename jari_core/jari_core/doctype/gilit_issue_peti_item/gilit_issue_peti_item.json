@@ -7,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "spindal_peti_entry",
+  "stock_source",
   "peti_status",
   "peti_no",
   "quality_code",
@@ -129,6 +130,14 @@
    "fieldname": "peti_status",
    "fieldtype": "Data",
    "label": "Peti Status",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "stock_source",
+   "fieldtype": "Link",
+   "label": "KASAB Stock Source",
+   "options": "Inventory Stock Source",
    "read_only": 1,
    "in_list_view": 1
   }
