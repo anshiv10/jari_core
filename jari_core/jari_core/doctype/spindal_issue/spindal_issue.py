@@ -1,6 +1,6 @@
 import frappe
 from frappe.model.document import Document
-from frappe.utils import flt
+from frappe.utils import flt, cint
 from jari_core.jari_core.stock_utils import (
     add_wip_transfer_in,
     consume_issueable_stock,
@@ -170,6 +170,8 @@ class SpindalIssue(Document):
                     "Issue Product Detail."
                 )
 
+            self.validate_row_operator(row)
+
             row_weight = (
                 self.get_row_weight(
                     row
@@ -187,6 +189,53 @@ class SpindalIssue(Document):
                 row=row,
                 required_qty=row_weight,
             )
+
+    def validate_row_operator(self, row):
+        """
+        Spindal Issue child-row Operator must be an active Worker
+        belonging to the Issue To Department.
+
+        The field is optional, but whenever a worker is selected,
+        department integrity is enforced server-side.
+        """
+        if not row.operator_name:
+            return
+
+        if not self.to_department:
+            frappe.throw(
+                "To Department is required before selecting "
+                "an Operator in Issue Product Detail."
+            )
+
+        worker = frappe.db.get_value(
+            "Worker Master",
+            row.operator_name,
+            [
+                "department",
+                "active",
+            ],
+            as_dict=True,
+        )
+
+        if not worker:
+            frappe.throw(
+                f"Operator {row.operator_name} does not exist "
+                f"in Worker Master."
+            )
+
+        if not cint(worker.active):
+            frappe.throw(
+                f"Operator {row.operator_name} is inactive."
+            )
+
+        if worker.department != self.to_department:
+            frappe.throw(
+                f"Operator {row.operator_name} belongs to "
+                f"Department {worker.department or 'Not Set'}, "
+                f"but this Spindal Issue is for "
+                f"Department {self.to_department}."
+            )
+
 
     def validate_draft_stock_availability(self):
         """
@@ -456,3 +505,68 @@ def get_spindal_stock_summary(product, company=None):
         if lines
         else "No stock available"
     )
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def spindal_worker_query(
+    doctype,
+    txt,
+    searchfield,
+    start,
+    page_len,
+    filters,
+):
+    """
+    Worker selector used by:
+    - Spindal Issue Item.operator_name
+    - Spindal Peti Entry.operator
+
+    Only Active workers belonging to the Spindal target department
+    are returned.
+
+    Department can be supplied directly, or derived from a linked
+    Spindal Issue.
+    """
+    filters = filters or {}
+
+    department = filters.get("department")
+    spindal_issue = filters.get("spindal_issue")
+
+    if not department and spindal_issue:
+        department = frappe.db.get_value(
+            "Spindal Issue",
+            spindal_issue,
+            "to_department",
+        )
+
+    if not department:
+        return []
+
+    return frappe.db.sql(
+        """
+        SELECT
+            wm.name,
+            CONCAT(
+                COALESCE(wm.employee, wm.name),
+                ' | ',
+                COALESCE(wm.department, '')
+            ) AS description
+        FROM `tabWorker Master` wm
+        WHERE wm.active = 1
+          AND wm.department = %(department)s
+          AND (
+                wm.name LIKE %(txt)s
+                OR COALESCE(wm.employee, '') LIKE %(txt)s
+          )
+        ORDER BY
+            COALESCE(wm.employee, wm.name)
+        LIMIT %(start)s, %(page_len)s
+        """,
+        {
+            "department": department,
+            "txt": f"%{txt}%",
+            "start": start,
+            "page_len": page_len,
+        },
+    )
+

@@ -8,6 +8,7 @@ class SpindalPetiEntry(Document):
     def validate(self):
         self.set_peti_id()
         self.pull_spindal_issue_details()
+        self.validate_spindal_operator()
         self.sync_bobbin_count_with_nang()
         self.validate_source_weights()
         self.normalize_peti_weights()
@@ -266,6 +267,64 @@ class SpindalPetiEntry(Document):
 
             if hasattr(self, "quality"):
                 self.quality = resolved_quality
+
+    def validate_spindal_operator(self):
+        """
+        Operator is optional, but when selected it must:
+        - exist in Worker Master
+        - be Active
+        - belong to the To Department of the linked Spindal Issue
+        """
+        if not self.operator:
+            return
+
+        if not self.spindal_issue:
+            frappe.throw(
+                "Spindal Issue must be selected before "
+                "selecting an Operator."
+            )
+
+        department = frappe.db.get_value(
+            "Spindal Issue",
+            self.spindal_issue,
+            "to_department",
+        )
+
+        if not department:
+            frappe.throw(
+                f"To Department is not configured in "
+                f"Spindal Issue {self.spindal_issue}."
+            )
+
+        worker = frappe.db.get_value(
+            "Worker Master",
+            self.operator,
+            [
+                "department",
+                "active",
+            ],
+            as_dict=True,
+        )
+
+        if not worker:
+            frappe.throw(
+                f"Operator {self.operator} does not exist "
+                f"in Worker Master."
+            )
+
+        if not cint(worker.active):
+            frappe.throw(
+                f"Operator {self.operator} is inactive."
+            )
+
+        if worker.department != department:
+            frappe.throw(
+                f"Operator {self.operator} belongs to "
+                f"Department {worker.department or 'Not Set'}, "
+                f"but the linked Spindal Issue belongs to "
+                f"Department {department}."
+            )
+
 
     def sync_bobbin_count_with_nang(self):
         if cint(self.nang) and not cint(self.bobbin_count):

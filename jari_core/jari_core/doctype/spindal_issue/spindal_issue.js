@@ -812,3 +812,84 @@ function jari_spindal_source_clear_all_sources(frm) {
 }
 
 // END EXACT STOCK SOURCE SELECTION: Spindal Issue
+
+// BEGIN SPINDAL DEPARTMENT WORKER FILTER
+frappe.ui.form.on('Spindal Issue', {
+    setup(frm) {
+        jari_spindal_apply_worker_query(frm);
+    },
+
+    refresh(frm) {
+        jari_spindal_apply_worker_query(frm);
+    },
+
+    to_department(frm) {
+        jari_spindal_apply_worker_query(frm);
+        jari_spindal_clear_invalid_row_workers(frm);
+    }
+});
+
+
+function jari_spindal_apply_worker_query(frm) {
+    frm.set_query(
+        'operator_name',
+        'issue_items',
+        function() {
+            return {
+                query:
+                    'jari_core.jari_core.doctype.spindal_issue.spindal_issue.spindal_worker_query',
+
+                filters: {
+                    department:
+                        frm.doc.to_department || ''
+                }
+            };
+        }
+    );
+}
+
+
+async function jari_spindal_clear_invalid_row_workers(frm) {
+    const department =
+        frm.doc.to_department;
+
+    if (!department) {
+        return;
+    }
+
+    for (
+        const row of
+        (frm.doc.issue_items || [])
+    ) {
+        if (!row.operator_name) {
+            continue;
+        }
+
+        const response =
+            await frappe.db.get_value(
+                'Worker Master',
+                row.operator_name,
+                [
+                    'department',
+                    'active'
+                ]
+            );
+
+        const worker =
+            response.message || {};
+
+        if (
+            worker.department !== department
+            || !cint(worker.active)
+        ) {
+            await frappe.model.set_value(
+                row.doctype,
+                row.name,
+                'operator_name',
+                ''
+            );
+        }
+    }
+}
+// END SPINDAL DEPARTMENT WORKER FILTER
+
