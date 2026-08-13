@@ -321,10 +321,126 @@ def get_stock_source_balance(
     )
 
 
+def get_stock_source_original_weight(stock_source):
+    """
+    Return the immutable/original inward quantity for one stock source.
+
+    Transfer-in ledger rows are deliberately excluded because they
+    represent movement of the same source rather than creation of
+    additional physical stock.
+    """
+    if not stock_source:
+        return 0
+
+    source = frappe.get_cached_doc(
+        "Inventory Stock Source",
+        stock_source,
+    )
+
+    if source.is_legacy:
+        return flt(
+            source.opening_weight,
+            6,
+        )
+
+    if (
+        not source.source_doctype
+        or not source.source_name
+    ):
+        return 0
+
+    original = frappe.db.sql(
+        """
+        SELECT COALESCE(SUM(in_weight), 0)
+        FROM `tabInventory Ledger`
+        WHERE stock_source = %(stock_source)s
+          AND reference_doctype = %(source_doctype)s
+          AND reference_name = %(source_name)s
+          AND in_weight > 0
+        """,
+        {
+            "stock_source": stock_source,
+            "source_doctype":
+                source.source_doctype,
+            "source_name":
+                source.source_name,
+        },
+    )[0][0]
+
+    return flt(
+        original,
+        6,
+    )
+
+
+def get_stock_source_locations(stock_source):
+    """
+    Return every department in which this exact stock source currently
+    has a positive quantity.
+    """
+    if not stock_source:
+        return []
+
+    source = frappe.get_cached_doc(
+        "Inventory Stock Source",
+        stock_source,
+    )
+
+    departments = set(
+        frappe.get_all(
+            "Inventory Ledger",
+            filters={
+                "stock_source": stock_source,
+                "company": source.company,
+                "product": source.product,
+            },
+            pluck="department",
+        )
+    )
+
+    if (
+        source.is_legacy
+        and source.opening_department
+    ):
+        departments.add(
+            source.opening_department
+        )
+
+    result = []
+
+    for department in departments:
+        if not department:
+            continue
+
+        available = get_stock_source_balance(
+            stock_source,
+            department,
+        )
+
+        if available > 0.000001:
+            result.append({
+                "department": department,
+                "available_weight": flt(
+                    available,
+                    6,
+                ),
+            })
+
+    result.sort(
+        key=lambda row: (
+            row["department"],
+            -flt(
+                row["available_weight"]
+            ),
+        )
+    )
+
+    return result
+
 @frappe.whitelist()
 def get_stock_source_details(
     stock_source,
-    department,
+    department=None,
 ):
     if not stock_source:
         return {}
@@ -334,21 +450,87 @@ def get_stock_source_details(
         stock_source,
     )
 
+    locations = get_stock_source_locations(
+        stock_source
+    )
+
+    selected_department = (
+        department or None
+    )
+
+    if (
+        not selected_department
+        and len(locations) == 1
+    ):
+        selected_department = (
+            locations[0]["department"]
+        )
+
+    available_weight = 0
+
+    if selected_department:
+        available_weight = (
+            get_stock_source_balance(
+                source.name,
+                selected_department,
+            )
+        )
+
+    original_weight = (
+        get_stock_source_original_weight(
+            source.name
+        )
+    )
+
+    if source.is_legacy:
+        source_reference = (
+            "Legacy Opening"
+        )
+    else:
+        source_reference = (
+            f"{source.source_doctype or ''} "
+            f"{source.source_name or ''}"
+        ).strip()
+
     return {
         "stock_source": source.name,
         "source_type": source.source_type,
-        "source_doctype": source.source_doctype,
-        "source_name": source.source_name,
-        "source_row": source.source_row,
-        "source_date": source.source_date,
-        "batch_number": source.batch_number,
-        "company": source.company,
-        "product": source.product,
-        "department": department,
-        "available_weight": get_stock_source_balance(
-            source.name,
-            department,
-        ),
+        "source_doctype":
+            source.source_doctype,
+        "source_name":
+            source.source_name,
+        "source_reference":
+            source_reference,
+        "source_row":
+            source.source_row,
+        "source_date":
+            source.source_date,
+        "batch_number":
+            source.batch_number,
+        "company":
+            source.company,
+        "product":
+            source.product,
+        "department":
+            selected_department,
+        "original_weight":
+            flt(original_weight, 6),
+        "available_weight":
+            flt(available_weight, 6),
+        "locations":
+            locations,
+        "total_available_weight":
+            flt(
+                sum(
+                    flt(
+                        row[
+                            "available_weight"
+                        ]
+                    )
+                    for row in locations
+                ),
+                6,
+            ),
     }
 
 
@@ -363,142 +545,395 @@ def stock_source_query(
     filters,
 ):
     """
-    Show stock sources available for one exact:
+    Show every positive stock source for the selected Company + Product.
 
-        Company
-        Department
-        Product
-
-    Submitted Purchase/Receive sources and Legacy Opening
-    sources are handled through the same query.
+    Sources are intentionally NOT restricted to Process.from_department.
+    This preserves the client-approved rule that available material may
+    be consumed from another department when the exact source physically
+    exists there.
     """
-
     filters = filters or {}
 
-    company = filters.get("company")
-    department = filters.get("department")
-    product = filters.get("product")
+    if isinstance(filters, str):
+        filters = frappe.parse_json(
+            filters
+        )
 
-    if not company or not department or not product:
-        return []
-
-    return frappe.db.sql(
-        """
-        SELECT
-            src.name,
-
-            CONCAT(
-                CASE
-                    WHEN src.is_legacy = 1
-                        THEN 'Legacy Opening'
-                    ELSE COALESCE(
-                        src.source_name,
-                        src.name
-                    )
-                END,
-
-                ' | ',
-
-                src.source_type,
-
-                ' | Date: ',
-
-                COALESCE(
-                    DATE_FORMAT(
-                        src.source_date,
-                        '%%d-%%m-%%Y'
-                    ),
-                    '-'
-                ),
-
-                ' | Available: ',
-
-                FORMAT(
-                    (
-                        CASE
-                            WHEN src.is_legacy = 1
-                             AND src.opening_department = %(department)s
-                            THEN src.opening_weight
-                            ELSE 0
-                        END
-                        +
-                        COALESCE(
-                            ledger.net_qty,
-                            0
-                        )
-                    ),
-                    3
-                ),
-
-                ' KG'
-            ) AS description
-
-        FROM `tabInventory Stock Source` src
-
-        LEFT JOIN (
-            SELECT
-                stock_source,
-                SUM(in_weight - out_weight) AS net_qty
-            FROM `tabInventory Ledger`
-            WHERE company = %(company)s
-              AND department = %(department)s
-              AND product = %(product)s
-              AND IFNULL(stock_source, '') != ''
-            GROUP BY stock_source
-        ) ledger
-            ON ledger.stock_source = src.name
-
-        WHERE src.company = %(company)s
-          AND src.product = %(product)s
-
-          AND (
-                (
-                    CASE
-                        WHEN src.is_legacy = 1
-                         AND src.opening_department = %(department)s
-                        THEN src.opening_weight
-                        ELSE 0
-                    END
-                    +
-                    COALESCE(
-                        ledger.net_qty,
-                        0
-                    )
-                )
-              ) > 0.000001
-
-          AND (
-                src.name LIKE %(txt)s
-                OR COALESCE(
-                    src.source_name,
-                    ''
-                ) LIKE %(txt)s
-                OR COALESCE(
-                    src.source_type,
-                    ''
-                ) LIKE %(txt)s
-                OR COALESCE(
-                    src.batch_number,
-                    ''
-                ) LIKE %(txt)s
-              )
-
-        ORDER BY
-            src.source_date ASC,
-            src.creation ASC
-
-        LIMIT %(start)s, %(page_len)s
-        """,
-        {
-            "company": company,
-            "department": department,
-            "product": product,
-            "txt": f"%{txt}%",
-            "start": start,
-            "page_len": page_len,
-        },
+    company = filters.get(
+        "company"
     )
 
+    product = filters.get(
+        "product"
+    )
+
+    preferred_department = (
+        filters.get(
+            "preferred_department"
+        )
+        or ""
+    )
+
+    if not company or not product:
+        return []
+
+    sources = frappe.get_all(
+        "Inventory Stock Source",
+        filters={
+            "company": company,
+            "product": product,
+        },
+        fields=[
+            "name",
+            "source_type",
+            "source_doctype",
+            "source_name",
+            "source_date",
+            "batch_number",
+            "is_legacy",
+            "opening_department",
+            "opening_weight",
+            "creation",
+        ],
+        order_by=(
+            "source_date asc, "
+            "creation asc"
+        ),
+        limit_page_length=0,
+    )
+
+    txt_lower = (
+        (txt or "")
+        .strip()
+        .lower()
+    )
+
+    result = []
+
+    for source in sources:
+        locations = (
+            get_stock_source_locations(
+                source.name
+            )
+        )
+
+        if not locations:
+            continue
+
+        total_available = sum(
+            flt(
+                location[
+                    "available_weight"
+                ]
+            )
+            for location in locations
+        )
+
+        if (
+            total_available
+            <= 0.000001
+        ):
+            continue
+
+        if source.is_legacy:
+            original_weight = flt(
+                source.opening_weight,
+                6,
+            )
+
+            reference = (
+                "Legacy Opening"
+            )
+
+        else:
+            original_weight = (
+                get_stock_source_original_weight(
+                    source.name
+                )
+            )
+
+            reference = (
+                source.source_name
+                or source.name
+            )
+
+        source_kind = (
+            source.source_doctype
+            or source.source_type
+            or ""
+        )
+
+        if source.source_date:
+            date_text = (
+                frappe.utils.formatdate(
+                    source.source_date,
+                    "dd-MM-yyyy",
+                )
+            )
+        else:
+            date_text = "-"
+
+        sorted_locations = sorted(
+            locations,
+            key=lambda location: (
+                0
+                if (
+                    location[
+                        "department"
+                    ]
+                    == preferred_department
+                )
+                else 1,
+                location[
+                    "department"
+                ],
+            ),
+        )
+
+        location_text = ", ".join(
+            (
+                f"{location['department']}: "
+                f"{flt(location['available_weight'], 3)} KG"
+            )
+            for location
+            in sorted_locations
+        )
+
+        description = (
+            f"{reference}"
+            f" | {source_kind}"
+            f" | Date: {date_text}"
+            f" | Received: "
+            f"{flt(original_weight, 3)} KG"
+            f" | Remaining: "
+            f"{flt(total_available, 3)} KG"
+            f" | Location: "
+            f"{location_text}"
+        )
+
+        searchable = " ".join([
+            source.name or "",
+            source.source_name or "",
+            source.source_type or "",
+            source.source_doctype or "",
+            source.batch_number or "",
+            description,
+        ]).lower()
+
+        if (
+            txt_lower
+            and txt_lower
+            not in searchable
+        ):
+            continue
+
+        result.append([
+            source.name,
+            description,
+        ])
+
+    start = int(
+        start or 0
+    )
+
+    page_len = int(
+        page_len or 20
+    )
+
+    return result[
+        start:start + page_len
+    ]
+
+
+def prepare_selected_stock_source(
+    *,
+    doc,
+    row,
+    required_qty,
+):
+    """
+    Validate and populate one Issue Product Detail row against the exact
+    Inventory Stock Source selected by the operator.
+
+    The displayed quantities are informational; Submit performs another
+    locked source-balance validation in consume_selected_stock_source().
+    """
+    required_qty = flt(
+        required_qty,
+        6,
+    )
+
+    if (
+        not row.product
+        or required_qty <= 0
+    ):
+        return
+
+    if not row.stock_source:
+        frappe.throw(
+            f"Row #{row.idx}: Please select "
+            f"Stock Source / Receive Entry "
+            f"for {row.product}."
+        )
+
+    source = frappe.get_doc(
+        "Inventory Stock Source",
+        row.stock_source,
+    )
+
+    if source.company != doc.company:
+        frappe.throw(
+            f"Row #{row.idx}: Stock Source "
+            f"{row.stock_source} belongs to "
+            f"Company {source.company}, not "
+            f"{doc.company}."
+        )
+
+    if source.product != row.product:
+        frappe.throw(
+            f"Row #{row.idx}: Stock Source "
+            f"{row.stock_source} belongs to "
+            f"Product {source.product}, not "
+            f"{row.product}."
+        )
+
+    locations = (
+        get_stock_source_locations(
+            row.stock_source
+        )
+    )
+
+    if not locations:
+        frappe.throw(
+            f"Row #{row.idx}: Stock Source "
+            f"{row.stock_source} has no "
+            f"remaining stock."
+        )
+
+    positive_departments = {
+        location["department"]
+        for location in locations
+    }
+
+    if row.source_department:
+        if (
+            row.source_department
+            not in positive_departments
+        ):
+            frappe.throw(
+                f"Row #{row.idx}: Stock Source "
+                f"{row.stock_source} has no "
+                f"available stock in "
+                f"{row.source_department}."
+            )
+
+    else:
+        preferred = getattr(
+            doc,
+            "from_department",
+            None,
+        )
+
+        preferred_match = next(
+            (
+                location
+                for location in locations
+                if (
+                    location[
+                        "department"
+                    ]
+                    == preferred
+                )
+            ),
+            None,
+        )
+
+        if preferred_match:
+            row.source_department = (
+                preferred_match[
+                    "department"
+                ]
+            )
+
+        elif len(locations) == 1:
+            row.source_department = (
+                locations[0][
+                    "department"
+                ]
+            )
+
+        else:
+            frappe.throw(
+                f"Row #{row.idx}: Stock Source "
+                f"{row.stock_source} currently "
+                f"exists in multiple departments. "
+                f"Please select the required "
+                f"Source Department."
+            )
+
+    available = (
+        get_stock_source_balance(
+            row.stock_source,
+            row.source_department,
+        )
+    )
+
+    original = (
+        get_stock_source_original_weight(
+            row.stock_source
+        )
+    )
+
+    if source.is_legacy:
+        row.source_reference = (
+            "Legacy Opening"
+        )
+    else:
+        row.source_reference = (
+            f"{source.source_doctype or ''} "
+            f"{source.source_name or ''}"
+        ).strip()
+
+    row.source_date = (
+        source.source_date
+    )
+
+    row.source_original_weight = (
+        flt(
+            original,
+            6,
+        )
+    )
+
+    row.source_available_weight = (
+        flt(
+            available,
+            6,
+        )
+    )
+
+    row.source_remaining_weight = (
+        flt(
+            available
+            - required_qty,
+            6,
+        )
+    )
+
+    if (
+        required_qty
+        > flt(available)
+        + 0.000001
+    ):
+        frappe.throw(
+            f"Row #{row.idx}: Insufficient "
+            f"stock in selected source "
+            f"{row.stock_source}. "
+            f"Available: "
+            f"{flt(available, 3)} KG, "
+            f"Requested: "
+            f"{flt(required_qty, 3)} KG."
+        )
 
 def consume_selected_stock_source(
     *,

@@ -95,14 +95,32 @@ class TaniyaIssue(Document):
         frappe.db.set_value(self.doctype, self.name, "status", status)
 
     def validate_items(self):
+        from jari_core.jari_core.stock_utils import (
+            prepare_selected_stock_source,
+        )
+
         if not self.issue_items:
-            frappe.throw("At least one issue item is required.")
+            frappe.throw(
+                "At least one issue item is required."
+            )
 
         for row in self.issue_items:
             if not row.product:
-                frappe.throw("Product is required in issue item.")
+                frappe.throw(
+                    "Product is required in issue item."
+                )
+
             if flt(row.weight) <= 0:
-                frappe.throw(f"Weight must be greater than zero for product {row.product}.")
+                frappe.throw(
+                    f"Weight must be greater than zero "
+                    f"for product {row.product}."
+                )
+
+            prepare_selected_stock_source(
+                doc=self,
+                row=row,
+                required_qty=row.weight,
+            )
 
     def calculate_totals(self):
         total = 0
@@ -126,6 +144,11 @@ class TaniyaIssue(Document):
         )
 
     def post_inventory_transfer(self):
+        from jari_core.jari_core.stock_utils import (
+            consume_selected_stock_source,
+            add_source_linked_transfer_in,
+        )
+
         if self.ledger_exists():
             return
 
@@ -133,22 +156,42 @@ class TaniyaIssue(Document):
             product = row.product
             weight = flt(row.weight)
 
-            consume_issueable_stock(
+            consume_selected_stock_source(
                 doc=self,
+                stock_source=row.stock_source,
+                source_department=
+                    row.source_department,
                 product=product,
                 required_qty=weight,
                 batch_no=self.batch_no,
                 posting_date=self.issue_date,
-                preferred_department=self.from_department,
-                remarks="Taniya material issued from issueable stock"
+                transaction_type=
+                    "Production Input",
+                remarks=(
+                    "Taniya Issue consumed from "
+                    f"{row.source_reference or row.stock_source}"
+                ),
             )
 
-            add_wip_transfer_in(
+            add_source_linked_transfer_in(
                 doc=self,
+                stock_source=row.stock_source,
                 department=self.to_department,
                 product=product,
                 qty=weight,
                 batch_no=self.batch_no,
                 posting_date=self.issue_date,
-                remarks="Taniya material inward as WIP"
+                remarks=(
+                    "Taniya source-linked inward "
+                    f"in {self.to_department}"
+                ),
             )
+
+    def on_cancel(self):
+        from jari_core.jari_core.stock_utils import (
+            reverse_reference_inventory_ledger,
+        )
+
+        reverse_reference_inventory_ledger(
+            self
+        )

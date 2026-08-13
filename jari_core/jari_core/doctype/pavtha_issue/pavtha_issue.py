@@ -107,13 +107,25 @@ class PavthaIssue(Document):
                 row.issue_receive_type = "In-house"
 
     def validate_items(self):
+        from jari_core.jari_core.stock_utils import (
+            prepare_selected_stock_source,
+        )
+
         if not self.issue_items:
-            frappe.throw(_("At least one issue item is required."))
+            frappe.throw(
+                _(
+                    "At least one issue item "
+                    "is required."
+                )
+            )
 
         for row in self.issue_items:
             if not row.product:
                 frappe.throw(
-                    _("Product is required in issue item row #{0}.").format(
+                    _(
+                        "Product is required in "
+                        "issue item row #{0}."
+                    ).format(
                         row.idx
                     )
                 )
@@ -121,29 +133,47 @@ class PavthaIssue(Document):
             if flt(row.weight) <= 0:
                 frappe.throw(
                     _(
-                        "Weight must be greater than zero in row #{0} "
-                        "for product {1}."
+                        "Weight must be greater than "
+                        "zero in row #{0} for "
+                        "product {1}."
                     ).format(
                         row.idx,
-                        frappe.bold(row.product),
+                        frappe.bold(
+                            row.product
+                        ),
                     )
                 )
 
             if not row.issue_receive_type:
                 frappe.throw(
                     _(
-                        "Issue/Receive Type is required in issue item "
+                        "Issue/Receive Type is "
+                        "required in issue item "
                         "row #{0}."
-                    ).format(row.idx)
+                    ).format(
+                        row.idx
+                    )
                 )
 
-            if row.issue_receive_type not in VALID_ISSUE_RECEIVE_TYPES:
+            if (
+                row.issue_receive_type
+                not in VALID_ISSUE_RECEIVE_TYPES
+            ):
                 frappe.throw(
                     _(
-                        "Issue/Receive Type in row #{0} must be "
-                        "In-house, Readymade, or Return."
-                    ).format(row.idx)
+                        "Issue/Receive Type in row "
+                        "#{0} must be In-house, "
+                        "Readymade, or Return."
+                    ).format(
+                        row.idx
+                    )
                 )
+
+            prepare_selected_stock_source(
+                doc=self,
+                row=row,
+                required_qty=row.weight,
+            )
 
     def get_quality_purity(self):
         if not self.quality_code:
@@ -300,94 +330,74 @@ class PavthaIssue(Document):
         ).insert(ignore_permissions=True)
 
     def post_inventory_transfer(self):
-        """
-        Consume each issue row from available inventory departments and
-        transfer the issued quantity into the Pavtha destination department.
+        from jari_core.jari_core.stock_utils import (
+            consume_selected_stock_source,
+            add_source_linked_transfer_in,
+        )
 
-        issue_receive_type is taken from each individual child row.
-        """
         if self.ledger_exists():
             return
 
         for row in self.issue_items or []:
-            required = flt(row.weight)
-            product = row.product
-            issue_receive_type = row.issue_receive_type or "In-house"
-
-            sources = self.get_available_sources(product)
-
-            total_available = sum(
-                flt(source["balance"])
-                for source in sources
+            required = flt(
+                row.weight
             )
 
-            if required > total_available:
-                frappe.throw(
-                    _(
-                        "Insufficient stock for {0}. "
-                        "Available across all departments: {1} KG. "
-                        "Requested: {2} KG."
-                    ).format(
-                        frappe.bold(product),
-                        frappe.format_value(
-                            total_available,
-                            {"fieldtype": "Float"},
-                        ),
-                        frappe.format_value(
-                            required,
-                            {"fieldtype": "Float"},
-                        ),
-                    )
-                )
+            product = row.product
 
-            remaining = required
+            issue_receive_type = (
+                row.issue_receive_type
+                or "In-house"
+            )
 
-            for source in sources:
-                if remaining <= 0:
-                    break
-
-                available_balance = flt(source["balance"])
-                consume = min(remaining, available_balance)
-
-                if consume <= 0:
-                    continue
-
-                self.add_ledger(
-                    department=source["department"],
-                    product=product,
-                    in_weight=0,
-                    out_weight=consume,
-                    transaction_type="Production Input",
-                    remarks=(
-                        f"Pavtha {issue_receive_type} issue "
-                        f"consumed from {source['department']}"
-                    ),
-                )
-
-                remaining -= consume
-
-            # Defensive check against floating-point or concurrent changes.
-            if remaining > 0.000001:
-                frappe.throw(
-                    _(
-                        "Unable to consume the complete required stock "
-                        "for product {0}. Remaining quantity: {1} KG."
-                    ).format(
-                        frappe.bold(product),
-                        remaining,
-                    )
-                )
-
-            self.add_ledger(
-                department=self.to_department,
+            consume_selected_stock_source(
+                doc=self,
+                stock_source=
+                    row.stock_source,
+                source_department=
+                    row.source_department,
                 product=product,
-                in_weight=required,
-                out_weight=0,
-                transaction_type="Stock Transfer In",
+                required_qty=required,
+                batch_no=self.batch_no,
+                posting_date=
+                    self.issue_date,
+                transaction_type=
+                    "Production Input",
                 remarks=(
-                    f"Pavtha {issue_receive_type} material inward"
+                    f"Pavtha "
+                    f"{issue_receive_type} "
+                    "consumed from "
+                    f"{row.source_reference or row.stock_source}"
                 ),
             )
+
+            add_source_linked_transfer_in(
+                doc=self,
+                stock_source=
+                    row.stock_source,
+                department=
+                    self.to_department,
+                product=product,
+                qty=required,
+                batch_no=self.batch_no,
+                posting_date=
+                    self.issue_date,
+                remarks=(
+                    f"Pavtha "
+                    f"{issue_receive_type} "
+                    "source-linked inward "
+                    f"in {self.to_department}"
+                ),
+            )
+
+    def on_cancel(self):
+        from jari_core.jari_core.stock_utils import (
+            reverse_reference_inventory_ledger,
+        )
+
+        reverse_reference_inventory_ledger(
+            self
+        )
 
 
 @frappe.whitelist()

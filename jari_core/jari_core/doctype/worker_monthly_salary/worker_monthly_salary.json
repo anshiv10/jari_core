@@ -86,8 +86,7 @@
    "fieldname": "salary_details",
    "fieldtype": "Table",
    "label": "Salary Details",
-   "options": "Worker Monthly Salary Detail",
-   "reqd": 1
+   "options": "Worker Monthly Salary Detail"
   },
   {
    "fieldname": "summary_section",

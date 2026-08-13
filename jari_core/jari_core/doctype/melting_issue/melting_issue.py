@@ -64,66 +64,22 @@ class MeltingIssue(Document):
         )
 
     def validate_stock_sources(self):
-        """
-        Every positive Issue Product row must identify the exact
-        stock entry and department from which it will be consumed.
-        """
-        for row in self.issue_items or []:
+        from jari_core.jari_core.stock_utils import (
+            prepare_selected_stock_source,
+        )
 
-            if not row.product or flt(row.weight) <= 0:
+        for row in self.issue_items or []:
+            if (
+                not row.product
+                or flt(row.weight) <= 0
+            ):
                 continue
 
-            if not row.source_department:
-                frappe.throw(
-                    f"Source Department is required in row #{row.idx} "
-                    f"for product {row.product}."
-                )
-
-            if not row.stock_source:
-                frappe.throw(
-                    f"Stock Source is required in row #{row.idx} "
-                    f"for product {row.product}."
-                )
-
-            source = frappe.get_doc(
-                "Inventory Stock Source",
-                row.stock_source,
+            prepare_selected_stock_source(
+                doc=self,
+                row=row,
+                required_qty=row.weight,
             )
-
-            if source.company != self.company:
-                frappe.throw(
-                    f"Stock Source {row.stock_source} belongs to "
-                    f"{source.company}, not {self.company}."
-                )
-
-            if source.product != row.product:
-                frappe.throw(
-                    f"Stock Source {row.stock_source} is for "
-                    f"{source.product}, not {row.product}."
-                )
-
-            if row.source_department != self.from_department:
-                frappe.throw(
-                    f"Source Department in row #{row.idx} must be "
-                    f"{self.from_department} as configured by the "
-                    f"selected Process."
-                )
-
-            available = get_stock_source_balance(
-                row.stock_source,
-                row.source_department,
-            )
-
-            row.source_date = source.source_date
-            row.source_available_weight = available
-
-            if flt(row.weight) > flt(available) + 0.000001:
-                frappe.throw(
-                    f"Insufficient balance in selected Stock Source "
-                    f"{row.stock_source} for {row.product}. "
-                    f"Available: {flt(available, 3)} KG, "
-                    f"Requested: {flt(row.weight, 3)} KG."
-                )
 
     def calculate_totals(self):
         self.total_issue_weight = 0

@@ -1,5 +1,21 @@
 frappe.ui.form.on('Worker Monthly Salary', {
     refresh(frm) {
+        configure_salary_grids(frm);
+
+        if (
+            frm.doc.docstatus === 0 &&
+            frm.is_new()
+        ) {
+            frm.set_intro(
+                __(
+                    'Select Worker and Salary Month, then Save. ' +
+                    'Salary Formats and calculation rows will be loaded automatically ' +
+                    'from the Worker Salary Format configuration.'
+                ),
+                'blue'
+            );
+        }
+
         if (
             frm.doc.docstatus === 0 &&
             !frm.is_new()
@@ -50,6 +66,49 @@ frappe.ui.form.on('Worker Monthly Salary', {
         );
     }
 });
+
+
+/*
+ * Salary calculation rows are generated from the Salary Formats
+ * assigned in Worker Master.
+ *
+ * Users must not manually create or remove structural calculation
+ * rows because Salary Format, Salary Detail Key and Quality linkage
+ * are maintained by the server.
+ */
+function configure_salary_grids(frm) {
+    const salaryGrid =
+        frm.fields_dict.salary_details?.grid;
+
+    const qualityGrid =
+        frm.fields_dict.salary_quality_details?.grid;
+
+    if (salaryGrid) {
+        salaryGrid.cannot_add_rows = true;
+        salaryGrid.cannot_delete_rows = true;
+
+        salaryGrid.wrapper
+            .find('.grid-add-row')
+            .hide();
+
+        salaryGrid.wrapper
+            .find('.grid-remove-rows')
+            .hide();
+    }
+
+    if (qualityGrid) {
+        qualityGrid.cannot_add_rows = true;
+        qualityGrid.cannot_delete_rows = true;
+
+        qualityGrid.wrapper
+            .find('.grid-add-row')
+            .hide();
+
+        qualityGrid.wrapper
+            .find('.grid-remove-rows')
+            .hide();
+    }
+}
 
 
 frappe.ui.form.on('Worker Monthly Salary Detail', {

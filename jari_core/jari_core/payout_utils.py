@@ -261,24 +261,38 @@ def calculate_taniya_payout(doc):
             "Payout Format is required for an outsourced Taniya process."
         )
 
-    issues = frappe.get_all(
-        "Taniya Issue",
-        filters={
-            "batch_no": doc.batch_no,
-            "docstatus": ["in", [0, 1]],
-        },
-        pluck="name",
+    # IMPORTANT:
+    # One Taniya Receive belongs to one specific Taniya Issue.
+    #
+    # Do not aggregate all Taniya Issues sharing the same batch.
+    # Re-Issue documents may legitimately use the same batch number,
+    # but they are independent transactions and must not inflate the
+    # payout basis of this Receive.
+    #
+    # Taniya Receive.pull_issue_details() already establishes
+    # total_input_weight from the specifically selected Taniya Issue,
+    # making it the authoritative Total Issue for payout calculation.
+    total_issue = flt(
+        doc.get("total_input_weight")
     )
 
-    total_issue = 0
-
-    for issue_name in issues:
-        total_issue += flt(
+    # Compatibility safeguard for legacy/preview documents where
+    # total_input_weight may not yet have been populated.
+    # Even in that case, use only the linked Taniya Issue and never
+    # aggregate every Issue belonging to the batch.
+    if total_issue <= 0 and doc.get("taniya_issue"):
+        total_issue = flt(
             frappe.db.get_value(
                 "Taniya Issue",
-                issue_name,
+                doc.taniya_issue,
                 "total_issue_weight",
             )
+        )
+
+    if total_issue <= 0:
+        frappe.throw(
+            "Total Input Weight must be greater than zero before "
+            "calculating Taniya payout."
         )
 
     goti_percent = get_taniya_expected_percent(

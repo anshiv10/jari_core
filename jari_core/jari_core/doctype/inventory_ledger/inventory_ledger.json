@@ -88,7 +88,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Transaction Type",
-   "options": "Purchase Inward\nProduction Input\nProduction Output\nStock Transfer Out\nStock Transfer In\nWaste Generated\nRecovery\nAdjustment",
+   "options": "Purchase Inward\nProduction Input\nProduction Output\nStock Transfer Out\nStock Transfer In\nWaste Generated\nRecovery\nAdjustment\nPurchase Reversal\nCancellation Reversal",
    "reqd": 1
   },
   {

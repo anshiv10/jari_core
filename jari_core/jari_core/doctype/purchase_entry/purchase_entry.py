@@ -18,8 +18,20 @@ class PurchaseEntry(Document):
         frappe.db.set_value(self.doctype, self.name, "status", "Approved")
 
     def on_cancel(self):
-        self.reverse_inventory_ledger()
-        frappe.db.set_value(self.doctype, self.name, "status", "Cancelled")
+        from jari_core.jari_core.stock_utils import (
+            reverse_reference_inventory_ledger,
+        )
+
+        reverse_reference_inventory_ledger(
+            self
+        )
+
+        frappe.db.set_value(
+            self.doctype,
+            self.name,
+            "status",
+            "Cancelled",
+        )
 
     def set_defaults(self):
         if not self.department:

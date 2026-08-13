@@ -813,3 +813,401 @@ function set_jari_issue_type_process_query(
         }
     );
 }
+
+
+// BEGIN EXACT STOCK SOURCE SELECTION: Pavtha Issue
+
+frappe.ui.form.on('Pavtha Issue', {
+    setup(frm) {
+        jari_pavtha_source_setup_source_query(frm);
+    },
+
+    refresh(frm) {
+        jari_pavtha_source_setup_source_query(frm);
+    },
+
+    company(frm) {
+        jari_pavtha_source_clear_all_sources(frm);
+    }
+});
+
+
+frappe.ui.form.on('Pavtha Issue Item', {
+    product(frm, cdt, cdn) {
+        jari_pavtha_source_clear_source_row(
+            cdt,
+            cdn
+        );
+    },
+
+    async stock_source(frm, cdt, cdn) {
+        await jari_pavtha_source_load_source(
+            frm,
+            cdt,
+            cdn
+        );
+    },
+
+    weight(frm, cdt, cdn) {
+        const row =
+            locals[cdt][cdn];
+
+        if (!row) {
+            return;
+        }
+
+        frappe.model.set_value(
+            cdt,
+            cdn,
+            'source_remaining_weight',
+            Math.max(
+                0,
+                flt(
+                    row.source_available_weight
+                )
+                - flt(row.weight)
+            )
+        );
+    }
+});
+
+
+function jari_pavtha_source_setup_source_query(frm) {
+    frm.set_query(
+        'stock_source',
+        'issue_items',
+        function(doc, cdt, cdn) {
+            const row =
+                locals[cdt][cdn];
+
+            return {
+                query:
+                    'jari_core.jari_core.stock_utils.stock_source_query',
+
+                filters: {
+                    company:
+                        frm.doc.company || '',
+
+                    product:
+                        row.product || '',
+
+                    preferred_department:
+                        frm.doc.from_department || ''
+                }
+            };
+        }
+    );
+}
+
+
+async function jari_pavtha_source_load_source(
+    frm,
+    cdt,
+    cdn
+) {
+    const row =
+        locals[cdt][cdn];
+
+    if (
+        !row
+        || !row.stock_source
+    ) {
+        return;
+    }
+
+    const selectedSource =
+        row.stock_source;
+
+    const response =
+        await frappe.call({
+            method:
+                'jari_core.jari_core.stock_utils.get_stock_source_details',
+
+            args: {
+                stock_source:
+                    selectedSource
+            }
+        });
+
+    if (
+        !locals[cdt]
+        || !locals[cdt][cdn]
+        || locals[cdt][cdn].stock_source
+            !== selectedSource
+    ) {
+        return;
+    }
+
+    const details =
+        response.message || {};
+
+    if (
+        details.company
+            !== frm.doc.company
+        || details.product
+            !== row.product
+    ) {
+        frappe.msgprint({
+            title:
+                __('Invalid Stock Source'),
+
+            indicator:
+                'red',
+
+            message:
+                __('Selected Stock Source does not match the Company/Product of this Issue row.')
+        });
+
+        await frappe.model.set_value(
+            cdt,
+            cdn,
+            'stock_source',
+            ''
+        );
+
+        return;
+    }
+
+    const locations =
+        details.locations || [];
+
+    if (!locations.length) {
+        frappe.msgprint(
+            __('Selected Stock Source has no remaining stock.')
+        );
+
+        await frappe.model.set_value(
+            cdt,
+            cdn,
+            'stock_source',
+            ''
+        );
+
+        return;
+    }
+
+    let department = '';
+
+    const preferred =
+        frm.doc.from_department || '';
+
+    const preferredLocation =
+        locations.find(
+            location =>
+                location.department
+                    === preferred
+        );
+
+    if (preferredLocation) {
+        department =
+            preferredLocation.department;
+
+    } else if (
+        locations.length === 1
+    ) {
+        department =
+            locations[0].department;
+
+    } else {
+        department =
+            await jari_pavtha_source_choose_department(
+                locations
+            );
+    }
+
+    if (!department) {
+        await frappe.model.set_value(
+            cdt,
+            cdn,
+            'stock_source',
+            ''
+        );
+
+        return;
+    }
+
+    const finalResponse =
+        await frappe.call({
+            method:
+                'jari_core.jari_core.stock_utils.get_stock_source_details',
+
+            args: {
+                stock_source:
+                    selectedSource,
+
+                department:
+                    department
+            }
+        });
+
+    if (
+        !locals[cdt]
+        || !locals[cdt][cdn]
+        || locals[cdt][cdn].stock_source
+            !== selectedSource
+    ) {
+        return;
+    }
+
+    const finalDetails =
+        finalResponse.message || {};
+
+    await frappe.model.set_value(
+        cdt,
+        cdn,
+        'source_department',
+        department
+    );
+
+    await frappe.model.set_value(
+        cdt,
+        cdn,
+        'source_reference',
+        finalDetails.source_reference
+            || ''
+    );
+
+    await frappe.model.set_value(
+        cdt,
+        cdn,
+        'source_date',
+        finalDetails.source_date
+            || ''
+    );
+
+    await frappe.model.set_value(
+        cdt,
+        cdn,
+        'source_original_weight',
+        flt(
+            finalDetails.original_weight
+        )
+    );
+
+    await frappe.model.set_value(
+        cdt,
+        cdn,
+        'source_available_weight',
+        flt(
+            finalDetails.available_weight
+        )
+    );
+
+    await frappe.model.set_value(
+        cdt,
+        cdn,
+        'source_remaining_weight',
+        Math.max(
+            0,
+            flt(
+                finalDetails.available_weight
+            )
+            - flt(row.weight)
+        )
+    );
+}
+
+
+function jari_pavtha_source_choose_department(
+    locations
+) {
+    return new Promise(resolve => {
+        const options =
+            locations.map(
+                location =>
+                    location.department
+            );
+
+        const dialog =
+            new frappe.ui.Dialog({
+                title:
+                    __('Select Source Department'),
+
+                fields: [
+                    {
+                        fieldname:
+                            'department',
+
+                        fieldtype:
+                            'Select',
+
+                        label:
+                            __('Source Department'),
+
+                        options:
+                            options.join('\n'),
+
+                        reqd: 1
+                    }
+                ],
+
+                primary_action_label:
+                    __('Select'),
+
+                primary_action(values) {
+                    const selected =
+                        values.department;
+
+                    dialog.hide();
+
+                    resolve(
+                        selected
+                    );
+                }
+            });
+
+        dialog.$wrapper.on(
+            'hidden.bs.modal',
+            function() {
+                resolve('');
+            }
+        );
+
+        dialog.show();
+    });
+}
+
+
+function jari_pavtha_source_clear_source_row(
+    cdt,
+    cdn
+) {
+    if (
+        !locals[cdt]
+        || !locals[cdt][cdn]
+    ) {
+        return;
+    }
+
+    [
+        'stock_source',
+        'source_department',
+        'source_reference',
+        'source_date',
+        'source_original_weight',
+        'source_available_weight',
+        'source_remaining_weight'
+    ].forEach(fieldname => {
+        frappe.model.set_value(
+            cdt,
+            cdn,
+            fieldname,
+            ''
+        );
+    });
+}
+
+
+function jari_pavtha_source_clear_all_sources(frm) {
+    (
+        frm.doc.issue_items
+        || []
+    ).forEach(row => {
+        jari_pavtha_source_clear_source_row(
+            row.doctype,
+            row.name
+        );
+    });
+}
+
+// END EXACT STOCK SOURCE SELECTION: Pavtha Issue

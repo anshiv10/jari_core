@@ -27,7 +27,6 @@ class SpindalIssue(Document):
         self.set_active_batch_no()
         self.validate_submitted_peti_consistency()
         self.validate_issue_items()
-        self.validate_draft_stock_availability()
         self.calculate_totals()
 
     def validate_process_assignments(self):
@@ -152,16 +151,42 @@ class SpindalIssue(Document):
         return flt(row.weight)
 
     def validate_issue_items(self):
+        from jari_core.jari_core.stock_utils import (
+            prepare_selected_stock_source,
+        )
+
         items = self.get_issue_items()
 
         if not items:
-            frappe.throw("At least one Issue Product Detail row is required.")
+            frappe.throw(
+                "At least one Issue Product Detail "
+                "row is required."
+            )
 
         for row in items:
             if not row.product:
-                frappe.throw("Product is required in Issue Product Detail.")
-            if self.get_row_weight(row) <= 0:
-                frappe.throw(f"Weight must be greater than zero for product {row.product}.")
+                frappe.throw(
+                    "Product is required in "
+                    "Issue Product Detail."
+                )
+
+            row_weight = (
+                self.get_row_weight(
+                    row
+                )
+            )
+
+            if row_weight <= 0:
+                frappe.throw(
+                    f"Weight must be greater than zero "
+                    f"for product {row.product}."
+                )
+
+            prepare_selected_stock_source(
+                doc=self,
+                row=row,
+                required_qty=row_weight,
+            )
 
     def validate_draft_stock_availability(self):
         """
@@ -233,32 +258,66 @@ class SpindalIssue(Document):
         )
 
     def post_inventory_transfer(self):
+        from jari_core.jari_core.stock_utils import (
+            consume_selected_stock_source,
+            add_source_linked_transfer_in,
+        )
+
         if self.ledger_exists():
             return
 
         for row in self.get_issue_items():
             product = row.product
-            weight = self.get_row_weight(row)
+            weight = self.get_row_weight(
+                row
+            )
 
-            consume_issueable_stock(
+            consume_selected_stock_source(
                 doc=self,
+                stock_source=row.stock_source,
+                source_department=
+                    row.source_department,
                 product=product,
                 required_qty=weight,
-                batch_no=self.active_batch_no,
-                posting_date=self.issue_date,
-                preferred_department=self.from_department,
-                remarks="Spindal material issued from issueable stock"
+                batch_no=
+                    self.active_batch_no,
+                posting_date=
+                    self.issue_date,
+                transaction_type=
+                    "Production Input",
+                remarks=(
+                    "Spindal material consumed "
+                    "from "
+                    f"{row.source_reference or row.stock_source}"
+                ),
             )
 
-            add_wip_transfer_in(
+            add_source_linked_transfer_in(
                 doc=self,
-                department=self.to_department,
+                stock_source=row.stock_source,
+                department=
+                    self.to_department,
                 product=product,
                 qty=weight,
-                batch_no=self.active_batch_no,
-                posting_date=self.issue_date,
-                remarks="Spindal material inward as WIP"
+                batch_no=
+                    self.active_batch_no,
+                posting_date=
+                    self.issue_date,
+                remarks=(
+                    "Spindal source-linked "
+                    "inward in "
+                    f"{self.to_department}"
+                ),
             )
+
+    def on_cancel(self):
+        from jari_core.jari_core.stock_utils import (
+            reverse_reference_inventory_ledger,
+        )
+
+        reverse_reference_inventory_ledger(
+            self
+        )
 
 
 def get_spindal_draft_reserved_weight(
