@@ -1,0 +1,78 @@
+{
+ "actions": [],
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "date",
+  "product",
+  "uom",
+  "machine_name",
+  "baad_weight",
+  "gross_weight",
+  "net_weight"
+ ],
+ "fields": [
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "label": "Date",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "product",
+   "fieldtype": "Link",
+   "label": "Product Name",
+   "options": "Product Master",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "default": "KG",
+   "fieldname": "uom",
+   "fieldtype": "Data",
+   "label": "UOM",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "machine_name",
+   "fieldtype": "Link",
+   "label": "Machine Name",
+   "options": "Khata Machine Master",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "baad_weight",
+   "fieldtype": "Float",
+   "label": "Baad Weight",
+   "precision": "6",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "gross_weight",
+   "fieldtype": "Float",
+   "label": "G.W",
+   "precision": "6",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "net_weight",
+   "fieldtype": "Float",
+   "label": "N.W",
+   "precision": "6",
+   "read_only": 1,
+   "in_list_view": 1
+  }
+ ],
+ "istable": 1,
+ "module": "JARI Core",
+ "name": "YT Receive Item",
+ "permissions": []
+}

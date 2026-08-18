@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"type\":\"header\",\"data\":{\"text\":\"Issue Entries\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Melting Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Pavtha Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Taniya Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Spindal Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Gilit Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Spindal Peti Entry\"}}]",
+ "content": "[{\"type\":\"header\",\"data\":{\"text\":\"Issue Entries\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Melting Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Pavtha Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Taniya Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Spindal Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Gilit Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New YT Issue\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Spindal Peti Entry\"}}]",
  "creation": "2026-06-26 10:00:00",
  "custom_blocks": [],
  "docstatus": 0,
@@ -61,6 +61,14 @@
    "doc_view": "New",
    "label": "New Gilit Issue",
    "link_to": "Gilit Issue",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "New",
+   "label": "New YT Issue",
+   "link_to": "YT Issue",
    "stats_filter": "[]",
    "type": "DocType"
   },

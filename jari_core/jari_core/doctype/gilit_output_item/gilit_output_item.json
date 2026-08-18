@@ -67,21 +67,26 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Final Jari Product",
-   "options": "Product Master"
+   "options": "Product Master",
+   "hidden": 1,
+   "read_only": 1
   },
   {
    "fieldname": "uom",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "UOM",
-   "options": "UOM_Jari"
+   "options": "UOM_Jari",
+   "hidden": 1,
+   "read_only": 1
   },
   {
    "fieldname": "weight",
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Weight",
-   "read_only": 1
+   "read_only": 1,
+   "hidden": 1
   },
   {
    "fieldname": "remaining_bobbin",

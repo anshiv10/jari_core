@@ -1,0 +1,142 @@
+{
+ "actions": [],
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "issue_date",
+  "product",
+  "uom",
+  "machine_name",
+  "supplier",
+  "piece",
+  "source_department",
+  "stock_source",
+  "source_reference",
+  "source_date",
+  "source_original_weight",
+  "source_available_weight",
+  "current_stock",
+  "weight",
+  "source_remaining_weight"
+ ],
+ "fields": [
+  {
+   "fieldname": "issue_date",
+   "fieldtype": "Date",
+   "label": "Issue Date",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "product",
+   "fieldtype": "Link",
+   "label": "Product Name",
+   "options": "Product Master",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "default": "KG",
+   "fieldname": "uom",
+   "fieldtype": "Data",
+   "label": "UOM",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "machine_name",
+   "fieldtype": "Link",
+   "label": "Machine Name",
+   "options": "Khata Machine Master",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "supplier",
+   "fieldtype": "Link",
+   "label": "Supplier",
+   "options": "Supplier",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "piece",
+   "fieldtype": "Int",
+   "label": "Piece",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "source_department",
+   "fieldtype": "Link",
+   "label": "Source Department",
+   "options": "Department Master",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "stock_source",
+   "fieldtype": "Link",
+   "label": "Stock Source / Receive Entry",
+   "options": "Inventory Stock Source",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "source_reference",
+   "fieldtype": "Data",
+   "label": "Source Reference",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_date",
+   "fieldtype": "Date",
+   "label": "Source Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_original_weight",
+   "fieldtype": "Float",
+   "label": "Original Received Weight",
+   "precision": "6",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_available_weight",
+   "fieldtype": "Float",
+   "label": "Available Before Issue",
+   "precision": "6",
+   "read_only": 1
+  },
+  {
+   "fieldname": "current_stock",
+   "fieldtype": "Float",
+   "label": "Current Stock",
+   "precision": "6",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "label": "Weight",
+   "precision": "6",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "source_remaining_weight",
+   "fieldtype": "Float",
+   "label": "Remaining After Issue",
+   "precision": "6",
+   "read_only": 1,
+   "in_list_view": 1
+  }
+ ],
+ "istable": 1,
+ "module": "JARI Core",
+ "name": "YT Issue Item",
+ "permissions": []
+}

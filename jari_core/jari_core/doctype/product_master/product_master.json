@@ -13,6 +13,10 @@
   "quality_code",
   "unit",
   "product_tag",
+  "sale_types_section",
+  "allow_weight_sale",
+  "allow_marks_sale",
+  "allow_firki_sale",
   "product_type",
   "metal_type",
   "allowed_departments"
@@ -78,6 +82,32 @@
    "options": "\nTAR\nTAR (Y)\nSILVER\nPASA\nAUR\nKACHI GOTI\nBADLA GOTI\nGOTI\nGULLA\nDATA\nKASAB\nKAPAN\nDUCHO\nJARI\nPOLYSTER\nYTC\nSILK",
    "in_list_view": 1,
    "in_standard_filter": 1
+  },
+  {
+   "fieldname": "sale_types_section",
+   "fieldtype": "Section Break",
+   "label": "Allowed Sale Types"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_weight_sale",
+   "fieldtype": "Check",
+   "label": "Weight",
+   "in_list_view": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_marks_sale",
+   "fieldtype": "Check",
+   "label": "Marks",
+   "in_list_view": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_firki_sale",
+   "fieldtype": "Check",
+   "label": "Firki",
+   "in_list_view": 1
   },
   {
    "fieldname": "allowed_departments",

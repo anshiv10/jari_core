@@ -1,4 +1,18 @@
 frappe.ui.form.on('Gilit Receive', {
+    setup(frm) {
+        frm.set_query(
+            'product',
+            'saleable_products',
+            function () {
+                return {
+                    filters: {
+                        product_tag: 'JARI'
+                    }
+                };
+            }
+        );
+    },
+
     refresh(frm) {
         if (!frm.doc.receive_date) {
             frm.set_value(
@@ -14,13 +28,16 @@ frappe.ui.form.on('Gilit Receive', {
             };
         });
 
+        ensure_gilit_saleable_row(frm);
         calculate_gilit_receive_totals(frm);
     },
 
     gilit_issue(frm) {
         if (!frm.doc.gilit_issue) {
             frm.clear_table('output_items');
+            frm.clear_table('saleable_products');
             frm.refresh_field('output_items');
+            frm.refresh_field('saleable_products');
             calculate_gilit_receive_totals(frm);
             return;
         }
@@ -162,6 +179,7 @@ frappe.ui.form.on('Gilit Receive', {
                         'output_items'
                     );
 
+                    ensure_gilit_saleable_row(frm);
                     calculate_gilit_receive_totals(
                         frm
                     );
@@ -207,6 +225,58 @@ frappe.ui.form.on('Gilit Output Item', {
 
     output_items_remove(frm) {
         calculate_gilit_receive_totals(frm);
+    }
+});
+
+
+frappe.ui.form.on('Gilit Saleable Product Item', {
+    product(frm, cdt, cdn) {
+        const row = locals[cdt][cdn];
+
+        frappe.model.set_value(
+            cdt,
+            cdn,
+            'uom',
+            'KG'
+        );
+
+        sync_gilit_saleable_row(frm);
+
+        if (
+            row
+            && row.product
+        ) {
+            frappe.db.get_value(
+                'Product Master',
+                row.product,
+                'product_tag'
+            ).then(response => {
+                const tag =
+                    response.message
+                    && response.message.product_tag;
+
+                if (tag !== 'JARI') {
+                    frappe.model.set_value(
+                        cdt,
+                        cdn,
+                        'product',
+                        ''
+                    );
+
+                    frappe.msgprint(
+                        __('Output Product must have Product Tag JARI.')
+                    );
+                }
+            });
+        }
+    },
+
+    saleable_products_add(frm) {
+        sync_gilit_saleable_row(frm);
+    },
+
+    saleable_products_remove(frm) {
+        ensure_gilit_saleable_row(frm);
     }
 });
 
@@ -442,4 +512,130 @@ function calculate_gilit_receive_totals(frm) {
         'loss_percent',
         lossPercent
     );
+
+    sync_gilit_saleable_row(frm);
+}
+
+
+function sync_gilit_saleable_row(frm) {
+    const rows =
+        frm.doc.saleable_products || [];
+
+    if (!rows.length) {
+        return;
+    }
+
+    const row = rows[0];
+    const filledFirki =
+        cint(frm.doc.filled_firki);
+    const oneFirkiWeight =
+        flt(frm.doc.weight_of_one_firki);
+    const totalWeight =
+        flt(frm.doc.total_jari_production);
+
+    frappe.model.set_value(
+        row.doctype,
+        row.name,
+        'uom',
+        'KG'
+    );
+    frappe.model.set_value(
+        row.doctype,
+        row.name,
+        'filled_firki',
+        filledFirki
+    );
+    frappe.model.set_value(
+        row.doctype,
+        row.name,
+        'weight_of_one_firki',
+        oneFirkiWeight
+    );
+    frappe.model.set_value(
+        row.doctype,
+        row.name,
+        'marks',
+        Math.floor(
+            filledFirki / 4
+        )
+    );
+    frappe.model.set_value(
+        row.doctype,
+        row.name,
+        'vadharo_firki',
+        filledFirki % 4
+    );
+    frappe.model.set_value(
+        row.doctype,
+        row.name,
+        'total_weight',
+        totalWeight
+    );
+
+    frm.refresh_field(
+        'saleable_products'
+    );
+}
+
+
+async function ensure_gilit_saleable_row(frm) {
+    if (!frm.doc.gilit_issue) {
+        return;
+    }
+
+    if (
+        !(frm.doc.saleable_products || []).length
+    ) {
+        const row = frm.add_child(
+            'saleable_products'
+        );
+        row.uom = 'KG';
+        frm.refresh_field(
+            'saleable_products'
+        );
+    }
+
+    const rows =
+        frm.doc.saleable_products || [];
+
+    if (
+        rows.length !== 1
+        || rows[0].product
+    ) {
+        sync_gilit_saleable_row(frm);
+        return;
+    }
+
+    try {
+        const products =
+            await frappe.db.get_list(
+                'Product Master',
+                {
+                    filters: {
+                        product_tag: 'JARI'
+                    },
+                    fields: ['name'],
+                    limit: 2
+                }
+            );
+
+        if (
+            products
+            && products.length === 1
+        ) {
+            await frappe.model.set_value(
+                rows[0].doctype,
+                rows[0].name,
+                'product',
+                products[0].name
+            );
+        }
+    } catch (error) {
+        console.error(
+            'Unable to determine default JARI product:',
+            error
+        );
+    }
+
+    sync_gilit_saleable_row(frm);
 }

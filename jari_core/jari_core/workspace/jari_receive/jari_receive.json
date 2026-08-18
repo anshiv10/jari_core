@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"type\":\"header\",\"data\":{\"text\":\"Receive Entries\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Melting Receive\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Pavtha Receive\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Taniya Receive\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Spindal Receive\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Gilit Receive\"}}]",
+ "content": "[{\"type\":\"header\",\"data\":{\"text\":\"Receive Entries\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Melting Receive\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Pavtha Receive\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Taniya Receive\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Spindal Receive\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Gilit Receive\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New YT Receive\"}}]",
  "creation": "2026-06-26 10:00:00.000000",
  "doctype": "Workspace",
  "for_user": "",
@@ -58,6 +58,14 @@
    "doc_view": "New",
    "label": "New Gilit Receive",
    "link_to": "Gilit Receive",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Green",
+   "doc_view": "New",
+   "label": "New YT Receive",
+   "link_to": "YT Receive",
    "stats_filter": "[]",
    "type": "DocType"
   }

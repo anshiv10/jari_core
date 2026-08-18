@@ -125,6 +125,7 @@ JARI_ISSUE_TYPES = (
     "Spindal Issue",
     "Gilit Issue",
     "Asarva Issue",
+    "YT Issue",
 )
 
 

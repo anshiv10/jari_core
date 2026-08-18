@@ -27,7 +27,18 @@ class GilitReceive(Document):
         self.pull_issue_details()
         self.validate_items()
         self.calculate_totals()
+        self.sync_saleable_product()
+        self.validate_saleable_product(
+            require_complete=False
+        )
         self.set_approx_silver()
+
+    def before_submit(self):
+        self.calculate_totals()
+        self.sync_saleable_product()
+        self.validate_saleable_product(
+            require_complete=True
+        )
 
     def on_submit(self):
         self.set_approx_silver()
@@ -188,6 +199,195 @@ class GilitReceive(Document):
 
             row.weight = flt(
                 row.used_net_weight
+            )
+
+    def get_default_jari_product(self):
+        """
+        Return a deterministic JARI product only when there is
+        no ambiguity.
+
+        Priority:
+        1. One unique legacy Final Jari Product already present
+           in the Peti rows and tagged JARI.
+        2. Exactly one Product Master tagged JARI.
+
+        If multiple JARI products exist, the operator must choose.
+        """
+        legacy_products = {
+            row.product
+            for row in self.output_items or []
+            if row.product
+            and frappe.db.get_value(
+                "Product Master",
+                row.product,
+                "product_tag",
+            ) == "JARI"
+        }
+
+        if len(legacy_products) == 1:
+            return next(iter(legacy_products))
+
+        products = frappe.get_all(
+            "Product Master",
+            filters={
+                "product_tag": "JARI",
+            },
+            pluck="name",
+            limit=2,
+        )
+
+        if len(products) == 1:
+            return products[0]
+
+        return None
+
+    def sync_saleable_product(self):
+        """
+        Keep the sale-ready packing row in sync with the
+        authoritative Gilit calculation.
+
+        Gilit physical stock is tracked in KG.  Marks and Firki are
+        commercial packing quantities derived from Filled Firki.
+        """
+        if not self.gilit_issue:
+            return
+
+        if not self.saleable_products:
+            self.append(
+                "saleable_products",
+                {},
+            )
+
+        default_product = (
+            self.get_default_jari_product()
+        )
+
+        for row in (
+            self.saleable_products
+            or []
+        ):
+            if not row.product and default_product:
+                row.product = default_product
+
+            row.uom = "KG"
+            row.filled_firki = cint(
+                self.filled_firki
+            )
+            row.weight_of_one_firki = flt(
+                self.weight_of_one_firki,
+                6,
+            )
+            row.marks = cint(
+                row.filled_firki // 4
+            )
+            row.vadharo_firki = cint(
+                row.filled_firki % 4
+            )
+            row.total_weight = flt(
+                self.total_jari_production,
+                6,
+            )
+
+    def validate_saleable_product(
+        self,
+        *,
+        require_complete,
+    ):
+        rows = (
+            self.saleable_products
+            or []
+        )
+
+        if len(rows) > 1:
+            frappe.throw(
+                "Gilit Receive supports exactly one "
+                "saleable Jari output row because Filled Firki "
+                "and Weight of One Firki are parent-level "
+                "calculations."
+            )
+
+        if not rows:
+            if require_complete:
+                frappe.throw(
+                    "Output Product Detail (Jari Sale) "
+                    "is required before Submit."
+                )
+            return
+
+        row = rows[0]
+
+        if row.product:
+            product_tag = frappe.db.get_value(
+                "Product Master",
+                row.product,
+                "product_tag",
+            )
+
+            if product_tag != "JARI":
+                frappe.throw(
+                    f"Saleable Output Product {row.product} "
+                    "must have Product Tag JARI."
+                )
+
+        if not require_complete:
+            return
+
+        if not row.product:
+            frappe.throw(
+                "Please select the JARI Output Product "
+                "in Output Product Detail (Jari Sale)."
+            )
+
+        if cint(self.filled_firki) <= 0:
+            frappe.throw(
+                "Filled Firki must be greater than zero "
+                "before Gilit Receive can be submitted."
+            )
+
+        if flt(self.total_jari_production) <= 0:
+            frappe.throw(
+                "Total Jari Production must be greater "
+                "than zero before Gilit Receive can be submitted."
+            )
+
+        if flt(self.weight_of_one_firki) <= 0:
+            frappe.throw(
+                "Weight of One Firki must be greater "
+                "than zero before Gilit Receive can be submitted."
+            )
+
+        expected_marks = cint(
+            cint(self.filled_firki) // 4
+        )
+        expected_vadharo = cint(
+            cint(self.filled_firki) % 4
+        )
+
+        if cint(row.marks) != expected_marks:
+            frappe.throw(
+                "Marks calculation mismatch in "
+                "Output Product Detail (Jari Sale)."
+            )
+
+        if (
+            cint(row.vadharo_firki)
+            != expected_vadharo
+        ):
+            frappe.throw(
+                "Vadharo Firki calculation mismatch in "
+                "Output Product Detail (Jari Sale)."
+            )
+
+        if abs(
+            flt(row.total_weight, 6)
+            - flt(
+                self.total_jari_production,
+                6,
+            )
+        ) > 0.000001:
+            frappe.throw(
+                "Saleable Total Weight must equal "
+                "Total Jari Production."
             )
 
     def get_quality_purity(self):
@@ -679,11 +879,22 @@ class GilitReceive(Document):
         if existing_output:
             return
 
-        for row in self.output_items:
-            if not row.product or not flt(row.used_net_weight or row.weight):
+        # Final Jari physical stock is created from the dedicated
+        # sale-ready packing row, not from Peti consumption rows.
+        for row in (
+            self.saleable_products
+            or []
+        ):
+            if (
+                not row.product
+                or not flt(row.total_weight)
+            ):
                 continue
 
-            weight_kg = flt(row.used_net_weight or row.weight)
+            weight_kg = flt(
+                row.total_weight,
+                6,
+            )
 
             stock_source = get_or_create_stock_source(
                 source_type="Production Receive",
@@ -694,10 +905,23 @@ class GilitReceive(Document):
                 source_row=row.name,
                 source_date=self.receive_date or today(),
                 batch_number=self.active_batch_no,
-                remarks="Final Jari Product received from Gilit",
+                remarks="Saleable Final Jari received from Gilit",
             )
 
-            balance = self.get_last_balance(self.company, "Gilit", row.product)
+            frappe.db.set_value(
+                "Gilit Saleable Product Item",
+                row.name,
+                "stock_source",
+                stock_source,
+                update_modified=False,
+            )
+            row.stock_source = stock_source
+
+            balance = self.get_last_balance(
+                self.company,
+                "Gilit",
+                row.product,
+            )
 
             frappe.get_doc({
                 "doctype": "Inventory Ledger",
@@ -708,14 +932,23 @@ class GilitReceive(Document):
                 "stock_source": stock_source,
                 "in_weight": weight_kg,
                 "out_weight": 0,
-                "current_balance": flt(balance) + weight_kg,
-                "approx_silver_weight": flt(self.calculate_approx_silver(row.used_net_weight or row.weight)),
+                "current_balance": (
+                    flt(balance)
+                    + weight_kg
+                ),
+                "approx_silver_weight": flt(
+                    self.calculate_approx_silver(
+                        weight_kg
+                    )
+                ),
                 "transaction_type": "Production Output",
                 "reference_doctype": self.doctype,
                 "reference_name": self.name,
                 "date": self.receive_date or today(),
-                "remarks": "Final Jari Product received from Gilit"
-            }).insert(ignore_permissions=True)
+                "remarks": "Saleable Final Jari received from Gilit",
+            }).insert(
+                ignore_permissions=True
+            )
 
         for row in self.waste_items:
             if not row.waste_product or not flt(row.weight):

@@ -1,0 +1,89 @@
+{
+ "actions": [],
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "product",
+  "uom",
+  "stock_label",
+  "filled_firki",
+  "weight_of_one_firki",
+  "marks",
+  "vadharo_firki",
+  "total_weight",
+  "stock_source"
+ ],
+ "fields": [
+  {
+   "fieldname": "product",
+   "fieldtype": "Link",
+   "label": "Output Product Name",
+   "options": "Product Master",
+   "in_list_view": 1
+  },
+  {
+   "default": "KG",
+   "fieldname": "uom",
+   "fieldtype": "Data",
+   "label": "UOM",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "stock_label",
+   "fieldtype": "Data",
+   "label": "Stock Label",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "filled_firki",
+   "fieldtype": "Int",
+   "label": "Filled Firki",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "weight_of_one_firki",
+   "fieldtype": "Float",
+   "label": "Weight of One Firki (KG)",
+   "precision": "6",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "marks",
+   "fieldtype": "Int",
+   "label": "Marks",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "vadharo_firki",
+   "fieldtype": "Int",
+   "label": "Vadharo Firki",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "total_weight",
+   "fieldtype": "Float",
+   "label": "Total Weight (KG)",
+   "precision": "6",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "stock_source",
+   "fieldtype": "Link",
+   "label": "Stock Source",
+   "options": "Inventory Stock Source",
+   "read_only": 1,
+   "in_list_view": 1
+  }
+ ],
+ "istable": 1,
+ "module": "JARI Core",
+ "name": "Gilit Saleable Product Item",
+ "permissions": []
+}

@@ -1,0 +1,42 @@
+{
+ "charts": [],
+ "content": "[{\"type\":\"header\",\"data\":{\"text\":\"Jari Sale\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Jari Sale\"}},{\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Product Master\"}}]",
+ "creation": "2026-08-19 00:00:00.000000",
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "sell",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "JARI Sale",
+ "links": [],
+ "modified": "2026-08-19 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "JARI Core",
+ "name": "JARI Sale",
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 3,
+ "shortcuts": [
+  {
+   "color": "Orange",
+   "doc_view": "New",
+   "label": "New Jari Sale",
+   "link_to": "Jari Sale",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Product Master",
+   "link_to": "Product Master",
+   "stats_filter": "[]",
+   "type": "DocType"
+  }
+ ],
+ "title": "JARI Sale"
+}

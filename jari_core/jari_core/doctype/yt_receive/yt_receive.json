@@ -1,0 +1,151 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "YTR-.YYYY.-.MM.-.####",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "issue_section",
+  "yt_issue",
+  "receive_date",
+  "company",
+  "batch_no",
+  "process_master",
+  "quality_code",
+  "items_section",
+  "receive_items",
+  "summary_section",
+  "total_gross_weight",
+  "total_baad_weight",
+  "total_received_weight",
+  "remarks",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "issue_section",
+   "fieldtype": "Section Break",
+   "label": "Issued Entry Details"
+  },
+  {
+   "fieldname": "yt_issue",
+   "fieldtype": "Link",
+   "label": "YT Issue",
+   "options": "YT Issue",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "receive_date",
+   "fieldtype": "Date",
+   "label": "Receive Date",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company Master",
+   "read_only": 1
+  },
+  {
+   "fieldname": "batch_no",
+   "fieldtype": "Data",
+   "label": "Batch No",
+   "read_only": 1
+  },
+  {
+   "fieldname": "process_master",
+   "fieldtype": "Link",
+   "label": "Process",
+   "options": "Process Master",
+   "read_only": 1
+  },
+  {
+   "fieldname": "quality_code",
+   "fieldtype": "Link",
+   "label": "Quality",
+   "options": "Quality Master",
+   "read_only": 1
+  },
+  {
+   "fieldname": "items_section",
+   "fieldtype": "Section Break",
+   "label": "Received Product Detail"
+  },
+  {
+   "fieldname": "receive_items",
+   "fieldtype": "Table",
+   "label": "Received Product Detail",
+   "options": "YT Receive Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "summary_section",
+   "fieldtype": "Section Break",
+   "label": "Weight Summary"
+  },
+  {
+   "fieldname": "total_gross_weight",
+   "fieldtype": "Float",
+   "label": "Total G.W",
+   "precision": "6",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_baad_weight",
+   "fieldtype": "Float",
+   "label": "Total Baad Weight",
+   "precision": "6",
+   "read_only": 1
+  },
+  {
+   "bold": 1,
+   "fieldname": "total_received_weight",
+   "fieldtype": "Float",
+   "label": "Total N.W",
+   "precision": "6",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "options": "YT Receive",
+   "read_only": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  }
+ ],
+ "is_submittable": 1,
+ "module": "JARI Core",
+ "name": "YT Receive",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  }
+ ],
+ "quick_entry": 0,
+ "sort_field": "receive_date",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

@@ -489,6 +489,16 @@ DRAFT_STOCK_SOURCE_RESERVATION_TABLES = (
         "child_doctype": "Gilit Metal Water Input",
         "qty_field": "issued_weight_kg",
     },
+    {
+        "parent_doctype": "YT Issue",
+        "child_doctype": "YT Issue Item",
+        "qty_field": "weight",
+    },
+    {
+        "parent_doctype": "Jari Sale",
+        "child_doctype": "Jari Sale Item",
+        "qty_field": "stock_weight",
+    },
 )
 
 

@@ -31,6 +31,7 @@
   "filled_firki",
   "total_jari_production",
   "weight_of_one_firki",
+  "saleable_products",
   "vadh_ghat",
   "loss_weight",
   "loss_percent",
@@ -91,7 +92,7 @@
   {
    "fieldname": "output_items",
    "fieldtype": "Table",
-   "label": "Final Jari Product Detail",
+   "label": "Gilit Peti Consumption Detail",
    "options": "Gilit Output Item"
   },
   {
@@ -160,6 +161,12 @@
    "fieldtype": "Float",
    "label": "Weight of One Firki",
    "read_only": 1
+  },
+  {
+   "fieldname": "saleable_products",
+   "fieldtype": "Table",
+   "label": "Output Product Detail (Jari Sale)",
+   "options": "Gilit Saleable Product Item"
   },
   {
    "fieldname": "vadh_ghat",

@@ -1,0 +1,206 @@
+{
+ "actions": [],
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "product",
+  "uom",
+  "sale_type",
+  "gilit_receive",
+  "stock_source",
+  "source_department",
+  "source_reference",
+  "source_date",
+  "source_original_weight",
+  "stock_label",
+  "filled_firki",
+  "weight_of_one_firki",
+  "available_marks",
+  "available_firki",
+  "weight_quantity",
+  "marks_quantity",
+  "firki_quantity",
+  "stock_weight",
+  "source_available_weight",
+  "source_remaining_weight",
+  "remaining_marks",
+  "remaining_firki",
+  "sale_price",
+  "untaxed_amount"
+ ],
+ "fields": [
+  {
+   "fieldname": "product",
+   "fieldtype": "Link",
+   "label": "Product",
+   "options": "Product Master",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Data",
+   "label": "UOM",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "sale_type",
+   "fieldtype": "Select",
+   "label": "Sale Type",
+   "options": "Weight\nMarks\nFirki",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "gilit_receive",
+   "fieldtype": "Link",
+   "label": "Gilit Receive Reference",
+   "options": "Gilit Receive",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "stock_source",
+   "fieldtype": "Link",
+   "label": "Stock Source / Receive Entry",
+   "options": "Inventory Stock Source",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "source_department",
+   "fieldtype": "Link",
+   "label": "Source Department",
+   "options": "Department Master",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_reference",
+   "fieldtype": "Data",
+   "label": "Source Reference",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_date",
+   "fieldtype": "Date",
+   "label": "Source Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_original_weight",
+   "fieldtype": "Float",
+   "label": "Original Received Weight",
+   "precision": "6",
+   "read_only": 1
+  },
+  {
+   "fieldname": "stock_label",
+   "fieldtype": "Data",
+   "label": "Stock Label",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "filled_firki",
+   "fieldtype": "Int",
+   "label": "Filled Firki",
+   "read_only": 1
+  },
+  {
+   "fieldname": "weight_of_one_firki",
+   "fieldtype": "Float",
+   "label": "Weight of One Firki (KG)",
+   "precision": "6",
+   "read_only": 1
+  },
+  {
+   "fieldname": "available_marks",
+   "fieldtype": "Int",
+   "label": "Available Marks",
+   "read_only": 1
+  },
+  {
+   "fieldname": "available_firki",
+   "fieldtype": "Int",
+   "label": "Available Firki",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "weight_quantity",
+   "fieldtype": "Float",
+   "label": "Weight Quantity",
+   "precision": "6",
+   "in_list_view": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "marks_quantity",
+   "fieldtype": "Int",
+   "label": "Marks",
+   "in_list_view": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "firki_quantity",
+   "fieldtype": "Int",
+   "label": "Firki Count",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "stock_weight",
+   "fieldtype": "Float",
+   "label": "Jari Weight / Stock Weight (KG)",
+   "precision": "6",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "source_available_weight",
+   "fieldtype": "Float",
+   "label": "Available Weight Before Sale (KG)",
+   "precision": "6",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_remaining_weight",
+   "fieldtype": "Float",
+   "label": "Remaining Weight After Sale (KG)",
+   "precision": "6",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "remaining_marks",
+   "fieldtype": "Int",
+   "label": "Remaining Whole Marks",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remaining_firki",
+   "fieldtype": "Int",
+   "label": "Remaining Firki",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "sale_price",
+   "fieldtype": "Currency",
+   "label": "Sale Price",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "untaxed_amount",
+   "fieldtype": "Currency",
+   "label": "Untaxed Amount",
+   "read_only": 1,
+   "in_list_view": 1
+  }
+ ],
+ "istable": 1,
+ "module": "JARI Core",
+ "name": "Jari Sale Item",
+ "permissions": []
+}

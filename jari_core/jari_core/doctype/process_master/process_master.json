@@ -38,7 +38,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Jari Issue Type",
-   "options": "\nMelting Issue\nPavtha Issue\nTaniya Issue\nSpindal Issue\nGilit Issue\nAsarva Issue"
+   "options": "\nMelting Issue\nPavtha Issue\nTaniya Issue\nSpindal Issue\nGilit Issue\nAsarva Issue\nYT Issue"
   },
   {
    "fieldname": "department",
