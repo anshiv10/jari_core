@@ -127,7 +127,8 @@ frappe.ui.form.on('Gilit Receive', {
                                     currentBobbin;
 
                                 row.remaining_bobbin = 0;
-                                row.gilit_baad_weight = 0;
+                                row.gilit_baad_weight =
+                                    flt(peti.baad_weight);
                                 row.issued_bobbin = 0;
 
                                 row.original_bobbin_count =
@@ -158,8 +159,10 @@ frappe.ui.form.on('Gilit Receive', {
                                     peti.status;
 
                                 row.used_net_weight =
-                                    flt(
-                                        peti.gross_weight
+                                    Math.max(
+                                        0,
+                                        flt(peti.gross_weight)
+                                        - flt(peti.baad_weight)
                                     );
 
                                 row.weight =

@@ -161,9 +161,13 @@ class GilitReceive(Document):
             row.peti_no = peti.peti_no or peti.name
             row.total_bobbin = current_bobbin
 
-            # User enters these values in Gilit Receive.
+            # Default to full consumption of the currently
+            # available Peti. For full consumption, Gilit Baad
+            # starts from the Peti's existing Baad Weight.
             row.remaining_bobbin = 0
-            row.gilit_baad_weight = 0
+            row.gilit_baad_weight = flt(
+                peti.baad_weight
+            )
 
             # Legacy field retained but no longer used.
             row.issued_bobbin = 0
@@ -193,8 +197,11 @@ class GilitReceive(Document):
             row.original_status = peti.status
 
             # Default values represent full consumption.
-            row.used_net_weight = flt(
-                row.original_gross_weight
+            # Consumed Net = Gross - Gilit Baad.
+            row.used_net_weight = max(
+                0,
+                flt(row.original_gross_weight)
+                - flt(row.gilit_baad_weight),
             )
 
             row.weight = flt(
