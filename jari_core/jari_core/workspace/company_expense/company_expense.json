@@ -8,12 +8,12 @@
  "icon": "money-coins-1",
  "idx": 0,
  "is_hidden": 0,
- "label": "Company Expense",
+ "label": "Company Expenses",
  "links": [],
  "modified": "2026-08-21 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "JARI Core",
- "name": "Company Expense",
+ "name": "Company Expenses",
  "owner": "Administrator",
  "parent_page": "",
  "public": 1,
@@ -46,5 +46,5 @@
    "type": "DocType"
   }
  ],
- "title": "Company Expense"
+ "title": "Company Expenses"
 }
