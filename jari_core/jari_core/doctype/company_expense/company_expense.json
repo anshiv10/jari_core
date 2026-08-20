@@ -1,0 +1,139 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "CEXP-.YYYY.-.MM.-.####",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "expense_details_section",
+  "expense_date",
+  "company",
+  "expense_account",
+  "paid_from_account",
+  "amount",
+  "reference_no",
+  "description",
+  "accounting_section",
+  "journal_entry",
+  "posting_status",
+  "remarks",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "expense_details_section",
+   "fieldtype": "Section Break",
+   "label": "Expense Details"
+  },
+  {
+   "fieldname": "expense_date",
+   "fieldtype": "Date",
+   "label": "Expense Date",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company Master",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "expense_account",
+   "fieldtype": "Link",
+   "label": "Expense Account",
+   "options": "Account",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "paid_from_account",
+   "fieldtype": "Link",
+   "label": "Paid From Account",
+   "options": "Account",
+   "reqd": 1
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "label": "Amount",
+   "reqd": 1,
+   "bold": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "reference_no",
+   "fieldtype": "Data",
+   "label": "Reference / Bill No"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "fieldname": "accounting_section",
+   "fieldtype": "Section Break",
+   "label": "Accounting"
+  },
+  {
+   "fieldname": "journal_entry",
+   "fieldtype": "Link",
+   "label": "Journal Entry",
+   "options": "Journal Entry",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "posting_status",
+   "fieldtype": "Select",
+   "label": "Posting Status",
+   "options": "Draft\nPosted\nCancelled",
+   "default": "Draft",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "options": "Company Expense",
+   "read_only": 1,
+   "no_copy": 1,
+   "print_hide": 1
+  }
+ ],
+ "is_submittable": 1,
+ "module": "JARI Core",
+ "name": "Company Expense",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  }
+ ],
+ "quick_entry": 0,
+ "sort_field": "expense_date",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
