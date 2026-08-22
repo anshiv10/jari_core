@@ -158,14 +158,22 @@ function calculate_total_issue_weight(frm) {
 }
 
 function set_product_query_by_department(frm) {
-    frm.set_query('product', 'issue_items', function() {
-        return {
-            query: 'jari_core.jari_core.stock_utils.product_query_by_department',
-            filters: {
-                department: frm.doc.to_department || ''
-            }
-        };
-    });
+    /*
+     * Melting may issue a Product from the actual Stock Source
+     * where that material is available. Therefore the Product
+     * selector itself must not be restricted to one Department.
+     *
+     * Stock Source / Source Department validation remains
+     * responsible for verifying the exact physical source,
+     * available quantity and Company/Product match.
+     */
+    frm.set_query(
+        'product',
+        'issue_items',
+        function() {
+            return {};
+        }
+    );
 }
 
 
