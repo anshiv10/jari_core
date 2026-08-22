@@ -22,6 +22,61 @@ frappe.ui.form.on('Melting Receive', {
     }
 });
 
+/*
+ * When the operator manually adds another Out Product Detail row,
+ * inherit only the non-transactional identity details from the row
+ * immediately above it.
+ *
+ * Product and UOM are safe defaults.
+ * Weight must remain blank/zero because every output row represents
+ * its own production quantity.
+ * Approx Silver Weight remains controller-calculated.
+ */
+frappe.ui.form.on('Melting Output Item', {
+    async output_items_add(frm, cdt, cdn) {
+        const rows = frm.doc.output_items || [];
+        const rowIndex = rows.findIndex(
+            row => row.name === cdn
+        );
+
+        if (rowIndex <= 0) {
+            return;
+        }
+
+        const currentRow = rows[rowIndex];
+        const previousRow = rows[rowIndex - 1];
+
+        if (!currentRow || !previousRow) {
+            return;
+        }
+
+        if (
+            !currentRow.product
+            && previousRow.product
+        ) {
+            await frappe.model.set_value(
+                cdt,
+                cdn,
+                'product',
+                previousRow.product
+            );
+        }
+
+        if (
+            !currentRow.uom
+            && previousRow.uom
+        ) {
+            await frappe.model.set_value(
+                cdt,
+                cdn,
+                'uom',
+                previousRow.uom
+            );
+        }
+    }
+});
+
+
 function set_issue_query(frm) {
     ["issue_no", "melting_issue"].forEach(fieldname => {
         if (frm.fields_dict[fieldname]) {
