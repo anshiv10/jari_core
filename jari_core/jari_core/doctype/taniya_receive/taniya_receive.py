@@ -537,6 +537,14 @@ def taniya_issue_query(doctype, txt, searchfield, start, page_len, filters):
                     ),
                     '%%d-%%m-%%Y'
                 ),
+                ' | Operator: ',
+                COALESCE(
+                    NULLIF(
+                        ti.operator,
+                        ''
+                    ),
+                    '-'
+                ),
                 ' | Status: ',
                 CASE
                     WHEN ti.docstatus = 0
