@@ -1,5 +1,9 @@
 import frappe
-from frappe.utils import flt, getdate
+from frappe.utils import flt, getdate, today
+
+from jari_core.jari_core.stock_utils import (
+    DRAFT_STOCK_SOURCE_RESERVATION_TABLES,
+)
 
 
 def get_columns():
@@ -113,6 +117,20 @@ def execute(filters=None):
             filters,
             from_date,
             to_date,
+        )
+
+    # Saved Drafts reserve material immediately even though physical
+    # Inventory Ledger movement happens only on Submit.
+    #
+    # Apply reservations only to a current/present stock snapshot.
+    # A historical To Date before today remains ledger-only so today's
+    # Draft reservations never rewrite historical stock.
+    if _should_apply_draft_reservations(
+        to_date
+    ):
+        _apply_draft_reservations(
+            data,
+            filters,
         )
 
     _format_rows(
@@ -541,6 +559,250 @@ def _get_date_filtered_data(
         values,
         as_dict=True,
     )
+
+
+
+def _should_apply_draft_reservations(
+    to_date,
+):
+    """
+    Draft reservations represent CURRENT committed availability.
+
+    No To Date:
+        current stock -> include Saved Draft reservations.
+
+    To Date today/future:
+        current/future-facing stock -> include current reservations.
+
+    Historical To Date before today:
+        ledger history only -> do not let today's Drafts rewrite history.
+    """
+    if not to_date:
+        return True
+
+    return (
+        getdate(to_date)
+        >= getdate(today())
+    )
+
+
+def _get_draft_reservations_by_group(
+    filters,
+):
+    """
+    Aggregate all currently Saved Draft reservations by:
+
+        Company
+        + Source Department
+        + Product
+
+    The authoritative reservation configuration remains in stock_utils.
+    No Inventory Ledger rows are created here.
+    """
+    filters = frappe._dict(
+        filters or {}
+    )
+
+    if not frappe.db.exists(
+        "DocType",
+        "Inventory Stock Source",
+    ):
+        return {}
+
+    totals = {}
+
+    for config in (
+        DRAFT_STOCK_SOURCE_RESERVATION_TABLES
+    ):
+        parent_doctype = (
+            config["parent_doctype"]
+        )
+
+        child_doctype = (
+            config["child_doctype"]
+        )
+
+        qty_field = (
+            config["qty_field"]
+        )
+
+        if not frappe.db.exists(
+            "DocType",
+            parent_doctype,
+        ):
+            continue
+
+        if not frappe.db.exists(
+            "DocType",
+            child_doctype,
+        ):
+            continue
+
+        child_meta = frappe.get_meta(
+            child_doctype
+        )
+
+        if (
+            not child_meta.has_field(
+                "stock_source"
+            )
+            or not child_meta.has_field(
+                "source_department"
+            )
+            or not child_meta.has_field(
+                qty_field
+            )
+        ):
+            continue
+
+        conditions = [
+            "parent_doc.docstatus = 0",
+            "COALESCE(child_row.stock_source, '') != ''",
+            "COALESCE(child_row.source_department, '') != ''",
+        ]
+
+        values = {}
+
+        if filters.get("company"):
+            conditions.append(
+                "stock_source.company = %(reservation_company)s"
+            )
+
+            values["reservation_company"] = (
+                filters.company
+            )
+
+        if filters.get("department"):
+            conditions.append(
+                "child_row.source_department = "
+                "%(reservation_department)s"
+            )
+
+            values["reservation_department"] = (
+                filters.department
+            )
+
+        if filters.get("product"):
+            conditions.append(
+                "stock_source.product = %(reservation_product)s"
+            )
+
+            values["reservation_product"] = (
+                filters.product
+            )
+
+        rows = frappe.db.sql(
+            f"""
+            SELECT
+                stock_source.company,
+                child_row.source_department
+                    AS department,
+                stock_source.product,
+
+                COALESCE(
+                    SUM(
+                        COALESCE(
+                            child_row.`{qty_field}`,
+                            0
+                        )
+                    ),
+                    0
+                ) AS reserved_weight
+
+            FROM `tab{child_doctype}` child_row
+
+            INNER JOIN `tab{parent_doctype}` parent_doc
+                ON parent_doc.name
+                    = child_row.parent
+
+            INNER JOIN `tabInventory Stock Source` stock_source
+                ON stock_source.name
+                    = child_row.stock_source
+
+            WHERE
+                {" AND ".join(conditions)}
+
+            GROUP BY
+                stock_source.company,
+                child_row.source_department,
+                stock_source.product
+            """,
+            values,
+            as_dict=True,
+        )
+
+        for row in rows:
+            key = (
+                row.company,
+                row.department,
+                row.product,
+            )
+
+            totals[key] = flt(
+                totals.get(
+                    key,
+                    0
+                )
+                + flt(
+                    row.reserved_weight,
+                    6,
+                ),
+                6,
+            )
+
+    return totals
+
+
+def _apply_draft_reservations(
+    data,
+    filters,
+):
+    """
+    Convert physical Current Balance into effective available stock:
+
+        Physical ledger balance
+        - Saved Draft reservations
+        = Displayed Current Balance
+
+    Total In, Total Out and Transactions remain actual submitted
+    Inventory Ledger statistics.
+    """
+    if not data:
+        return
+
+    reservations = (
+        _get_draft_reservations_by_group(
+            filters
+        )
+    )
+
+    for row in data:
+        key = (
+            row.company,
+            row.department,
+            row.product,
+        )
+
+        reserved = flt(
+            reservations.get(
+                key,
+                0
+            ),
+            6,
+        )
+
+        physical = flt(
+            row.current_balance,
+            6,
+        )
+
+        row.current_balance = flt(
+            max(
+                0,
+                physical - reserved,
+            ),
+            6,
+        )
 
 
 def _format_rows(data):
