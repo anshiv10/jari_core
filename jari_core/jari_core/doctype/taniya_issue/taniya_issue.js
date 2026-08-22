@@ -3,11 +3,31 @@ console.log("Taniya Issue JS Loaded Successfully");
 frappe.ui.form.on('Taniya Issue', {
     refresh(frm) {
         set_product_query_by_department(frm);
-        if (!frm.doc.issue_date) frm.set_value('issue_date', frappe.datetime.get_today());
 
-        frm.trigger('set_batch_no');
-        calculate_taniya_issue_totals(frm);
-        refresh_all_stock_summaries(frm);
+        /*
+         * refresh() also runs immediately after a successful Save.
+         *
+         * Persisted-field setters executed from refresh() can make a
+         * freshly saved Draft dirty again. When that happens Frappe
+         * correctly replaces the Submit action with Save.
+         *
+         * All persisted defaults below are required only while the
+         * document is new. For an already-saved Draft, server-side
+         * validate() has already normalized Batch, Issue Type, totals
+         * and stock-source information.
+         */
+        if (frm.is_new()) {
+            if (!frm.doc.issue_date) {
+                frm.set_value(
+                    'issue_date',
+                    frappe.datetime.get_today()
+                );
+            }
+
+            frm.trigger('set_batch_no');
+            calculate_taniya_issue_totals(frm);
+            refresh_all_stock_summaries(frm);
+        }
     },
 
     to_department(frm) {
@@ -43,7 +63,7 @@ frappe.ui.form.on('Taniya Issue', {
 
             await frm.set_value(
                 'existing_batch_no',
-                ''
+                null
             );
 
             return;
@@ -98,7 +118,7 @@ frappe.ui.form.on('Taniya Issue', {
             'existing_batch_no',
             isReIssue
                 ? batchBeingChecked
-                : ''
+                : null
         );
     },
 
