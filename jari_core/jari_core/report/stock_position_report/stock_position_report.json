@@ -21,6 +21,16 @@
    "fieldtype": "Link",
    "label": "Product",
    "options": "Product Master"
+  },
+  {
+   "fieldname": "from_date",
+   "fieldtype": "Date",
+   "label": "From Date"
+  },
+  {
+   "fieldname": "to_date",
+   "fieldtype": "Date",
+   "label": "To Date"
   }
  ],
  "is_standard": "Yes",

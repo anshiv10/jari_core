@@ -27,6 +27,18 @@ frappe.query_reports["Stock Position Report"] = {
             fieldtype: "Link",
             options: "Product Master",
             reqd: 0
+        },
+        {
+            fieldname: "from_date",
+            label: __("From Date"),
+            fieldtype: "Date",
+            reqd: 0
+        },
+        {
+            fieldname: "to_date",
+            label: __("To Date"),
+            fieldtype: "Date",
+            reqd: 0
         }
     ],
 
@@ -115,14 +127,27 @@ function _inject_dashboard() {
     var dept_balances   = {};
 
     rows.forEach(function(r) {
-        total_balance += parseFloat(r.current_balance || 0);
-        total_in      += parseFloat(r.total_in        || 0);
-        total_out     += parseFloat(r.total_out       || 0);
-        total_txns    += parseInt(r.txn_count         || 0);
-        products[r.product]       = 1;
-        departments[r.department] = 1;
-        var d = r.department || "Unknown";
-        dept_balances[d] = (dept_balances[d] || 0) + parseFloat(r.current_balance || 0);
+        var balance = parseFloat(r.current_balance || 0);
+
+        total_balance += balance;
+        total_in      += parseFloat(r.total_in  || 0);
+        total_out     += parseFloat(r.total_out || 0);
+        total_txns    += parseInt(r.txn_count   || 0);
+
+        // Date-filter mode may include a zero-closing-balance row
+        // when that Product had transactions inside the selected
+        // period. Stock-oriented cards/bars must continue counting
+        // only Products/Departments that actually have stock.
+        if (balance > 0) {
+            products[r.product]       = 1;
+            departments[r.department] = 1;
+
+            var d = r.department || "Unknown";
+
+            dept_balances[d] =
+                (dept_balances[d] || 0)
+                + balance;
+        }
     });
 
     var unique_products = Object.keys(products).length;
