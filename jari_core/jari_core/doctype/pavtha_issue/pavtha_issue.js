@@ -112,25 +112,159 @@ frappe.ui.form.on('Pavtha Issue', {
          * Outsourcer selection must never overwrite it.
          */
         set_default_type_on_existing_issue_items(frm);
+    },
+
+
+    validate(frm) {
+        /*
+         * Preserve the previous client requirement:
+         *
+         * An accidental Add Row must not block Save.
+         *
+         * A manually-added Pavtha row now inherits Product/UOM from
+         * the immediately upper row. Therefore it is no longer
+         * technically blank in the browser.
+         *
+         * Remove it here ONLY when it is still exactly the untouched
+         * inherited shell:
+         *
+         * - inherited Product unchanged
+         * - inherited UOM unchanged
+         * - inherited Issue/Receive Type unchanged
+         * - zero Weight
+         * - no Stock Source
+         * - no Source Department
+         * - no Operator Name
+         *
+         * Once the operator changes identity data or enters any
+         * transactional data, normal server validation applies.
+         */
+        remove_untouched_inherited_pavtha_rows(frm);
     }
 });
 
 
 frappe.ui.form.on('Pavtha Issue Item', {
 
-    issue_items_add(frm, cdt, cdn) {
-        const row = frappe.get_doc(
-            cdt,
-            cdn
-        );
+    async issue_items_add(frm, cdt, cdn) {
+        const rows =
+            frm.doc.issue_items || [];
 
-        if (!row.issue_receive_type) {
-            frappe.model.set_value(
+        const rowIndex =
+            rows.findIndex(
+                row => row.name === cdn
+            );
+
+        const currentRow =
+            frappe.get_doc(
+                cdt,
+                cdn
+            );
+
+        if (!currentRow) {
+            return;
+        }
+
+
+        /*
+         * Keep the existing Pavtha transaction-type default.
+         */
+        if (!currentRow.issue_receive_type) {
+            await frappe.model.set_value(
                 cdt,
                 cdn,
                 'issue_receive_type',
                 get_pavtha_transaction_type(frm)
             );
+        }
+
+
+        /*
+         * The first row has no upper row to inherit from.
+         */
+        if (rowIndex <= 0) {
+            return;
+        }
+
+        const previousRow =
+            rows[rowIndex - 1];
+
+        if (!previousRow) {
+            return;
+        }
+
+
+        /*
+         * Client requirement:
+         * "Pavtha issue - by default upper row select"
+         *
+         * Inherit only safe identity fields from the row
+         * immediately above.
+         *
+         * NEVER inherit:
+         * - Weight
+         * - Stock Source
+         * - Source Department
+         * - source balance/reference fields
+         *
+         * Those values belong to the individual stock transaction.
+         */
+        if (
+            !currentRow.product
+            && previousRow.product
+        ) {
+            await frappe.model.set_value(
+                cdt,
+                cdn,
+                'product',
+                previousRow.product
+            );
+        }
+
+        if (
+            !currentRow.uom
+            && previousRow.uom
+        ) {
+            await frappe.model.set_value(
+                cdt,
+                cdn,
+                'uom',
+                previousRow.uom
+            );
+        }
+
+
+        /*
+         * Mark only browser-created inherited rows.
+         *
+         * These __ properties are client-side helper state;
+         * they are not DocType fields and do not require migration.
+         *
+         * They allow validate() to distinguish an untouched
+         * inherited shell from a real partially-entered row.
+         */
+        const finalRow =
+            frappe.get_doc(
+                cdt,
+                cdn
+            );
+
+        if (
+            finalRow
+            && previousRow.product
+            && finalRow.product
+                === previousRow.product
+        ) {
+            finalRow.__pavtha_inherited_row = 1;
+
+            finalRow.__pavtha_inherited_product =
+                finalRow.product || '';
+
+            finalRow.__pavtha_inherited_uom =
+                finalRow.uom || '';
+
+            finalRow.__pavtha_inherited_type =
+                finalRow.issue_receive_type || '';
         }
     },
 
@@ -163,6 +297,73 @@ frappe.ui.form.on('Pavtha Issue Item', {
         calculate_total_issue_weight(frm);
     }
 });
+
+
+function remove_untouched_inherited_pavtha_rows(frm) {
+
+    const rows =
+        frm.doc.issue_items || [];
+
+    const rowsToRemove =
+        rows.filter(row => {
+
+            if (!row.__pavtha_inherited_row) {
+                return false;
+            }
+
+            const inheritedIdentityUnchanged = (
+                (row.product || '')
+                    === (
+                        row.__pavtha_inherited_product
+                        || ''
+                    )
+                &&
+                (row.uom || '')
+                    === (
+                        row.__pavtha_inherited_uom
+                        || ''
+                    )
+                &&
+                (row.issue_receive_type || '')
+                    === (
+                        row.__pavtha_inherited_type
+                        || ''
+                    )
+            );
+
+            const noTransactionData = (
+                flt(row.weight) === 0
+                && !row.stock_source
+                && !row.source_department
+                && !row.operator_name
+            );
+
+            return (
+                inheritedIdentityUnchanged
+                && noTransactionData
+            );
+        });
+
+
+    if (!rowsToRemove.length) {
+        return;
+    }
+
+
+    rowsToRemove.forEach(row => {
+        frappe.model.clear_doc(
+            row.doctype,
+            row.name
+        );
+    });
+
+
+    frm.refresh_field(
+        'issue_items'
+    );
+
+    calculate_total_issue_weight(frm);
+}
 
 
 async function fetch_process_items(frm) {
