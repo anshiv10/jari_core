@@ -894,27 +894,14 @@ function jari_pavtha_source_setup_source_query(frm) {
                     preferred_department:
                         frm.doc.from_department || '',
 
-                    /*
-                     * IMPORTANT:
-                     *
-                     * The Stock Source DROPDOWN is a view of the
-                     * effective stock available to the next issue.
-                     *
-                     * Therefore, once this Pavtha Issue is Saved,
-                     * its own Draft reservation must also be visible
-                     * in the dropdown calculation.
-                     *
-                     * Do NOT exclude frm.doc.name here.
-                     *
-                     * Row editing/validation still excludes the
-                     * document from itself in get_stock_source_details()
-                     * and prepare_selected_stock_source(), so an
-                     * existing Draft remains editable safely.
-                     */
+                    // SAVED DRAFT SOURCE RESERVATION CONTEXT
                     current_doctype:
                         frm.doc.doctype || 'Pavtha Issue',
 
-                    current_name: ''
+                    current_name:
+                        frm.is_new()
+                            ? ''
+                            : (frm.doc.name || '')
                 }
             };
         }

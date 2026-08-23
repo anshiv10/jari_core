@@ -20,11 +20,6 @@ VALID_ISSUE_RECEIVE_TYPES = {
 class PavthaIssue(Document):
 
     def validate(self):
-        # Remove accidental completely-empty grid rows BEFORE
-        # defaults are applied. Otherwise issue_receive_type gets
-        # populated as "In-house" and the empty row fails validation.
-        self.remove_empty_issue_rows()
-
         self.set_defaults()
         self.validate_outsourcing()
         self.validate_process_assignments()
@@ -34,114 +29,7 @@ class PavthaIssue(Document):
             "Pavtha Issue",
         )
         self.validate_items()
-
-        # prepare_selected_stock_source() validates each row.
-        # This second validation protects against multiple rows in
-        # this same Pavtha Issue reserving more than one Stock Source
-        # actually has available.
-        self.validate_combined_source_reservations()
-
         self.calculate_totals()
-
-    def remove_empty_issue_rows(self):
-        """
-        Automatically discard only genuinely empty Product Detail rows.
-
-        Fields populated automatically/defaulted by the system are
-        deliberately ignored when deciding whether a row is empty.
-
-        A partially-entered business row is NEVER silently deleted.
-        It remains in the document and normal validation reports the
-        missing/invalid values to the user.
-        """
-        meaningful_rows = []
-
-        for row in self.issue_items or []:
-            has_business_data = any([
-                bool(row.product),
-                bool(row.stock_source),
-                bool(row.operator_name),
-                abs(flt(row.weight)) > 0.000001,
-            ])
-
-            if has_business_data:
-                meaningful_rows.append(row)
-
-        if len(meaningful_rows) != len(self.issue_items or []):
-            self.set(
-                "issue_items",
-                meaningful_rows,
-            )
-
-    def validate_combined_source_reservations(self):
-        """
-        Validate the TOTAL quantity requested from each exact
-        Stock Source + Source Department inside this Pavtha Issue.
-
-        prepare_selected_stock_source() validates rows individually.
-        Because the current Draft is excluded from its own saved
-        reservation while editing, aggregate validation is required
-        to prevent multiple rows in this document from jointly
-        over-reserving one source.
-        """
-        from jari_core.jari_core.stock_utils import (
-            get_effective_stock_source_balance,
-        )
-
-        requested_by_source = {}
-
-        for row in self.issue_items or []:
-            if (
-                not row.stock_source
-                or not row.source_department
-                or not row.product
-            ):
-                continue
-
-            key = (
-                row.stock_source,
-                row.source_department,
-                row.product,
-            )
-
-            requested_by_source[key] = (
-                requested_by_source.get(key, 0)
-                + flt(row.weight)
-            )
-
-        for (
-            stock_source,
-            source_department,
-            product,
-        ), requested_qty in requested_by_source.items():
-
-            available_qty = flt(
-                get_effective_stock_source_balance(
-                    stock_source,
-                    source_department,
-                    exclude_doctype=self.doctype,
-                    exclude_name=self.name,
-                ),
-                6,
-            )
-
-            if (
-                requested_qty
-                > available_qty + 0.000001
-            ):
-                frappe.throw(
-                    _(
-                        "Combined quantity requested from Stock Source "
-                        "{0} for {1} exceeds the available balance. "
-                        "Available: {2} KG, Requested in this Pavtha "
-                        "Issue: {3} KG."
-                    ).format(
-                        frappe.bold(stock_source),
-                        frappe.bold(product),
-                        flt(available_qty, 3),
-                        flt(requested_qty, 3),
-                    )
-                )
 
     def validate_outsourcing(self):
         """
