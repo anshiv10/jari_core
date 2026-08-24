@@ -26,7 +26,7 @@ app_license = "mit"
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/jari_core/css/jari_core.css"
-# app_include_js = "/assets/jari_core/js/jari_core.js"
+app_include_js = "/assets/jari_core/js/reopen_for_editing.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/jari_core/css/jari_core.css"

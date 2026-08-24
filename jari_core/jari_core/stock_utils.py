@@ -2256,12 +2256,33 @@ def reverse_reference_inventory_ledger(doc):
             6,
         )
 
-        # If cancellation would remove stock from a department,
-        # verify that the exact source being reversed still has
-        # enough quantity there. This prevents source-wise stock
-        # from becoming negative when downstream transactions have
-        # already consumed that particular source.
+        # If cancellation removes source-linked inward stock,
+        # protect both:
+        #
+        #   1. submitted downstream physical consumption, and
+        #   2. Saved/Draft downstream Issue reservations.
+        #
+        # A Receive must not be cancelled while a later Saved Issue
+        # is relying on its exact Stock Source.
         if row.stock_source and reverse_out > 0:
+            draft_reserved = flt(
+                get_draft_stock_source_reserved_weight(
+                    row.stock_source,
+                    row.department,
+                ),
+                6,
+            )
+
+            if draft_reserved > 0.000001:
+                frappe.throw(
+                    f"Cannot cancel {doc.doctype} {doc.name}. "
+                    f"Stock Source {row.stock_source} currently has "
+                    f"{draft_reserved:.3f} KG reserved in downstream "
+                    f"Saved Issue entries for {row.department}. "
+                    f"Remove or change those Saved Issue reservations "
+                    f"before reopening this document."
+                )
+
             source_available = get_stock_source_balance(
                 row.stock_source,
                 row.department,
