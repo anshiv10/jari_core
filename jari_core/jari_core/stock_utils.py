@@ -367,10 +367,28 @@ def get_stock_source_original_weight(stock_source):
         },
     )[0][0]
 
-    return flt(
+    original = flt(
         original,
         6,
     )
+
+    if original > 0.000001:
+        return original
+
+    # A Draft Receive has no physical inward ledger yet.
+    # Show its current row quantity as the provisional/original
+    # amount for source-selection UI only.
+    context = get_draft_receive_source_context(
+        stock_source
+    )
+
+    if context:
+        return flt(
+            context["quantity"],
+            6,
+        )
+
+    return 0
 
 
 def get_stock_source_locations(stock_source):
@@ -406,15 +424,37 @@ def get_stock_source_locations(stock_source):
             source.opening_department
         )
 
+    provisional = (
+        get_draft_receive_source_context(
+            stock_source
+        )
+    )
+
+    if provisional:
+        departments.add(
+            provisional["department"]
+        )
+
     result = []
 
     for department in departments:
         if not department:
             continue
 
-        available = get_stock_source_balance(
-            stock_source,
-            department,
+        available = flt(
+            get_stock_source_balance(
+                stock_source,
+                department,
+            ),
+            6,
+        )
+
+        available += flt(
+            get_draft_receive_provisional_balance(
+                stock_source,
+                department,
+            ),
+            6,
         )
 
         if available > 0.000001:
@@ -436,6 +476,506 @@ def get_stock_source_locations(stock_source):
     )
 
     return result
+
+
+# ============================================================
+# BEGIN SAVED DRAFT RECEIVE STOCK AVAILABILITY
+# ============================================================
+
+# Client workflow:
+#
+# A Saved/Draft production Receive may make its output available
+# for selection/reservation in a later Draft Issue.
+#
+# IMPORTANT:
+# - Draft Receive stock is NOT posted to Inventory Ledger.
+# - A downstream Issue may SAVE against it.
+# - The downstream Issue may NOT SUBMIT until the source Receive
+#   itself is submitted and therefore exists physically in Ledger.
+#
+# This preserves:
+#
+#   submitted physical Inventory Ledger
+#       +
+#   Draft Receive provisional availability
+#       -
+#   Draft Issue reservations
+#
+# without creating phantom physical stock.
+
+
+DRAFT_RECEIVE_SOURCE_CONFIG = {
+    "Melting Receive": {
+        "department": "Melting",
+        "date_field": "receive_date",
+        "batch_field": "batch_no",
+        "tables": (
+            {
+                "table_field": "output_items",
+                "product_field": "product",
+                "qty_field": "weight",
+                "remarks": "Draft Melting output",
+            },
+            {
+                "table_field": "waste_items",
+                "product_field": "waste_product",
+                "qty_field": "weight",
+                "remarks": "Draft Melting waste",
+            },
+        ),
+    },
+}
+
+
+def get_draft_receive_source_context(
+    stock_source,
+):
+    """
+    Return provisional Draft Receive information for one exact
+    Inventory Stock Source.
+
+    Returns {} when the source is not a supported Draft Receive.
+    """
+    if not stock_source:
+        return {}
+
+    source = frappe.get_cached_doc(
+        "Inventory Stock Source",
+        stock_source,
+    )
+
+    if (
+        source.is_legacy
+        or not source.source_doctype
+        or not source.source_name
+        or not source.source_row
+    ):
+        return {}
+
+    config = DRAFT_RECEIVE_SOURCE_CONFIG.get(
+        source.source_doctype
+    )
+
+    if not config:
+        return {}
+
+    parent_status = frappe.db.get_value(
+        source.source_doctype,
+        source.source_name,
+        "docstatus",
+    )
+
+    if parent_status is None:
+        return {}
+
+    # Only Draft Receives contribute provisional availability.
+    if int(parent_status) != 0:
+        return {}
+
+    try:
+        parent = frappe.get_doc(
+            source.source_doctype,
+            source.source_name,
+        )
+    except frappe.DoesNotExistError:
+        return {}
+
+    for table in config["tables"]:
+        for row in (
+            parent.get(
+                table["table_field"]
+            )
+            or []
+        ):
+            if row.name != source.source_row:
+                continue
+
+            product = row.get(
+                table["product_field"]
+            )
+
+            qty = flt(
+                row.get(
+                    table["qty_field"]
+                ),
+                6,
+            )
+
+            if (
+                not product
+                or product != source.product
+                or qty <= 0
+            ):
+                return {}
+
+            return {
+                "stock_source":
+                    source.name,
+
+                "source_doctype":
+                    source.source_doctype,
+
+                "source_name":
+                    source.source_name,
+
+                "source_row":
+                    source.source_row,
+
+                "company":
+                    source.company,
+
+                "product":
+                    source.product,
+
+                "department":
+                    config["department"],
+
+                "quantity":
+                    qty,
+
+                "table_field":
+                    table["table_field"],
+            }
+
+    return {}
+
+
+def get_draft_receive_provisional_balance(
+    stock_source,
+    department,
+):
+    """
+    Draft Receive output available for Draft Issue reservation.
+
+    This quantity is NOT physical Inventory Ledger stock.
+    """
+    context = get_draft_receive_source_context(
+        stock_source
+    )
+
+    if not context:
+        return 0
+
+    if (
+        context["department"]
+        != department
+    ):
+        return 0
+
+    return flt(
+        context["quantity"],
+        6,
+    )
+
+
+def ensure_draft_receive_stock_sources(doc):
+    """
+    Create/retain Inventory Stock Source metadata for every positive
+    output row of one supported Draft Receive.
+
+    No Inventory Ledger row is created here.
+
+    Product/source lineage is immutable once another Draft Issue has
+    reserved the source.
+    """
+    config = DRAFT_RECEIVE_SOURCE_CONFIG.get(
+        doc.doctype
+    )
+
+    if not config:
+        return
+
+    if int(doc.docstatus or 0) != 0:
+        return
+
+    if not doc.name:
+        return
+
+    company = getattr(
+        doc,
+        "company",
+        None,
+    )
+
+    if not company:
+        return
+
+    source_date = getattr(
+        doc,
+        config["date_field"],
+        None,
+    )
+
+    batch_number = getattr(
+        doc,
+        config["batch_field"],
+        None,
+    )
+
+    current_source_rows = set()
+
+    for table in config["tables"]:
+        rows = (
+            doc.get(
+                table["table_field"]
+            )
+            or []
+        )
+
+        for row in rows:
+            product = row.get(
+                table["product_field"]
+            )
+
+            qty = flt(
+                row.get(
+                    table["qty_field"]
+                ),
+                6,
+            )
+
+            if (
+                not row.name
+                or not product
+                or qty <= 0
+            ):
+                continue
+
+            source_key = make_stock_source_key(
+                doc.doctype,
+                doc.name,
+                row.name,
+            )
+
+            existing = frappe.db.get_value(
+                "Inventory Stock Source",
+                {
+                    "source_key":
+                        source_key,
+                },
+                [
+                    "name",
+                    "product",
+                ],
+                as_dict=True,
+            )
+
+            if existing:
+                if (
+                    existing.product
+                    != product
+                ):
+                    frappe.throw(
+                        f"Cannot change Product in "
+                        f"{doc.doctype} row #{row.idx} "
+                        f"because Stock Source "
+                        f"{existing.name} already belongs "
+                        f"to Product {existing.product}."
+                    )
+
+                source_name = existing.name
+
+            else:
+                source_name = (
+                    get_or_create_stock_source(
+                        source_type=
+                            "Production Receive",
+
+                        company=
+                            company,
+
+                        product=
+                            product,
+
+                        source_doctype=
+                            doc.doctype,
+
+                        source_name=
+                            doc.name,
+
+                        source_row=
+                            row.name,
+
+                        source_date=
+                            source_date,
+
+                        batch_number=
+                            batch_number,
+
+                        remarks=
+                            table["remarks"],
+                    )
+                )
+
+            current_source_rows.add(
+                row.name
+            )
+
+            reserved = flt(
+                get_draft_stock_source_reserved_weight(
+                    source_name,
+                    config["department"],
+                ),
+                6,
+            )
+
+            if reserved > qty + 0.000001:
+                frappe.throw(
+                    f"Cannot reduce {product} in "
+                    f"{doc.doctype} row #{row.idx} "
+                    f"to {qty:.3f} KG because "
+                    f"{reserved:.3f} KG is already "
+                    f"reserved in downstream Saved "
+                    f"Issue entries."
+                )
+
+    # Protect removal of a child row whose provisional source is
+    # already reserved downstream.
+    source_rows = frappe.get_all(
+        "Inventory Stock Source",
+        filters={
+            "source_doctype":
+                doc.doctype,
+
+            "source_name":
+                doc.name,
+
+            "is_legacy":
+                0,
+        },
+        fields=[
+            "name",
+            "source_row",
+            "product",
+        ],
+    )
+
+    for source in source_rows:
+        if (
+            source.source_row
+            in current_source_rows
+        ):
+            continue
+
+        reserved = flt(
+            get_draft_stock_source_reserved_weight(
+                source.name,
+                config["department"],
+            ),
+            6,
+        )
+
+        ledger_exists = frappe.db.exists(
+            "Inventory Ledger",
+            {
+                "stock_source":
+                    source.name,
+            },
+        )
+
+        if reserved > 0.000001:
+            frappe.throw(
+                f"Cannot remove source row for "
+                f"{source.product}. Stock Source "
+                f"{source.name} has "
+                f"{reserved:.3f} KG reserved in "
+                f"downstream Saved Issue entries."
+            )
+
+        if ledger_exists:
+            frappe.throw(
+                f"Cannot remove source row for "
+                f"{source.product}. Stock Source "
+                f"{source.name} already has "
+                f"Inventory Ledger activity."
+            )
+
+        frappe.delete_doc(
+            "Inventory Stock Source",
+            source.name,
+            ignore_permissions=True,
+            force=True,
+        )
+
+
+def cleanup_unused_draft_receive_stock_sources(
+    doc,
+):
+    """
+    Remove metadata-only sources when a Draft Receive is deleted.
+
+    Deletion is blocked if anything already reserves or uses them.
+    """
+    config = DRAFT_RECEIVE_SOURCE_CONFIG.get(
+        doc.doctype
+    )
+
+    if not config:
+        return
+
+    sources = frappe.get_all(
+        "Inventory Stock Source",
+        filters={
+            "source_doctype":
+                doc.doctype,
+
+            "source_name":
+                doc.name,
+
+            "is_legacy":
+                0,
+        },
+        fields=[
+            "name",
+            "product",
+        ],
+    )
+
+    for source in sources:
+        reserved = flt(
+            get_draft_stock_source_reserved_weight(
+                source.name,
+                config["department"],
+            ),
+            6,
+        )
+
+        if reserved > 0.000001:
+            frappe.throw(
+                f"Cannot delete {doc.doctype} "
+                f"{doc.name}. Stock Source "
+                f"{source.name} has "
+                f"{reserved:.3f} KG reserved in "
+                f"downstream Saved Issue entries."
+            )
+
+        if frappe.db.exists(
+            "Inventory Ledger",
+            {
+                "stock_source":
+                    source.name,
+            },
+        ):
+            frappe.throw(
+                f"Cannot delete {doc.doctype} "
+                f"{doc.name}. Stock Source "
+                f"{source.name} already has "
+                f"Inventory Ledger activity."
+            )
+
+    for source in sources:
+        frappe.delete_doc(
+            "Inventory Stock Source",
+            source.name,
+            ignore_permissions=True,
+            force=True,
+        )
+
+
+# ============================================================
+# END SAVED DRAFT RECEIVE STOCK AVAILABILITY
+# ============================================================
+
 
 
 # ============================================================
@@ -649,6 +1189,14 @@ def get_effective_stock_source_balance(
         6,
     )
 
+    provisional = flt(
+        get_draft_receive_provisional_balance(
+            stock_source,
+            department,
+        ),
+        6,
+    )
+
     reserved = flt(
         get_draft_stock_source_reserved_weight(
             stock_source,
@@ -664,7 +1212,9 @@ def get_effective_stock_source_balance(
     return flt(
         max(
             0,
-            physical - reserved,
+            physical
+            + provisional
+            - reserved,
         ),
         6,
     )
@@ -1347,6 +1897,23 @@ def consume_selected_stock_source(
         frappe.throw(
             f"Stock Source {stock_source} belongs to "
             f"Product {source.product}, not {product}."
+        )
+
+    provisional_context = (
+        get_draft_receive_source_context(
+            stock_source
+        )
+    )
+
+    if provisional_context:
+        frappe.throw(
+            f"Stock Source {stock_source} comes from "
+            f"{provisional_context['source_doctype']} "
+            f"{provisional_context['source_name']}, "
+            f"which is still Saved/Draft. "
+            f"You may Save this Issue and reserve the stock, "
+            f"but the source Receive must be Submitted before "
+            f"this Issue can be Submitted."
         )
 
     source_available = (

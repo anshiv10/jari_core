@@ -1,7 +1,11 @@
 import frappe
 from frappe.model.document import Document
 from frappe.utils import flt, today
-from jari_core.jari_core.stock_utils import get_or_create_stock_source
+from jari_core.jari_core.stock_utils import (
+    cleanup_unused_draft_receive_stock_sources,
+    ensure_draft_receive_stock_sources,
+    get_or_create_stock_source,
+)
 
 
 class MeltingReceive(Document):
@@ -29,6 +33,19 @@ class MeltingReceive(Document):
 
         if exists:
             frappe.throw(f"Melting Issue {issue_no} is already received in submitted Melting Receive {exists}.")
+
+    def on_update(self):
+        # Saved/Draft Receive outputs become selectable Stock Sources
+        # for downstream Draft Issue reservation.
+        if int(self.docstatus or 0) == 0:
+            ensure_draft_receive_stock_sources(
+                self
+            )
+
+    def on_trash(self):
+        cleanup_unused_draft_receive_stock_sources(
+            self
+        )
 
     def on_submit(self):
         self.set_approx_silver()
