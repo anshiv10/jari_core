@@ -524,7 +524,174 @@ DRAFT_RECEIVE_SOURCE_CONFIG = {
             },
         ),
     },
+
+    "Pavtha Receive": {
+        "department": "Pavtha",
+        "date_field": "receive_date",
+        "batch_field": "batch_no",
+        "tables": (
+            {
+                "table_field": "output_items",
+                "product_field": "product",
+                "qty_field": "weight",
+                "remarks": "Draft Pavtha output",
+            },
+            {
+                "table_field": "waste_items",
+                "product_field": "waste_product",
+                "qty_field": "weight",
+                "remarks": "Draft Pavtha waste",
+            },
+        ),
+    },
+
+    "Taniya Receive": {
+        "department": "Taniya",
+        "date_field": "receive_date",
+        "batch_field": "batch_no",
+        "tables": (
+            {
+                "table_field": "output_items",
+                "product_field": "product",
+                "qty_field": "net_weight",
+                "remarks": (
+                    "Draft Taniya DATA output after "
+                    "Baad Weight deduction"
+                ),
+            },
+            {
+                "table_field": "waste_items",
+                "product_field": "waste_product",
+                "qty_field": "weight",
+                "remarks": "Draft Taniya waste",
+            },
+        ),
+    },
+
+    "Spindal Receive": {
+        "department": "Spindal",
+        "date_field": "receive_date",
+        "batch_field": "active_batch_no",
+        "tables": (
+            {
+                "table_field": "received_peti_items",
+                "product_field": "product",
+                "qty_field": "net_weight",
+                "qty_uom_field": "uom",
+                "convert_grams_to_kg": True,
+                "remarks": "Draft Spindal Peti output",
+            },
+            {
+                "table_field": "waste_items",
+                "product_field": "waste_product",
+                "qty_field": "weight",
+                "remarks": "Draft Spindal waste",
+            },
+        ),
+    },
+
+    "Gilit Receive": {
+        "department": "Gilit",
+        "date_field": "receive_date",
+        "batch_field": "active_batch_no",
+        "tables": (
+            {
+                "table_field": "saleable_products",
+                "product_field": "product",
+                "qty_field": "total_weight",
+                "remarks": "Draft saleable Final Jari output",
+            },
+            {
+                "table_field": "waste_items",
+                "product_field": "waste_product",
+                "qty_field": "weight",
+                "remarks": "Draft Gilit waste",
+            },
+        ),
+    },
+
+    "Asarva Receive": {
+        "department": "Asarva",
+        "date_field": "receive_date",
+        "batch_field": "batch_no",
+        "tables": (
+            {
+                "table_field": "receive_items",
+                "product_field": "product",
+                "qty_field": "received_weight",
+                "remarks": "Draft Asarva process output",
+            },
+        ),
+    },
+
+    "YT Receive": {
+        "department": "YT",
+        "date_field": "receive_date",
+        "batch_field": "batch_no",
+        "tables": (
+            {
+                "table_field": "receive_items",
+                "product_field": "product",
+                "qty_field": "net_weight",
+                "remarks": "Draft YT process output",
+            },
+        ),
+    },
 }
+
+
+def get_draft_receive_row_quantity(
+    row,
+    table_config,
+):
+    """
+    Return the exact quantity represented by a Draft Receive row.
+
+    The result must use the same unit/normalization that the
+    corresponding Receive controller eventually posts to
+    Inventory Ledger on Submit.
+    """
+    qty = flt(
+        row.get(
+            table_config["qty_field"]
+        ),
+        6,
+    )
+
+    if (
+        table_config.get(
+            "convert_grams_to_kg"
+        )
+        and qty
+    ):
+        uom_field = table_config.get(
+            "qty_uom_field"
+        )
+
+        uom = (
+            row.get(uom_field)
+            if uom_field
+            else None
+        )
+
+        normalized_uom = (
+            (uom or "")
+            .strip()
+            .lower()
+        )
+
+        if normalized_uom in {
+            "gm",
+            "gram",
+            "grams",
+            "g",
+        }:
+            qty = qty / 1000
+
+    return flt(
+        qty,
+        6,
+    )
 
 
 def get_draft_receive_source_context(
@@ -594,11 +761,9 @@ def get_draft_receive_source_context(
                 table["product_field"]
             )
 
-            qty = flt(
-                row.get(
-                    table["qty_field"]
-                ),
-                6,
+            qty = get_draft_receive_row_quantity(
+                row,
+                table,
             )
 
             if (
@@ -727,11 +892,9 @@ def ensure_draft_receive_stock_sources(doc):
                 table["product_field"]
             )
 
-            qty = flt(
-                row.get(
-                    table["qty_field"]
-                ),
-                6,
+            qty = get_draft_receive_row_quantity(
+                row,
+                table,
             )
 
             if (

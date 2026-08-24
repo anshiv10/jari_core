@@ -1,7 +1,11 @@
 import frappe
 from frappe.model.document import Document
 from frappe.utils import cint, flt, today
-from jari_core.jari_core.stock_utils import get_or_create_stock_source
+from jari_core.jari_core.stock_utils import (
+    cleanup_unused_draft_receive_stock_sources,
+    ensure_draft_receive_stock_sources,
+    get_or_create_stock_source,
+)
 
 
 def is_kg_uom(uom):
@@ -32,6 +36,17 @@ class GilitReceive(Document):
             require_complete=False
         )
         self.set_approx_silver()
+
+    def on_update(self):
+        if int(self.docstatus or 0) == 0:
+            ensure_draft_receive_stock_sources(
+                self
+            )
+
+    def on_trash(self):
+        cleanup_unused_draft_receive_stock_sources(
+            self
+        )
 
     def before_submit(self):
         self.calculate_totals()

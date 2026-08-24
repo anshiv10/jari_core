@@ -1,7 +1,11 @@
 import frappe
 from frappe.model.document import Document
 from frappe.utils import flt, today
-from jari_core.jari_core.stock_utils import get_or_create_stock_source
+from jari_core.jari_core.stock_utils import (
+    cleanup_unused_draft_receive_stock_sources,
+    ensure_draft_receive_stock_sources,
+    get_or_create_stock_source,
+)
 
 
 def get_kasab_product():
@@ -31,6 +35,17 @@ class SpindalReceive(Document):
 
         from jari_core.jari_core.payout_utils import calculate_spindal_payout
         calculate_spindal_payout(self)
+
+    def on_update(self):
+        if int(self.docstatus or 0) == 0:
+            ensure_draft_receive_stock_sources(
+                self
+            )
+
+    def on_trash(self):
+        cleanup_unused_draft_receive_stock_sources(
+            self
+        )
 
     def on_submit(self):
         self.post_inventory_ledgers()

@@ -3,6 +3,11 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt
 
+from jari_core.jari_core.stock_utils import (
+    cleanup_unused_draft_receive_stock_sources,
+    ensure_draft_receive_stock_sources,
+)
+
 
 class AsarvaReceive(Document):
 
@@ -17,6 +22,11 @@ class AsarvaReceive(Document):
 
     def on_update(self):
         self.refresh_issue_totals()
+
+        if int(self.docstatus or 0) == 0:
+            ensure_draft_receive_stock_sources(
+                self
+            )
 
     def on_submit(self):
         self.post_inventory_transaction()
@@ -34,6 +44,10 @@ class AsarvaReceive(Document):
         self.refresh_issue_totals()
 
     def on_trash(self):
+        cleanup_unused_draft_receive_stock_sources(
+            self
+        )
+
         self.refresh_issue_totals(
             exclude_receive=self.name
         )

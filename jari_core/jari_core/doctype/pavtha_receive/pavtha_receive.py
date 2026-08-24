@@ -4,7 +4,11 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt, today
-from jari_core.jari_core.stock_utils import get_or_create_stock_source
+from jari_core.jari_core.stock_utils import (
+    cleanup_unused_draft_receive_stock_sources,
+    ensure_draft_receive_stock_sources,
+    get_or_create_stock_source,
+)
 
 
 VALID_ISSUE_RECEIVE_TYPES = {
@@ -31,6 +35,17 @@ class PavthaReceive(Document):
 
         # Authoritative PDF/physical reconciliation.
         self.calculate_pdf_payout()
+
+    def on_update(self):
+        if int(self.docstatus or 0) == 0:
+            ensure_draft_receive_stock_sources(
+                self
+            )
+
+    def on_trash(self):
+        cleanup_unused_draft_receive_stock_sources(
+            self
+        )
 
     def on_submit(self):
         self.validate_issue_is_submitted_for_receive_submit()
