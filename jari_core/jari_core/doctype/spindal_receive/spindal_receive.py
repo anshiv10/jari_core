@@ -47,6 +47,15 @@ class SpindalReceive(Document):
             self
         )
 
+    def on_cancel(self):
+        from jari_core.jari_core.stock_utils import (
+            reverse_reference_inventory_ledger,
+        )
+
+        reverse_reference_inventory_ledger(
+            self
+        )
+
     def on_submit(self):
         self.post_inventory_ledgers()
 

@@ -152,6 +152,15 @@ class TaniyaReceive(Document):
             self
         )
 
+    def on_cancel(self):
+        from jari_core.jari_core.stock_utils import (
+            reverse_reference_inventory_ledger,
+        )
+
+        reverse_reference_inventory_ledger(
+            self
+        )
+
     def on_submit(self):
         self.set_approx_silver()
         self.db_set('approx_silver_weight', flt(self.approx_silver_weight))
