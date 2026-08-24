@@ -832,3 +832,43 @@ function jari_melting_source_clear_all_sources(frm) {
 }
 
 // END EXACT STOCK SOURCE SELECTION: Melting Issue
+
+
+// BEGIN MELTING MANUAL PRODUCT ROW UX
+//
+// A manually added Product Detail row must expose the real Product
+// Link field. Do not auto-fill transactional Weight or Stock Source.
+//
+// If the previous row has a UOM, copy only that harmless default.
+//
+frappe.ui.form.on('Melting Issue Item', {
+    async issue_items_add(frm, cdt, cdn) {
+        const rows = frm.doc.issue_items || [];
+
+        const index = rows.findIndex(
+            row => row.name === cdn
+        );
+
+        if (index <= 0) {
+            return;
+        }
+
+        const current = rows[index];
+        const previous = rows[index - 1];
+
+        if (
+            current
+            && previous
+            && !current.uom
+            && previous.uom
+        ) {
+            await frappe.model.set_value(
+                cdt,
+                cdn,
+                'uom',
+                previous.uom
+            );
+        }
+    }
+});
+// END MELTING MANUAL PRODUCT ROW UX
