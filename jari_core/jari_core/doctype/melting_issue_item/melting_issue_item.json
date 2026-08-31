@@ -55,89 +55,95 @@
   },
   {
    "allow_in_quick_entry": 1,
+   "columns": 2,
    "fieldname": "operator_name",
    "fieldtype": "Data",
    "in_list_view": 0,
    "label": "Operator Name"
   },
   {
+   "columns": 2,
    "fieldname": "product_name",
    "fieldtype": "Data",
+   "in_list_view": 0,
    "label": "Product Name",
-   "read_only": 1,
-   "in_list_view": 0
+   "read_only": 1
   },
   {
+   "columns": 2,
    "fieldname": "current_stock_summary",
    "fieldtype": "Small Text",
-   "label": "Current Stock - All Departments",
-   "read_only": 1,
    "in_list_view": 1,
-   "columns": 3
+   "label": "Current Stock - All Departments",
+   "read_only": 1
   },
   {
+   "columns": 2,
    "fieldname": "source_department",
    "fieldtype": "Link",
+   "in_list_view": 0,
    "label": "Source Department",
    "options": "Department Master",
-   "read_only": 1,
-   "in_list_view": 0,
-   "columns": 2
+   "read_only": 1
   },
   {
+   "columns": 3,
    "fieldname": "stock_source",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Stock Source / Receive Entry",
    "options": "Inventory Stock Source",
-   "in_list_view": 1,
-   "columns": 3,
    "reqd": 0
   },
   {
+   "columns": 2,
    "fieldname": "source_date",
    "fieldtype": "Date",
-   "label": "Source Date",
-   "read_only": 1,
    "in_list_view": 0,
-   "columns": 2
+   "label": "Source Date",
+   "read_only": 1
   },
   {
+   "columns": 2,
    "fieldname": "source_available_weight",
    "fieldtype": "Float",
-   "label": "Available Before Issue",
-   "read_only": 1,
-   "precision": "6",
    "in_list_view": 0,
-   "columns": 2
+   "label": "Available Before Issue",
+   "precision": "6",
+   "read_only": 1
   },
   {
+   "columns": 2,
    "fieldname": "source_reference",
    "fieldtype": "Data",
+   "in_list_view": 0,
    "label": "Source Reference",
-   "read_only": 1,
-   "in_list_view": 1
+   "read_only": 1
   },
   {
+   "columns": 2,
    "fieldname": "source_original_weight",
    "fieldtype": "Float",
+   "in_list_view": 0,
    "label": "Original Received Weight",
    "precision": "6",
    "read_only": 1
   },
   {
+   "columns": 2,
    "fieldname": "source_remaining_weight",
    "fieldtype": "Float",
+   "in_list_view": 0,
    "label": "Remaining After Issue",
    "precision": "6",
-   "read_only": 1,
-   "in_list_view": 0
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-06-14 18:36:33.726530",
+ "modified": "2026-08-31 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "JARI Core",
  "name": "Melting Issue Item",
