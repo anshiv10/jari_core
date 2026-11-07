@@ -50,7 +50,8 @@ def execute(filters=None):
     entries = get_party_entries(filters, to_date)
     data = build_rows(entries, from_date, filters)
 
-    return get_columns(), data, None, None, get_summary(entries, from_date)
+    # KPI cards are drawn client-side by jari_report_kit.js.
+    return get_columns(), data
 
 
 # ---------------------------------------------------------------------

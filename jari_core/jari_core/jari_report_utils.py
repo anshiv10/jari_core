@@ -977,13 +977,9 @@ def execute_jama_udhar(filters, pending_only):
     jamas = build_jama_udhar(filters)
     data = build_jama_udhar_rows(jamas)
 
-    return (
-        get_jama_udhar_columns(pending_only),
-        data,
-        None,
-        None,
-        get_jama_udhar_summary(jamas, pending_only),
-    )
+    # KPI cards are drawn client-side by jari_report_kit.js, so the
+    # server report_summary strip is not returned (avoids duplicates).
+    return get_jama_udhar_columns(pending_only), data
 
 
 def build_jama_udhar_rows(jamas):
@@ -1023,7 +1019,11 @@ def build_jama_udhar_rows(jamas):
             udhar_lines = jama.udhar or [None]
 
             for index, line in enumerate(udhar_lines):
-                row = {"indent": 1, "stock_source": jama.stock_source}
+                row = {
+                    "indent": 1,
+                    "stock_source": jama.stock_source,
+                    "item_label": group["label"],
+                }
 
                 if index == 0:
                     row.update({
