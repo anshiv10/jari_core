@@ -1,0 +1,92 @@
+{%
+var rows = (data && data.length) ? data : (original_data || []);
+var f3 = function (v) { return (v === null || v === undefined || v === "") ? "" : (Number(v) || 0).toFixed(3); };
+var fi = function (v) { return (v === null || v === undefined || v === "" || Number(v) === 0) ? "" : String(Number(v)); };
+var fd = function (v) { if (!v) { return ""; } var p = String(v).substring(0, 10).split("-"); return p.length === 3 ? (p[2] + "/" + p[1] + "/" + p[0].substring(2)) : v; };
+var tx = function (v) { return (v === null || v === undefined) ? "" : frappe.utils.escape_html(String(v)); };
+var as_on = filters.as_on_date || frappe.datetime.get_today();
+%}
+<style>
+    .jari-rpt { font-family: "Courier New", Courier, monospace; font-size: 8.5px; color: #000; }
+    .jari-rpt .invocation { font-weight: bold; font-size: 10px; }
+    .jari-rpt .title { font-size: 11px; font-weight: bold; margin: 2px 0 1px 0; }
+    .jari-rpt .meta { font-size: 8.5px; margin-bottom: 4px; }
+    .jari-rpt table { width: 100%; border-collapse: collapse; font-size: 8.5px; }
+    .jari-rpt th, .jari-rpt td { font-size: 8.5px; font-family: "Courier New", Courier, monospace; }
+    .jari-rpt th { font-weight: bold; border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 2px 3px; white-space: nowrap; }
+    .jari-rpt td { padding: 1.5px 3px; white-space: nowrap; vertical-align: top; }
+    .jari-rpt .r { text-align: right; }
+    .jari-rpt .c { text-align: center; letter-spacing: 3px; }
+    .jari-rpt .sep { border-left: 1px dotted #777; }
+    .jari-rpt .grp td { font-weight: bold; font-size: 10.5px; padding-top: 8px; padding-bottom: 4px; }
+    .jari-rpt .tot td { font-weight: bold; border-top: 1px dashed #000; border-bottom: 1px dashed #000; }
+    .jari-rpt .gtot td { font-weight: bold; border-top: 2px solid #000; border-bottom: 2px solid #000; }
+    .jari-rpt .ret { font-weight: bold; }
+</style>
+<div class="jari-rpt">
+    <div class="invocation">*SRI GANESHAY NAMAHA*</div>
+    <div class="title">ITEM STOCK REPORT AS ON DATE : {%= fd(as_on) %} &nbsp;&nbsp; [ITEM WISE JAMA UDHAR]</div>
+    <div class="meta">
+        {%= tx(filters.company) %}
+        {% if (filters.product) { %} | Item: {%= tx(filters.product) %}{% } %}
+        {% if (filters.department) { %} | Dept: {%= tx(filters.department) %}{% } %}
+        {% if (filters.quality) { %} | Quality: {%= tx(filters.quality) %}{% } %}
+        {% if (filters.party) { %} | A/c: {%= tx(filters.party) %}{% } %}
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th colspan="8" class="c">J A M A</th>
+                <th colspan="8" class="c sep">U D H A R</th>
+                <th colspan="2" class="c sep">BALANCE</th>
+            </tr>
+            <tr>
+                <th>Date</th><th>V.no</th><th>A/c</th><th class="r">Pcs</th>
+                <th class="r">Gross</th><th class="r">Tare</th><th class="r">Net</th><th>Lot #</th>
+                <th class="sep">Date</th><th>V.no</th><th>A/c</th><th class="r">Pcs</th>
+                <th class="r">Gross</th><th class="r">Tare</th><th class="r">Net</th><th>Lot</th>
+                <th class="r sep">Pcs</th><th class="r">Kgs.</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for (var i = 0; i < rows.length; i++) { var d = rows[i]; %}
+            {% if (d.is_group) { %}
+                <tr class="grp"><td colspan="18">{%= tx(d.item) %}</td></tr>
+            {% } else if (d.is_total) { %}
+                <tr class="{%= d.is_grand_total ? 'gtot' : 'tot' %}">
+                    <td colspan="3">{%= tx(d.item) %}</td>
+                    <td class="r">{%= fi(d.jama_pcs) %}</td><td></td><td></td>
+                    <td class="r">{%= f3(d.jama_net) %}</td><td></td>
+                    <td class="sep"></td><td></td><td></td>
+                    <td class="r">{%= fi(d.udhar_pcs) %}</td><td></td><td></td>
+                    <td class="r">{%= f3(d.udhar_net) %}</td><td></td>
+                    <td class="r sep">[ {%= fi(d.balance_pcs) || "0" %} ]</td>
+                    <td class="r">[ {%= f3(d.balance_kgs) %} ]</td>
+                </tr>
+            {% } else { %}
+                <tr>
+                    <td>{%= fd(d.jama_date) %}</td>
+                    <td>{%= tx(d.jama_voucher) %}</td>
+                    <td>{%= tx(d.jama_party) %}</td>
+                    <td class="r">{%= fi(d.jama_pcs) %}</td>
+                    <td class="r">{%= f3(d.jama_gross) %}</td>
+                    <td class="r">{%= f3(d.jama_tare) %}</td>
+                    <td class="r">{%= f3(d.jama_net) %}</td>
+                    <td class="{%= d.is_return ? 'ret' : '' %}">{%= tx(d.lot_no) %}</td>
+                    <td class="sep">{%= fd(d.udhar_date) %}</td>
+                    <td>{%= tx(d.udhar_voucher) %}</td>
+                    <td>{%= tx(d.udhar_party) %}</td>
+                    <td class="r">{%= fi(d.udhar_pcs) %}</td>
+                    <td class="r">{%= f3(d.udhar_gross) %}</td>
+                    <td class="r">{%= f3(d.udhar_tare) %}</td>
+                    <td class="r">{%= f3(d.udhar_net) %}</td>
+                    <td>{%= tx(d.udhar_lot) %}</td>
+                    <td class="r sep">{%= d.jama_voucher ? (fi(d.balance_pcs) || "0") : "" %}</td>
+                    <td class="r">{%= d.jama_voucher ? f3(d.balance_kgs) : "" %}</td>
+                </tr>
+            {% } %}
+        {% } %}
+        </tbody>
+    </table>
+    <div class="meta" style="margin-top:6px;">Printed on {%= frappe.datetime.str_to_user(frappe.datetime.now_datetime()) %}</div>
+</div>

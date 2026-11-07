@@ -1,0 +1,68 @@
+{
+ "add_total_row": 0,
+ "columns": [],
+ "disabled": 0,
+ "doctype": "Report",
+ "filters": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company Master",
+   "reqd": 1
+  },
+  {
+   "fieldname": "as_on_date",
+   "fieldtype": "Date",
+   "label": "As On Date"
+  },
+  {
+   "fieldname": "product",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Product Master"
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Department",
+   "options": "Department Master"
+  },
+  {
+   "fieldname": "quality",
+   "fieldtype": "Link",
+   "label": "Quality",
+   "options": "Quality Master"
+  },
+  {
+   "fieldname": "party_type",
+   "fieldtype": "Select",
+   "label": "Jama Party Type",
+   "options": "\nWorker Master\nJobworker Master\nCustomer\nSupplier"
+  },
+  {
+   "fieldname": "party",
+   "fieldtype": "Dynamic Link",
+   "label": "Jama A/c",
+   "options": "party_type"
+  },
+  {
+   "fieldname": "from_date",
+   "fieldtype": "Date",
+   "label": "Jama From Date"
+  },
+  {
+   "fieldname": "to_date",
+   "fieldtype": "Date",
+   "label": "Jama To Date"
+  }
+ ],
+ "is_standard": "Yes",
+ "module": "JARI Core",
+ "name": "Item Pending In Stock",
+ "prepared_report": 0,
+ "ref_doctype": "Inventory Ledger",
+ "report_name": "Item Pending In Stock",
+ "report_type": "Script Report",
+ "roles": []
+}
